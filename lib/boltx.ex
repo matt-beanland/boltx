@@ -40,6 +40,7 @@ defmodule Boltx do
         }
 
   alias Boltx.{Types}
+  alias Boltx.TypesHelper
 
   @doc """
   Starts the connection process and connects to a Bolt/Neo4j server.
@@ -181,8 +182,8 @@ defmodule Boltx do
     end
   end
 
-  defp format_param({name, %Types.Duration{} = duration}),
-    do: {name, Types.Duration.format_param(duration)}
+  defp format_param({name, %Duration{} = duration}),
+    do: {name, TypesHelper.format_duration(duration)}
 
   defp format_param({name, %Types.Point{} = point}), do: {name, Types.Point.format_param(point)}
 

@@ -62,6 +62,7 @@ defprotocol Boltx.ResponseEncoder.Json do
 end
 
 alias Boltx.{Types, ResponseEncoder}
+alias Boltx.TypesHelper
 
 defimpl ResponseEncoder.Json, for: Types.DateTimeWithTZOffset do
   @spec encode(Types.DateTimeWithTZOffset.t()) :: String.t()
@@ -79,10 +80,10 @@ defimpl ResponseEncoder.Json, for: Types.TimeWithTZOffset do
   end
 end
 
-defimpl ResponseEncoder.Json, for: Types.Duration do
-  @spec encode(Types.Duration.t()) :: String.t()
+defimpl ResponseEncoder.Json, for: Duration do
+  @spec encode(Duration.t()) :: String.t()
   def encode(struct) do
-    {:ok, d} = Types.Duration.format_param(struct)
+    {:ok, d} = TypesHelper.format_duration(struct)
     ResponseEncoder.Json.encode(d)
   end
 end

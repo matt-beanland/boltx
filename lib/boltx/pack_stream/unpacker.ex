@@ -6,13 +6,14 @@ defmodule Boltx.PackStream.Unpacker do
   alias Boltx.Types.{
     TimeWithTZOffset,
     DateTimeWithTZOffset,
-    Duration,
     Point,
     Relationship,
     UnboundRelationship,
     Node,
     Path
   }
+
+  alias Boltx.TypesHelper
 
   # Null
   def unpack(<<@null_marker, rest::binary>>) do
@@ -286,7 +287,7 @@ defmodule Boltx.PackStream.Unpacker do
     {[months, days, seconds, nanoseconds], rest} =
       decode_struct(struct, @duration_struct_size)
 
-    duration = Duration.create(months, days, seconds, nanoseconds)
+    duration = TypesHelper.create_duration(months, days, seconds, nanoseconds)
     [duration | rest]
   end
 

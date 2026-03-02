@@ -269,7 +269,7 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.DateTimeWithTZOffset do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Boltx.Types.Duration do
+defimpl Boltx.PackStream.Packer, for: Duration do
   use Boltx.PackStream.Markers
 
   def pack(duration) do
@@ -282,13 +282,13 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.Duration do
     [<<@tiny_struct_marker::4, @duration_struct_size::4, @duration_signature>>, data]
   end
 
-  @spec compact_duration(Boltx.Types.Duration.t()) :: [integer()]
-  defp compact_duration(%Boltx.Types.Duration{} = duration) do
-    months = 12 * duration.years + duration.months
-    days = 7 * duration.weeks + duration.days
-    seconds = 3600 * duration.hours + 60 * duration.minutes + duration.seconds
+  @spec compact_duration(Duration.t()) :: [integer()]
+  defp compact_duration(%Duration{} = duration) do
+    months = 12 * duration.year + duration.month
+    days = 7 * duration.week + duration.day
+    seconds = 3_600 * duration.hour + 60 * duration.minute + duration.second
 
-    [months, days, seconds, duration.nanoseconds]
+    [months, days, seconds, duration.microsecond * 1_000]
   end
 end
 

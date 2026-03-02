@@ -6,7 +6,6 @@ defmodule Boltx.ResponseEncode.JsonTest do
   alias Boltx.Types.{
     DateTimeWithTZOffset,
     TimeWithTZOffset,
-    Duration,
     Point,
     Node,
     Relationship,
@@ -32,14 +31,14 @@ defmodule Boltx.ResponseEncode.JsonTest do
 
   test "Encode a Duration" do
     d = %Duration{
-      days: 0,
-      hours: 0,
-      minutes: 54,
-      months: 12,
-      nanoseconds: 0,
-      seconds: 65,
-      weeks: 0,
-      years: 1
+      day: 0,
+      hour: 0,
+      minute: 54,
+      month: 12,
+      microsecond: 0,
+      second: 65,
+      week: 0,
+      year: 1
     }
 
     assert "P1Y12MT54M65.0S" == Json.encode(d)

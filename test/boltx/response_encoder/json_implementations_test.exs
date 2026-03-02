@@ -6,7 +6,6 @@ defmodule Boltx.JsonImplementationsTest do
   alias Boltx.Types.{
     DateTimeWithTZOffset,
     TimeWithTZOffset,
-    Duration,
     Point,
     Node,
     Relationship,
@@ -37,14 +36,14 @@ defmodule Boltx.JsonImplementationsTest do
             "name" => "Alice",
             geoloc: Point.create(:wgs_84, 45.006, 40.32332, 50),
             duration: %Duration{
-              days: 0,
-              hours: 0,
-              minutes: 54,
-              months: 12,
-              nanoseconds: 0,
-              seconds: 65,
-              weeks: 0,
-              years: 1
+              day: 0,
+              hour: 0,
+              minute: 54,
+              month: 12,
+              microsecond: 0,
+              second: 65,
+              week: 0,
+              year: 1
             }
           }
         },

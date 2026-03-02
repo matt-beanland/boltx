@@ -2,7 +2,7 @@ defmodule BoltxTest do
   use ExUnit.Case, async: true
 
   alias Boltx.Response
-  alias Boltx.Types.{Duration, Point, DateTimeWithTZOffset, TimeWithTZOffset}
+  alias Boltx.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset}
 
   @opts Boltx.TestHelper.opts()
 
@@ -526,26 +526,26 @@ defmodule BoltxTest do
 
       params = %{
         d: %Duration{
-          days: 0,
-          hours: 0,
-          minutes: 54,
-          months: 12,
-          nanoseconds: 0,
-          seconds: 65,
-          weeks: 0,
-          years: 1
+          day: 0,
+          hour: 0,
+          minute: 54,
+          month: 12,
+          microsecond: 0,
+          second: 65,
+          week: 0,
+          year: 1
         }
       }
 
       expected = %Duration{
-        days: 0,
-        hours: 0,
-        minutes: 55,
-        months: 0,
-        nanoseconds: 0,
-        seconds: 5,
-        weeks: 0,
-        years: 2
+        day: 0,
+        hour: 0,
+        minute: 55,
+        month: 0,
+        microsecond: 0,
+        second: 5,
+        week: 0,
+        year: 2
       }
 
       assert {:ok, %Response{results: [%{"d" => ^expected}]}} = Boltx.query(c.conn, query, params)

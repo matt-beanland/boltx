@@ -62,4 +62,63 @@ defmodule Boltx.TypesHelperTest do
       assert "-01:03" == TypesHelper.formated_time_offset(-3783)
     end
   end
+
+  describe "Elixir Duration" do
+    test "create/4" do
+      expected = %Duration{
+        day: 53,
+        hour: 0,
+        minute: 2,
+        month: 3,
+        # expect to lose precision on conversion to microseconds
+        microsecond: 54,
+        second: 5,
+        week: 0,
+        year: 1
+      }
+
+      assert expected == TypesHelper.create_duration(15, 53, 125, 54_150)
+    end
+
+    test "format_param/1 successful with valid data" do
+      duration = TypesHelper.create_duration(15, 53, 125, 54)
+
+      assert {:ok, "P1Y3M53DT2M5.000000054S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "format_param/1 successful with large amount of nanoseconds (use create/4 to build struct)" do
+      duration = TypesHelper.create_duration(0, 0, 0, 12_545_876_654)
+      assert {:ok, "PT12.545876654S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "format_param/1 successful with large amount of nanoseconds (use %Duration{} to build struct)" do
+      duration = %Duration{
+        day: 0,
+        hour: 0,
+        minute: 0,
+        month: 0,
+        microsecond: 12_545_876_654,
+        second: 0,
+        week: 0,
+        year: 0
+      }
+
+      assert {:ok, "PT12.545876654S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "format_param/1 fails for invalid data" do
+      duration = %Duration{
+        day: 53.45,
+        hour: 0,
+        minute: 2,
+        month: 3,
+        microsecond: 54_000,
+        second: 5,
+        week: 0,
+        year: 1
+      }
+
+      assert {:error, ^duration} = TypesHelper.format_duration(duration)
+    end
+  end
 end

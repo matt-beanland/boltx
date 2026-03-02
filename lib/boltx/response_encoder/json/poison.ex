@@ -34,7 +34,7 @@ if Code.ensure_loaded?(Poison) do
     end
 
     defimpl Poison.Encoder,
-      for: [Types.DateTimeWithTZOffset, Types.TimeWithTZOffset, Types.Duration] do
+      for: [Types.DateTimeWithTZOffset, Types.TimeWithTZOffset, Duration] do
       @spec encode(struct(), Poison.Encoder.options()) :: iodata
 
       def encode(data, opts) do

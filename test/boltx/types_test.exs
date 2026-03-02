@@ -2,7 +2,7 @@ defmodule Boltx.TypesTest do
   use ExUnit.Case, async: true
   @moduletag :legacy
 
-  alias Boltx.Types.{DateTimeWithTZOffset, Duration, TimeWithTZOffset, Point}
+  alias Boltx.Types.{DateTimeWithTZOffset, TimeWithTZOffset, Point}
 
   describe "TimeWithTZOffset struct:" do
     test "create/2" do
@@ -48,64 +48,6 @@ defmodule Boltx.TypesTest do
       }
 
       assert {:error, ^t} = DateTimeWithTZOffset.format_param(t)
-    end
-  end
-
-  describe "Duration struct:" do
-    test "create/4" do
-      expected = %Duration{
-        days: 53,
-        hours: 0,
-        minutes: 2,
-        months: 3,
-        nanoseconds: 54,
-        seconds: 5,
-        weeks: 0,
-        years: 1
-      }
-
-      assert expected == Duration.create(15, 53, 125, 54)
-    end
-
-    test "format_param/1 successful with valid data" do
-      duration = Duration.create(15, 53, 125, 54)
-
-      assert {:ok, "P1Y3M53DT2M5.000000054S"} = Duration.format_param(duration)
-    end
-
-    test "format_param/1 successfull with large amount of nanoseconds (use create/4 to build struct)" do
-      duration = Duration.create(0, 0, 0, 12_545_876_654)
-      assert {:ok, "PT12.545876654S"} = Duration.format_param(duration)
-    end
-
-    test "format_param/1 successfull with large amount of nanoseconds (use %Duration{} to build struct)" do
-      duration = %Duration{
-        days: 0,
-        hours: 0,
-        minutes: 0,
-        months: 0,
-        nanoseconds: 12_545_876_654,
-        seconds: 0,
-        weeks: 0,
-        years: 0
-      }
-
-      assert {:ok, "PT12.545876654S"} = Duration.format_param(duration)
-    end
-
-    test "format_param/1 fails for invalid data" do
-      duration = %Duration{
-        days: 53.45,
-        hours: 0,
-        minutes: 2,
-        months: 3,
-        nanoseconds: 54,
-        seconds: 5,
-        weeks: 0,
-        years: 1
-      }
-
-      assert {:error, ^duration} = Duration.format_param(duration)
     end
   end
 

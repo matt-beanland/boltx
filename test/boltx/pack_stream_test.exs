@@ -2,7 +2,7 @@ defmodule Boltx.PackStreamTest do
   use ExUnit.Case, async: true
 
   alias Boltx.PackStream
-  alias Boltx.Types.{TimeWithTZOffset, DateTimeWithTZOffset, Duration, Point}
+  alias Boltx.Types.{TimeWithTZOffset, DateTimeWithTZOffset, Point}
   alias Boltx.TypesHelper
   alias Boltx.TestDerivationStruct
 
@@ -167,17 +167,17 @@ defmodule Boltx.PackStreamTest do
 
     test "duration with all values" do
       duration = %Duration{
-        years: 1,
-        months: 3,
-        weeks: 2,
-        days: 20,
-        hours: 2,
-        minutes: 32,
-        seconds: 54,
-        nanoseconds: 5550
+        year: 1,
+        month: 3,
+        week: 2,
+        day: 20,
+        hour: 2,
+        minute: 32,
+        second: 54,
+        microsecond: 6
       }
 
-      assert <<0xB4, 0x45, 0xF, 0x22, 0xC9, 0x23, 0xD6, 0xC9, 0x15, 0xAE>> ==
+      assert <<0xB4, 0x45, 0xF, 0x22, 0xC9, 0x23, 0xD6, 0xC9, 0x17, 0x70>> ==
                PackStream.pack!(duration)
     end
   end
@@ -506,32 +506,32 @@ defmodule Boltx.PackStreamTest do
     test "Duration" do
       assert [
                %Duration{
-                 days: 11,
-                 hours: 15,
-                 minutes: 0,
-                 months: 8,
-                 nanoseconds: 5550,
-                 seconds: 21,
-                 weeks: 0,
-                 years: 3
+                 day: 11,
+                 hour: 15,
+                 minute: 0,
+                 month: 8,
+                 microsecond: {7, 6},
+                 second: 21,
+                 week: 0,
+                 year: 3
                }
              ] ==
                PackStream.unpack!(
-                 {0x45, <<0x2C, 0xB, 0xCA, 0x0, 0x0, 0xD3, 0x5, 0xC9, 0x15, 0xAE>>, 4}
+                 {0x45, <<0x2C, 0xB, 0xCA, 0x0, 0x0, 0xD3, 0x5, 0xC9, 0x1B, 0x58>>, 4}
                )
 
       assert [
                %Duration{
-                 years: 1,
-                 months: 3,
-                 days: 34,
-                 hours: 2,
-                 minutes: 32,
-                 seconds: 54,
-                 nanoseconds: 5550
+                 year: 1,
+                 month: 3,
+                 day: 34,
+                 hour: 2,
+                 minute: 32,
+                 second: 54,
+                 microsecond: {7, 6}
                }
              ] ==
-               PackStream.unpack!(<<0xB4, 0x45, 0xF, 0x22, 0xC9, 0x23, 0xD6, 0xC9, 0x15, 0xAE>>)
+               PackStream.unpack!(<<0xB4, 0x45, 0xF, 0x22, 0xC9, 0x23, 0xD6, 0xC9, 0x1B, 0x58>>)
     end
 
     test "Point2D (cartesian)" do
