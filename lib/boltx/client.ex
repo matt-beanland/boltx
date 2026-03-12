@@ -1,17 +1,17 @@
-defmodule Boltx.Client do
+defmodule Bolty.Client do
   @moduledoc false
 
   @handshake_bytes_identifier <<0x60, 0x60, 0xB0, 0x17>>
   @noop_chunk <<0x00, 0x00>>
   @summary ~w(success ignored failure)a
 
-  import Boltx.BoltProtocol.ServerResponse
+  import Bolty.BoltProtocol.ServerResponse
 
-  alias Boltx.BoltProtocol.Versions
-  alias Boltx.Utils.Converters
-  alias Boltx.BoltProtocol.MessageDecoder
+  alias Bolty.BoltProtocol.Versions
+  alias Bolty.Utils.Converters
+  alias Bolty.BoltProtocol.MessageDecoder
 
-  alias Boltx.BoltProtocol.Message.{
+  alias Bolty.BoltProtocol.Message.{
     HelloMessage,
     InitMessage,
     LogonMessage,
@@ -184,7 +184,7 @@ defmodule Boltx.Client do
         {:ok, %{client | sock: {:gen_tcp, sock}}}
 
       {:error, :timeout} ->
-        {:error, Boltx.Error.wrap(__MODULE__, :timeout)}
+        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
 
       other ->
         other
@@ -207,7 +207,7 @@ defmodule Boltx.Client do
         {:ok, %{client | sock: {:ssl, ssl_sock}}}
 
       {:error, :timeout} ->
-        {:error, Boltx.Error.wrap(__MODULE__, :timeout)}
+        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
 
       other ->
         other
@@ -235,7 +235,7 @@ defmodule Boltx.Client do
          encode_version <- recv_packets(client, config.connect_timeout),
          version <- decode_version(encode_version) do
       case version do
-        +0.0 -> {:error, Boltx.Error.wrap(__MODULE__, :version_negotiation_error)}
+        +0.0 -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
         _ -> {:ok, %{client | bolt_version: version}}
       end
     else
@@ -253,7 +253,7 @@ defmodule Boltx.Client do
 
       {:failure, response} ->
         {:error,
-         Boltx.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
     end
   end
 
@@ -304,14 +304,14 @@ defmodule Boltx.Client do
     end
   end
 
-  def run_statement(client, %Boltx.Query{} = query, parameters) do
-    %Boltx.Query{statement: statement, extra: extra_parameters} = query
+  def run_statement(client, %Bolty.Query{} = query, parameters) do
+    %Bolty.Query{statement: statement, extra: extra_parameters} = query
 
     run_statement(client, statement, parameters, extra_parameters)
   end
 
-  def run_statement(client, %Boltx.Queries{} = queries, parameters) do
-    %Boltx.Queries{statement: statement, extra: extra_parameters} = queries
+  def run_statement(client, %Bolty.Queries{} = queries, parameters) do
+    %Bolty.Queries{statement: statement, extra: extra_parameters} = queries
 
     cypher_seps = ~r/;(.){0,1}\n/
 
@@ -323,7 +323,7 @@ defmodule Boltx.Client do
 
     {:ok,
      Enum.reduce(statements, [], fn statement, acc ->
-       case Boltx.Client.run_statement(client, statement, parameters, extra_parameters) do
+       case Bolty.Client.run_statement(client, statement, parameters, extra_parameters) do
          {:ok, result} ->
            [result | acc]
 
@@ -423,7 +423,7 @@ defmodule Boltx.Client do
       rescue
         ArgumentError ->
           {:error,
-           Boltx.Error.wrap(__MODULE__, %{
+           Bolty.Error.wrap(__MODULE__, %{
              code: :failed_port_close,
              message: "Error closing port with goodbye message"
            })}
@@ -468,7 +468,7 @@ defmodule Boltx.Client do
         response
 
       {:error, :timeout} ->
-        {:error, Boltx.Error.wrap(__MODULE__, :timeout)}
+        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
 
       {:error, _} = error ->
         error
@@ -518,7 +518,7 @@ defmodule Boltx.Client do
         {:ok, chunk_size + byte_size(@noop_chunk)}
 
       {:error, :timeout} ->
-        {:error, Boltx.Error.wrap(__MODULE__, :timeout)}
+        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
 
       {:error, _} = error ->
         error
@@ -531,7 +531,7 @@ defmodule Boltx.Client do
         {:ok, chunk}
 
       {:error, :timeout} ->
-        {:error, Boltx.Error.wrap(__MODULE__, :timeout)}
+        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
 
       {:error, _} = error ->
         error

@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.GoodbyeMessageTest do
+defmodule Bolty.BoltProtocol.Message.GoodbyeMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.GoodbyeMessage
+  alias Bolty.BoltProtocol.Message.GoodbyeMessage
 
   describe "GoodbyeMessage.encode/1" do
     @tag :core
@@ -16,8 +16,8 @@ defmodule Boltx.BoltProtocol.Message.GoodbyeMessageTest do
       bolt_version = 1.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.GoodbyeMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.GoodbyeMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = GoodbyeMessage.encode(bolt_version)
     end
@@ -27,8 +27,8 @@ defmodule Boltx.BoltProtocol.Message.GoodbyeMessageTest do
       bolt_version = 1
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.GoodbyeMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.GoodbyeMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = GoodbyeMessage.encode(bolt_version)
     end

@@ -1,4 +1,4 @@
-defmodule Boltx.Utils.Converters do
+defmodule Bolty.Utils.Converters do
   @moduledoc false
 
   def to_float(value) when is_float(value), do: value

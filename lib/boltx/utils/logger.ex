@@ -1,4 +1,4 @@
-defmodule Boltx.Utils.Logger do
+defmodule Bolty.Utils.Logger do
   @moduledoc false
   # Designed to log Bolt protocol message between Client and Server.
   #
@@ -23,7 +23,7 @@ defmodule Boltx.Utils.Logger do
       iex> Logger.log_message(:server, :handshake, 2)
   """
   def log_message(from, type, data) do
-    if Application.get_env(:boltx, :log) do
+    if Application.get_env(:bolty, :log) do
       log_message(from, {type, data})
     end
   end
@@ -36,7 +36,7 @@ defmodule Boltx.Utils.Logger do
       iex> Logger.log_message(:server, :handshake, <<0x02>>)
   """
   def log_message(from, type, data, :hex) do
-    if Application.get_env(:boltx, :log_hex, false) do
+    if Application.get_env(:bolty, :log_hex, false) do
       msg_type = type |> Atom.to_string() |> String.upcase()
 
       do_log_message(from, fn ->

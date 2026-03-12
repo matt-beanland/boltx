@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.MessageDecoderTest do
+defmodule Bolty.BoltProtocol.MessageDecoderTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.MessageDecoder
+  alias Bolty.BoltProtocol.MessageDecoder
   @moduletag :core
 
   describe "Decode common messages:" do

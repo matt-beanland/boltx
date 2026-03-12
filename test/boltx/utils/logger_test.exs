@@ -1,8 +1,8 @@
-defmodule Boltx.Utils.LoggerTest do
+defmodule Bolty.Utils.LoggerTest do
   use ExUnit.Case
   import ExUnit.CaptureLog
 
-  alias Boltx.Utils.Logger
+  alias Bolty.Utils.Logger
   @moduletag :core
 
   test "Log from formed message" do

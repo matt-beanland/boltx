@@ -1,8 +1,8 @@
-defmodule Boltx.TypesTest do
+defmodule Bolty.TypesTest do
   use ExUnit.Case, async: true
   @moduletag :legacy
 
-  alias Boltx.Types.{DateTimeWithTZOffset, TimeWithTZOffset, Point}
+  alias Bolty.Types.{DateTimeWithTZOffset, TimeWithTZOffset, Point}
 
   describe "TimeWithTZOffset struct:" do
     test "create/2" do

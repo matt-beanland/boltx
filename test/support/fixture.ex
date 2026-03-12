@@ -1,22 +1,22 @@
-defmodule Boltx.Test.Fixture do
+defmodule Bolty.Test.Fixture do
   def create_graph(conn, :movie) do
-    Boltx.query_many!(conn, movie_cypher())
+    Bolty.query_many!(conn, movie_cypher())
   end
 
-  def create_graph(conn, :boltx) do
-    Boltx.query_many!(conn, boltx_cypher())
+  def create_graph(conn, :bolty) do
+    Bolty.query_many!(conn, bolty_cypher())
   end
 
-  def boltx_cypher() do
+  def bolty_cypher() do
     """
-    MATCH (n {boltx: true}) OPTIONAL MATCH (n)-[r]-() DELETE n,r;
+    MATCH (n {bolty: true}) OPTIONAL MATCH (n)-[r]-() DELETE n,r;
 
-    CREATE (boltx:boltx {title:'Elixir sipping from Neo4j, using Bolt', released:2016, license:'MIT', boltx: true})
-    CREATE (TNOTW:Book {title:'The Name of the Wind', released:2007, genre:'fantasy', boltx: true})
-    CREATE (Patrick:Person {name:'Patrick Rothfuss', boltx: true})
-    CREATE (Kvothe:Person {name:'Kote', boltx: true})
-    CREATE (Denna:Person {name:'Denna', boltx: true})
-    CREATE (Chandrian:Deamon {name:'Chandrian', boltx: true})
+    CREATE (bolty:bolty {title:'Elixir sipping from Neo4j, using Bolt', released:2016, license:'MIT', bolty: true})
+    CREATE (TNOTW:Book {title:'The Name of the Wind', released:2007, genre:'fantasy', bolty: true})
+    CREATE (Patrick:Person {name:'Patrick Rothfuss', bolty: true})
+    CREATE (Kvothe:Person {name:'Kote', bolty: true})
+    CREATE (Denna:Person {name:'Denna', bolty: true})
+    CREATE (Chandrian:Deamon {name:'Chandrian', bolty: true})
 
     CREATE
       (Kvothe)-[:ACTED_IN {roles:['sword fighter', 'magician', 'musician']}]->(TNOTW),

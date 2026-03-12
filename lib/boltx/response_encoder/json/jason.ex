@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Jason) do
-  defmodule Boltx.ResponseEncoder.Json.Jason do
+  defmodule Bolty.ResponseEncoder.Json.Jason do
     @moduledoc """
     A default implementation for Jason encoding library.
 
@@ -7,8 +7,8 @@ if Code.ensure_loaded?(Jason) do
 
     Allow this usage:
     ```
-    conn = Boltx.conn()
-    {:ok, res} = Boltx.query(conn, "MATCH (t:TestNode) RETURN t")
+    conn = Bolty.conn()
+    {:ok, res} = Bolty.query(conn, "MATCH (t:TestNode) RETURN t")
     Jason.encode!(res)
     ```
 
@@ -17,12 +17,12 @@ if Code.ensure_loaded?(Jason) do
     More info about implementation: [https://hexdocs.pm/jason/readme.html#differences-to-poison](https://hexdocs.pm/jason/readme.html#differences-to-poison)
 
     #### Note:
-    In order to benefit from Boltx.ResponseEncoder implementation, use
-    `Boltx.ResponseEncoder.Json.encode` and pass the result to the Jason
+    In order to benefit from Bolty.ResponseEncoder implementation, use
+    `Bolty.ResponseEncoder.Json.encode` and pass the result to the Jason
     encoding functions.
     """
-    alias Boltx.Types
-    alias Boltx.ResponseEncoder.Json
+    alias Bolty.Types
+    alias Bolty.ResponseEncoder.Json
 
     defimpl Jason.Encoder, for: [Types.Node, Types.Relationship, Types.Path, Types.Point] do
       @spec encode(struct(), Jason.Encode.opts()) :: iodata()

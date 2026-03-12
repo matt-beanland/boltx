@@ -1,4 +1,4 @@
-defmodule Boltx do
+defmodule Bolty do
   @moduledoc """
   Bolt driver for Elixir.
   """
@@ -39,8 +39,8 @@ defmodule Boltx do
           tx_metadata: map() | nil
         }
 
-  alias Boltx.{Types}
-  alias Boltx.TypesHelper
+  alias Bolty.{Types}
+  alias Bolty.TypesHelper
 
   @doc """
   Starts the connection process and connects to a Bolt/Neo4j server.
@@ -60,7 +60,7 @@ defmodule Boltx do
 
   * `:auth` - The basic authentication scheme
 
-  * `:user_agent` - Optionally override the default user agent name. (Default: 'boltx/<version>')
+  * `:user_agent` - Optionally override the default user agent name. (Default: 'bolty/<version>')
 
   * `:notifications_minimum_severity` - Set the minimum severity for notifications the server
    should send to the client. Disabling severities allows the server to skip analysis for those,
@@ -87,9 +87,9 @@ defmodule Boltx do
 
   * `:pool_size` - The size of the pool
   """
-  @spec start_link([start_option()]) :: {:ok, pid()} | {:error, Boltx.Error.t()}
+  @spec start_link([start_option()]) :: {:ok, pid()} | {:error, Bolty.Error.t()}
   def start_link(options) do
-    DBConnection.start_link(Boltx.Connection, options)
+    DBConnection.start_link(Bolty.Connection, options)
   end
 
   @doc """
@@ -97,7 +97,7 @@ defmodule Boltx do
   """
   @spec child_spec([start_option()]) :: :supervisor.child_spec()
   def child_spec(options) do
-    DBConnection.child_spec(Boltx.Connection, options)
+    DBConnection.child_spec(Bolty.Connection, options)
   end
 
   @doc """
@@ -106,9 +106,9 @@ defmodule Boltx do
   ## Examples
 
   ```elixir
-  {:ok, result} = Boltx.query(conn, "MATCH (n) RETURN n LIMIT 1")
+  {:ok, result} = Bolty.query(conn, "MATCH (n) RETURN n LIMIT 1")
 
-  {:ok, people} = Boltx.query(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
+  {:ok, people} = Bolty.query(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
   ```
   """
   def query(conn, statement, params \\ %{}, opts \\ []) do
@@ -124,7 +124,7 @@ defmodule Boltx do
       # Convert to map
       |> Enum.into(%{})
 
-    query = %Boltx.Query{statement: statement, extra: extra}
+    query = %Bolty.Query{statement: statement, extra: extra}
 
     do_query(conn, query, formatted_params, opts)
   end
@@ -135,9 +135,9 @@ defmodule Boltx do
   ## Examples
 
   ```elixir
-  result = Boltx.query!(conn, "MATCH (n) RETURN n LIMIT 1")
+  result = Bolty.query!(conn, "MATCH (n) RETURN n LIMIT 1")
 
-  people = Boltx.query!(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
+  people = Bolty.query!(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
   ```
   """
   def query!(conn, statement, params \\ %{}, opts \\ []) do
@@ -154,7 +154,7 @@ defmodule Boltx do
       |> Enum.map(fn {k, {:ok, value}} -> {k, value} end)
       |> Map.new()
 
-    queries = %Boltx.Queries{statement: statement}
+    queries = %Bolty.Queries{statement: statement}
     do_query(conn, queries, formatted_params, opts)
   end
 

@@ -1,6 +1,6 @@
 import Config
 
-config :boltx, Bolt,
+config :bolty, Bolt,
   # default port considered to be: 7687
   url: "bolt://localhost",
   basic_auth: [username: "neo4j", password: "password"],
@@ -18,7 +18,7 @@ level =
     :info
   end
 
-config :boltx,
+config :bolty,
   log: true,
   log_hex: false
 

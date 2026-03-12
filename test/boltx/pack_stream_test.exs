@@ -1,10 +1,10 @@
-defmodule Boltx.PackStreamTest do
+defmodule Bolty.PackStreamTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.PackStream
-  alias Boltx.Types.{TimeWithTZOffset, DateTimeWithTZOffset, Point}
-  alias Boltx.TypesHelper
-  alias Boltx.TestDerivationStruct
+  alias Bolty.PackStream
+  alias Bolty.Types.{TimeWithTZOffset, DateTimeWithTZOffset, Point}
+  alias Bolty.TypesHelper
+  alias Bolty.TestDerivationStruct
 
   defmodule TestStruct do
     defstruct foo: "bar"
@@ -338,7 +338,7 @@ defmodule Boltx.PackStreamTest do
 
       assert [
                [
-                 %Boltx.Types.Node{
+                 %Bolty.Types.Node{
                    id: 17,
                    labels: ["Person"],
                    properties: %{"bolt_sips" => true, "name" => "Patrick Rothfuss"}
@@ -352,7 +352,7 @@ defmodule Boltx.PackStreamTest do
 
       assert [
                [
-                 %Boltx.Types.Relationship{
+                 %Bolty.Types.Relationship{
                    end: 67,
                    id: 80,
                    properties: %{},
@@ -373,21 +373,21 @@ defmodule Boltx.PackStreamTest do
 
       [
         [
-          %Boltx.Types.Path{
+          %Bolty.Types.Path{
             nodes: [
-              %Boltx.Types.Node{
+              %Bolty.Types.Node{
                 id: 48,
                 labels: [],
                 properties: %{"bolt_sips" => true, "name" => "Alice"}
               },
-              %Boltx.Types.Node{
+              %Bolty.Types.Node{
                 id: 56,
                 labels: [],
                 properties: %{"bolt_sips" => true, "name" => "Bob"}
               }
             ],
             relationships: [
-              %Boltx.Types.UnboundRelationship{
+              %Bolty.Types.UnboundRelationship{
                 id: 19,
                 properties: %{},
                 type: "KNOWS"
@@ -456,7 +456,7 @@ defmodule Boltx.PackStreamTest do
 
     test "Datetime with zone id" do
       dt =
-        Boltx.TypesHelper.datetime_with_micro(~N[1998-03-18 06:25:12.123456], "Europe/Paris")
+        Bolty.TypesHelper.datetime_with_micro(~N[1998-03-18 06:25:12.123456], "Europe/Paris")
 
       assert [dt] ==
                PackStream.unpack!(
@@ -466,7 +466,7 @@ defmodule Boltx.PackStreamTest do
                )
 
       dt =
-        Boltx.TypesHelper.datetime_with_micro(
+        Bolty.TypesHelper.datetime_with_micro(
           ~N[2016-05-24 13:26:08.654321],
           "Europe/Berlin"
         )

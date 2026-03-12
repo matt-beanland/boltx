@@ -1,9 +1,9 @@
-defmodule Boltx.ResponseEncode.JsonTest do
+defmodule Bolty.ResponseEncode.JsonTest do
   use ExUnit.Case, async: true
 
   @moduletag :legacy
 
-  alias Boltx.Types.{
+  alias Bolty.Types.{
     DateTimeWithTZOffset,
     TimeWithTZOffset,
     Point,
@@ -13,7 +13,7 @@ defmodule Boltx.ResponseEncode.JsonTest do
     Path
   }
 
-  alias Boltx.ResponseEncoder.Json
+  alias Bolty.ResponseEncoder.Json
 
   defmodule TestStruct do
     defstruct [:id, :name]
@@ -97,12 +97,12 @@ defmodule Boltx.ResponseEncode.JsonTest do
         %Node{
           id: 56,
           labels: [],
-          properties: %{"boltx" => true, "name" => "Alice"}
+          properties: %{"bolty" => true, "name" => "Alice"}
         },
         %Node{
           id: 57,
           labels: [],
-          properties: %{"boltx" => true, "name" => "Bob"}
+          properties: %{"bolty" => true, "name" => "Bob"}
         }
       ],
       relationships: [
@@ -117,8 +117,8 @@ defmodule Boltx.ResponseEncode.JsonTest do
 
     expected = %{
       nodes: [
-        %{id: 56, labels: [], properties: %{"boltx" => true, "name" => "Alice"}},
-        %{id: 57, labels: [], properties: %{"boltx" => true, "name" => "Bob"}}
+        %{id: 56, labels: [], properties: %{"bolty" => true, "name" => "Alice"}},
+        %{id: 57, labels: [], properties: %{"bolty" => true, "name" => "Bob"}}
       ],
       relationships: [%{end: nil, id: 58, properties: %{}, start: nil, type: "KNOWS"}],
       sequence: [1, 1]

@@ -1,4 +1,4 @@
-defmodule Boltx.TestDerivationStruct do
-  @derive [{Boltx.PackStream.Packer, fields: [:foo]}]
+defmodule Bolty.TestDerivationStruct do
+  @derive [{Bolty.PackStream.Packer, fields: [:foo]}]
   defstruct foo: "bar", name: "Hugo Weaving"
 end

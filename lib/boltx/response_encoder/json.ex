@@ -1,8 +1,8 @@
-defprotocol Boltx.ResponseEncoder.Json do
+defprotocol Bolty.ResponseEncoder.Json do
   @moduledoc """
   Protocol controlling how a value is made jsonable.
 
-  Its only purpose is to convert Bolt Boltx specific structures into elixir buit-in types
+  Its only purpose is to convert Bolt Bolty specific structures into elixir buit-in types
   which can be encoed in json by Jason.
 
   ## Deriving
@@ -36,7 +36,7 @@ defprotocol Boltx.ResponseEncoder.Json do
 
   You can achieve that with the following implementation:
   ```
-  defimpl Boltx.ResponseEncoder.Json, for: Boltx.Types.Node do
+  defimpl Bolty.ResponseEncoder.Json, for: Bolty.Types.Node do
     def encode(node) do
       new_props = Map.drop(node.properties, :uuid)
 
@@ -48,8 +48,8 @@ defprotocol Boltx.ResponseEncoder.Json do
   end
   ```
 
-  It is also possible to provide implementation that returns structs or updated Boltx.Types,
-  the use of a final `Boltx.ResponseEncoder.Json.encode()` will ensure that these values will
+  It is also possible to provide implementation that returns structs or updated Bolty.Types,
+  the use of a final `Bolty.ResponseEncoder.Json.encode()` will ensure that these values will
   be converted to jsonable ones.
   """
   @fallback_to_any true
@@ -61,8 +61,8 @@ defprotocol Boltx.ResponseEncoder.Json do
   def encode(value)
 end
 
-alias Boltx.{Types, ResponseEncoder}
-alias Boltx.TypesHelper
+alias Bolty.{Types, ResponseEncoder}
+alias Bolty.TypesHelper
 
 defimpl ResponseEncoder.Json, for: Types.DateTimeWithTZOffset do
   @spec encode(Types.DateTimeWithTZOffset.t()) :: String.t()

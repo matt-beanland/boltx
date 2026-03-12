@@ -1,11 +1,11 @@
-defmodule Boltx.Connection do
+defmodule Bolty.Connection do
   @moduledoc false
   use DBConnection
 
-  import Boltx.BoltProtocol.ServerResponse
+  import Bolty.BoltProtocol.ServerResponse
 
-  alias Boltx.Client
-  alias Boltx.Response
+  alias Bolty.Client
+  alias Bolty.Response
 
   defstruct [
     :client,
@@ -77,7 +77,7 @@ defmodule Boltx.Connection do
         {:ok, state}
 
       _ ->
-        {:disconnect, Boltx.Error.wrap(__MODULE__, :db_ping_failed), state}
+        {:disconnect, Bolty.Error.wrap(__MODULE__, :db_ping_failed), state}
     end
   end
 
@@ -107,7 +107,7 @@ defmodule Boltx.Connection do
       {:ok, statement_result} ->
         {:ok, statement_result}
 
-      {:error, %Boltx.Error{code: error_code} = error} ->
+      {:error, %Bolty.Error{code: error_code} = error} ->
         action =
           if client.bolt_version >= 3.0,
             do: &Client.send_reset/1,
@@ -120,7 +120,7 @@ defmodule Boltx.Connection do
         {:error, error, state}
     end
   rescue
-    e in Boltx.Error ->
+    e in Bolty.Error ->
       {:error, %{code: :failure, message: "#{e.bolt.message}, code: #{e.code}"}, state}
 
     e ->

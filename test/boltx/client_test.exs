@@ -1,11 +1,11 @@
-defmodule Boltx.ClientTest do
+defmodule Bolty.ClientTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.Client
-  alias Boltx.BoltProtocol.Versions
-  import Boltx.BoltProtocol.ServerResponse
+  alias Bolty.Client
+  alias Bolty.BoltProtocol.Versions
+  import Bolty.BoltProtocol.ServerResponse
 
-  @opts Boltx.TestHelper.opts()
+  @opts Bolty.TestHelper.opts()
   @noop_chunk <<0x00, 0x00>>
 
   defp handle_handshake(client, opts) do
@@ -40,7 +40,7 @@ defmodule Boltx.ClientTest do
       assert config.username == "usertest"
     end
 
-    test "standard Boltx default configuration for port, hostname and schema" do
+    test "standard Bolty default configuration for port, hostname and schema" do
       opts = [
         auth: [username: "usertest"]
       ]
@@ -144,13 +144,13 @@ defmodule Boltx.ClientTest do
     @tag core: true
     test "zero version" do
       opts = [versions: [0]] ++ @opts
-      {:error, %Boltx.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
     @tag core: true
     test "major version incompatible with the server" do
       opts = [versions: [50]] ++ @opts
-      {:error, %Boltx.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
     @tag :bolt_version_1_0
@@ -174,8 +174,8 @@ defmodule Boltx.ClientTest do
           101, 111, 117, 116, 95, 115, 101, 99, 111, 110, 100, 115, 120, 208, 17, 116, 101, 108,
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
-      pid = Boltx.Mocks.SockMock.start_link([<<0, byte_size(chunk)>>, chunk])
-      client = %{sock: {Boltx.Mocks.SockMock, pid}, bolt_version: 1.0}
+      pid = Bolty.Mocks.SockMock.start_link([<<0, byte_size(chunk)>>, chunk])
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 1.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -204,7 +204,7 @@ defmodule Boltx.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid =
-        Boltx.Mocks.SockMock.start_link([
+        Bolty.Mocks.SockMock.start_link([
           <<0, byte_size(chunk1)>>,
           chunk1,
           @noop_chunk,
@@ -212,7 +212,7 @@ defmodule Boltx.ClientTest do
           chunk2
         ])
 
-      client = %{sock: {Boltx.Mocks.SockMock, pid}, bolt_version: 3.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 3.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -242,7 +242,7 @@ defmodule Boltx.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid =
-        Boltx.Mocks.SockMock.start_link([
+        Bolty.Mocks.SockMock.start_link([
           @noop_chunk,
           <<0, byte_size(chunk1)>>,
           chunk1,
@@ -251,7 +251,7 @@ defmodule Boltx.ClientTest do
           chunk2
         ])
 
-      client = %{sock: {Boltx.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -344,7 +344,7 @@ defmodule Boltx.ClientTest do
 
       query = "RETURN 1024 AS a, 2048 AS b"
 
-      {:error, %Boltx.Error{code: :request_invalid}} =
+      {:error, %Bolty.Error{code: :request_invalid}} =
         Client.run_statement(client, query, %{}, %{n: %{d: 4}})
     end
 
@@ -393,7 +393,7 @@ defmodule Boltx.ClientTest do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
-      assert {:error, %Boltx.Error{code: :semantic_error}} = Client.send_commit(client)
+      assert {:error, %Bolty.Error{code: :semantic_error}} = Client.send_commit(client)
     end
 
     @tag :bolt_3_x
@@ -403,7 +403,7 @@ defmodule Boltx.ClientTest do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
-      assert {:error, %Boltx.Error{code: :request_invalid}} = Client.send_commit(client)
+      assert {:error, %Bolty.Error{code: :request_invalid}} = Client.send_commit(client)
     end
 
     @tag :core
@@ -422,7 +422,7 @@ defmodule Boltx.ClientTest do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
-      assert {:error, %Boltx.Error{code: :request_invalid}} = Client.send_rollback(client)
+      assert {:error, %Bolty.Error{code: :request_invalid}} = Client.send_rollback(client)
     end
   end
 
@@ -459,7 +459,7 @@ defmodule Boltx.ClientTest do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
-      {:error, %Boltx.Error{code: :request_invalid}} =
+      {:error, %Bolty.Error{code: :request_invalid}} =
         Client.send_ack_failure(client)
     end
   end

@@ -1,8 +1,8 @@
 defmodule ResponseTest do
   use ExUnit.Case
 
-  import Boltx.BoltProtocol.ServerResponse
-  alias Boltx.Response
+  import Bolty.BoltProtocol.ServerResponse
+  alias Bolty.Response
 
   @mock_plan %{
     "plan" => %{

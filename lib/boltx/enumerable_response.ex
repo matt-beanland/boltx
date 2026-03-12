@@ -1,5 +1,5 @@
-defimpl Enumerable, for: Boltx.Response do
-  alias Boltx.Response
+defimpl Enumerable, for: Bolty.Response do
+  alias Bolty.Response
 
   def count(%Response{results: nil}), do: {:ok, 0}
   def count(%Response{results: []}), do: {:ok, 0}

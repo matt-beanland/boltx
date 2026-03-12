@@ -1,4 +1,4 @@
-defmodule Boltx.Mocks.SockMock do
+defmodule Bolty.Mocks.SockMock do
   def loop(state) do
     receive do
       {_from, :push, value} ->

@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.CommitMessageTest do
+defmodule Bolty.BoltProtocol.Message.CommitMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.CommitMessage
+  alias Bolty.BoltProtocol.Message.CommitMessage
 
   describe "CommitMessage.encode/1" do
     @tag :core
@@ -16,8 +16,8 @@ defmodule Boltx.BoltProtocol.Message.CommitMessageTest do
       bolt_version = 1.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.CommitMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.CommitMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = CommitMessage.encode(bolt_version)
     end
@@ -27,8 +27,8 @@ defmodule Boltx.BoltProtocol.Message.CommitMessageTest do
       bolt_version = 1
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.CommitMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.CommitMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = CommitMessage.encode(bolt_version)
     end

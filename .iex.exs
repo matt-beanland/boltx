@@ -4,8 +4,8 @@ rescue
   Code.LoadError -> :rescued
 end
 
-alias Boltx.{Utils, Protocol, Router, ConnectionSupervisor, Response}
-alias Boltx
+alias Bolty.{Utils, Protocol, Router, ConnectionSupervisor, Response}
+alias Bolty
 
 Application.put_env(:tzdata, :autoupdate, :disabled)
 
@@ -28,12 +28,12 @@ test_config = [
 Mix.shell().info([
   :green,
   """
-  Optional, if needed for development (Boltx is the alias for Boltx):
-    {:ok, _neo} = Boltx.start_link(url: "bolt://neo4j:test@localhost")
-    conn = Boltx.conn()
+  Optional, if needed for development (Bolty is the alias for Bolty):
+    {:ok, _neo} = Bolty.start_link(url: "bolt://neo4j:test@localhost")
+    conn = Bolty.conn()
   Examples:
-    Boltx.query!(conn, "UNWIND range(1, 10) AS n RETURN n")
-    Boltx.query!(conn, "RETURN 1 as n")
+    Bolty.query!(conn, "UNWIND range(1, 10) AS n RETURN n")
+    Bolty.query!(conn, "RETURN 1 as n")
   --- ✄  -------------------------------------------------
 
   """

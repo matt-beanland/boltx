@@ -7,7 +7,7 @@ level =
     :info
   end
 
-config :boltx,
+config :bolty,
   log: false,
   log_hex: false
 

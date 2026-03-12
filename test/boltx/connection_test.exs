@@ -1,11 +1,11 @@
-defmodule Boltx.ConnectionTest do
+defmodule Bolty.ConnectionTest do
   use ExUnit.Case, async: false
 
-  alias Boltx.Connection
-  alias Boltx.BoltProtocol.Versions
+  alias Bolty.Connection
+  alias Bolty.BoltProtocol.Versions
 
-  @opts Boltx.TestHelper.opts()
-  @opts_without_auth Boltx.TestHelper.opts_without_auth()
+  @opts Bolty.TestHelper.opts()
+  @opts_without_auth Bolty.TestHelper.opts_without_auth()
 
   @tag core: true
   test "connect/1 - disconnect/1 successful" do
@@ -27,7 +27,7 @@ defmodule Boltx.ConnectionTest do
   test "connect/1 - not successful with incorrect credentials" do
     opts = @opts_without_auth ++ [auth: [username: "baduser", password: "badsecret"]]
 
-    {:error, %Boltx.Error{code: :unauthorized}} =
+    {:error, %Bolty.Error{code: :unauthorized}} =
       Connection.connect(opts)
   end
 
@@ -73,7 +73,7 @@ defmodule Boltx.ConnectionTest do
       auth: [username: "baduser"]
     ]
 
-    assert {:error, %Boltx.Error{code: :timeout}} = Connection.connect(opts)
+    assert {:error, %Bolty.Error{code: :timeout}} = Connection.connect(opts)
   end
 
   @tag :bolt_version_1_0
@@ -345,11 +345,11 @@ defmodule Boltx.ConnectionTest do
       Connection.disconnect("ping test", conn_data)
 
       assert {:disconnect,
-              %Boltx.Error{
+              %Bolty.Error{
                 __exception__: true,
                 bolt: nil,
                 code: :db_ping_failed,
-                module: Boltx.Connection,
+                module: Bolty.Connection,
                 packstream: nil
               }, conn_data} == Connection.ping(conn_data)
     end

@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.LogoffMessage do
+defmodule Bolty.BoltProtocol.Message.LogoffMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x6B
 
@@ -11,7 +11,7 @@ defmodule Boltx.BoltProtocol.Message.LogoffMessage do
 
   def encode(_) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "LOGOFF message version not supported"
      })}

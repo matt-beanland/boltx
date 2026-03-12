@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.DiscardMessage do
+defmodule Bolty.BoltProtocol.Message.DiscardMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x2F
 
@@ -18,7 +18,7 @@ defmodule Boltx.BoltProtocol.Message.DiscardMessage do
 
   def encode(_, _) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "DISCARD message version not supported"
      })}
@@ -41,7 +41,7 @@ defmodule Boltx.BoltProtocol.Message.DiscardMessage do
 
       {:failure, response} ->
         {:error,
-         Boltx.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
     end
   end
 

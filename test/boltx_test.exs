@@ -1,21 +1,21 @@
-defmodule BoltxTest do
+defmodule BoltyTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.Response
-  alias Boltx.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset}
+  alias Bolty.Response
+  alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset}
 
-  @opts Boltx.TestHelper.opts()
+  @opts Bolty.TestHelper.opts()
 
   defmodule TestUser do
-    defstruct name: "", boltx: true
+    defstruct name: "", bolty: true
   end
 
   describe "connect" do
     @tag :core
     test "connect using default protocol" do
       opts = [pool_size: 1] ++ @opts
-      {:ok, conn} = Boltx.start_link(opts)
-      Boltx.query!(conn, "RETURN 1024 AS a")
+      {:ok, conn} = Bolty.start_link(opts)
+      Bolty.query!(conn, "RETURN 1024 AS a")
     end
   end
 
@@ -24,7 +24,7 @@ defmodule BoltxTest do
 
     @tag :core
     test "a simple query", c do
-      response = Boltx.query!(c.conn, "RETURN 300 AS r")
+      response = Bolty.query!(c.conn, "RETURN 300 AS r")
 
       assert %Response{results: [%{"r" => 300}]} = response
       assert response |> Enum.member?("r")
@@ -36,7 +36,7 @@ defmodule BoltxTest do
     @tag :core
     test "get all cities", c do
       query = "CREATE (country:Country {name:'C1', id: randomUUID()})"
-      Boltx.query(c.conn, query)
+      Bolty.query(c.conn, query)
 
       Enum.each(0..333, fn x ->
         query = """
@@ -45,11 +45,11 @@ defmodule BoltxTest do
           CREATE (country)-[:has_city{id: randomUUID()}]->(city)
         """
 
-        Boltx.query(c.conn, query)
+        Bolty.query(c.conn, query)
       end)
 
       all_cities_query = "MATCH (n:City) RETURN n"
-      {:ok, %Response{}} = Boltx.query(c.conn, all_cities_query, %{})
+      {:ok, %Response{}} = Bolty.query(c.conn, all_cities_query, %{})
     end
 
     @tag :core
@@ -57,15 +57,15 @@ defmodule BoltxTest do
       self = self()
 
       query = """
-        MATCH (n:Person {boltx: true})
+        MATCH (n:Person {bolty: true})
         RETURN n.name AS Name
         ORDER BY Name DESC
         LIMIT 5
       """
 
-      {:ok, %Response{} = response} = Boltx.query(c.conn, query, %{}, log: &send(self, &1))
+      {:ok, %Response{} = response} = Bolty.query(c.conn, query, %{}, log: &send(self, &1))
       assert_received %DBConnection.LogEntry{} = entry
-      assert %Boltx.Query{} = entry.query
+      assert %Bolty.Query{} = entry.query
 
       assert Response.first(response)["Name"] == "Patrick Rothfuss",
              "missing Person database, or data incomplete"
@@ -86,7 +86,7 @@ defmodule BoltxTest do
         LIMIT 1;
       """
 
-      {:ok, responses} = Boltx.query_many(c.conn, query, %{}, log: &send(self, &1))
+      {:ok, responses} = Bolty.query_many(c.conn, query, %{}, log: &send(self, &1))
       assert is_list(responses)
       assert Enum.any?(responses, &(is_map(&1) and &1.__struct__ == Response))
 
@@ -120,15 +120,15 @@ defmodule BoltxTest do
         })
       """
 
-      Boltx.query!(c.conn, cypher_create, %{uuid: uuid})
+      Bolty.query!(c.conn, cypher_create, %{uuid: uuid})
 
       response =
-        Boltx.query!(c.conn, "MATCH (user:User {uuid: $uuid }) RETURN user", %{uuid: uuid})
+        Bolty.query!(c.conn, "MATCH (user:User {uuid: $uuid }) RETURN user", %{uuid: uuid})
 
-      assert %Boltx.Response{
+      assert %Bolty.Response{
                results: [
                  %{
-                   "user" => %Boltx.Types.Node{
+                   "user" => %Bolty.Types.Node{
                      id: _,
                      properties: %{
                        "date_time_offset" => date_time_offset,
@@ -170,19 +170,19 @@ defmodule BoltxTest do
     @tag :core
     test "A procedure call failure should send reset and not lock the db" do
       opts = [pool_size: 1] ++ @opts
-      {:ok, conn} = Boltx.start_link(opts)
+      {:ok, conn} = Bolty.start_link(opts)
 
       cypher_fail = "INVALID CYPHER"
-      {:error, %Boltx.Error{code: :syntax_error}} = Boltx.query(conn, cypher_fail)
+      {:error, %Bolty.Error{code: :syntax_error}} = Bolty.query(conn, cypher_fail)
 
       cypher_query = """
-        MATCH (n:Person {boltx: true})
+        MATCH (n:Person {bolty: true})
         RETURN n.name AS Name
         ORDER BY Name DESC
         LIMIT 5
       """
 
-      assert {:ok, %Response{} = response} = Boltx.query(conn, cypher_query, %{})
+      assert {:ok, %Response{} = response} = Bolty.query(conn, cypher_query, %{})
 
       assert Response.first(response)["Name"] == "Patrick Rothfuss",
              "missing Person database, or data incomplete"
@@ -191,14 +191,14 @@ defmodule BoltxTest do
     @tag :core
     test "executing a Cypher query, with parameters", c do
       cypher = """
-        MATCH (n:Person {boltx: true})
+        MATCH (n:Person {bolty: true})
         WHERE n.name = $name
         RETURN n.name AS name
       """
 
       parameters = %{name: "Kote"}
 
-      {:ok, %Response{} = response} = Boltx.query(c.conn, cypher, parameters)
+      {:ok, %Response{} = response} = Bolty.query(c.conn, cypher, parameters)
       assert Response.first(response)["name"] == "Kote"
     end
 
@@ -209,8 +209,8 @@ defmodule BoltxTest do
       """
 
       assert {:ok, %Response{stats: stats, type: type}} =
-               Boltx.query(c.conn, cypher, %{
-                 props: %BoltxTest.TestUser{name: "Strut", boltx: true}
+               Bolty.query(c.conn, cypher, %{
+                 props: %BoltyTest.TestUser{name: "Strut", bolty: true}
                })
 
       assert stats["labels-added"] == 1
@@ -226,7 +226,7 @@ defmodule BoltxTest do
       """
 
       assert {:ok, %Response{stats: stats, type: type}} =
-               Boltx.query(c.conn, cypher, %{props: %{name: "Mep", boltx: true}})
+               Bolty.query(c.conn, cypher, %{props: %{name: "Mep", bolty: true}})
 
       assert stats["labels-added"] == 1
       assert stats["nodes-created"] == 1
@@ -237,11 +237,11 @@ defmodule BoltxTest do
     @tag :core
     test "it returns only known role names", c do
       cypher = """
-        MATCH (p)-[r:ACTED_IN]->() where p.boltx RETURN r.roles as roles
+        MATCH (p)-[r:ACTED_IN]->() where p.bolty RETURN r.roles as roles
         LIMIT 25
       """
 
-      %Response{results: rows} = Boltx.query!(c.conn, cypher)
+      %Response{results: rows} = Bolty.query!(c.conn, cypher)
       roles = ["killer", "sword fighter", "magician", "musician", "many talents"]
       my_roles = Enum.map(rows, & &1["roles"]) |> List.flatten()
       assert my_roles -- roles == [], "found more roles in the db than expected"
@@ -254,21 +254,21 @@ defmodule BoltxTest do
         RETURN p
       """
 
-      %Response{} = rows = Boltx.query!(c.conn, cypher)
+      %Response{} = rows = Bolty.query!(c.conn, cypher)
       assert Response.first(rows)["p"].properties["name"] == "Patrick Rothfuss"
     end
 
     @tag :core
     test "executing a raw Cypher query with alias, and no parameters", c do
       cypher = """
-        MATCH (p:Person {boltx: true})
+        MATCH (p:Person {bolty: true})
         RETURN p, p.name AS name, toUpper(p.name) as NAME,
                coalesce(p.nickname,"n/a") AS nickname,
                { name: p.name, label:head(labels(p))} AS person
         ORDER BY name DESC
       """
 
-      {:ok, %Response{} = r} = Boltx.query(c.conn, cypher)
+      {:ok, %Response{} = r} = Bolty.query(c.conn, cypher)
 
       assert Enum.count(r) == 3,
              "you're missing some characters from the 'The Name of the Wind' db"
@@ -279,7 +279,7 @@ defmodule BoltxTest do
         assert row["person"]["label"] == "Person"
         assert row["NAME"] == "PATRICK ROTHFUSS"
         assert row["nickname"] == "n/a"
-        assert row["p"].properties["boltx"] == true
+        assert row["p"].properties["bolty"] == true
       else
         IO.puts("Did you initialize the 'The Name of the Wind' database?")
       end
@@ -288,12 +288,12 @@ defmodule BoltxTest do
     @tag :core
     test "path from: MERGE p=({name:'Alice'})-[:KNOWS]-> ...", c do
       cypher = """
-      MERGE p = ({name:'Alice', boltx: true})-[:KNOWS]->({name:'Bob', boltx: true})
+      MERGE p = ({name:'Alice', bolty: true})-[:KNOWS]->({name:'Bob', bolty: true})
       RETURN p
       """
 
       path =
-        Boltx.query!(c.conn, cypher)
+        Bolty.query!(c.conn, cypher)
         |> Response.first()
         |> Map.get("p")
 
@@ -302,14 +302,14 @@ defmodule BoltxTest do
 
     @tag :core
     test "return a single number from a statement with params", c do
-      row = Boltx.query!(c.conn, "RETURN $n AS num", %{n: 10}) |> Response.first()
+      row = Bolty.query!(c.conn, "RETURN $n AS num", %{n: 10}) |> Response.first()
       assert row["num"] == 10
     end
 
     @tag :core
     test "run simple statement with complex params", c do
       row =
-        Boltx.query!(c.conn, "RETURN $x AS n", %{x: %{abc: ["d", "e", "f"]}})
+        Bolty.query!(c.conn, "RETURN $x AS n", %{x: %{abc: ["d", "e", "f"]}})
         |> Response.first()
 
       assert row["n"]["abc"] == ["d", "e", "f"]
@@ -317,26 +317,26 @@ defmodule BoltxTest do
 
     @tag :core
     test "return an array of numbers", c do
-      row = Boltx.query!(c.conn, "RETURN [10,11,21] AS arr") |> Response.first()
+      row = Bolty.query!(c.conn, "RETURN [10,11,21] AS arr") |> Response.first()
       assert row["arr"] == [10, 11, 21]
     end
 
     @tag :core
     test "return a string", c do
-      row = Boltx.query!(c.conn, "RETURN 'Hello' AS salute") |> Response.first()
+      row = Bolty.query!(c.conn, "RETURN 'Hello' AS salute") |> Response.first()
       assert row["salute"] == "Hello"
     end
 
     @tag :core
     test "UNWIND range(1, 10) AS n RETURN n", c do
-      assert %Response{results: rows} = Boltx.query!(c.conn, "UNWIND range(1, 10) AS n RETURN n")
+      assert %Response{results: rows} = Bolty.query!(c.conn, "UNWIND range(1, 10) AS n RETURN n")
       assert {1, 10} == rows |> Enum.map(& &1["n"]) |> Enum.min_max()
     end
 
     @tag :core
     test "MERGE (k:Person {name:'Kote'}) RETURN k", c do
       k =
-        Boltx.query!(c.conn, "MERGE (k:Person {name:'Kote', boltx: true}) RETURN k LIMIT 1")
+        Bolty.query!(c.conn, "MERGE (k:Person {name:'Kote', bolty: true}) RETURN k LIMIT 1")
         |> Response.first()
         |> Map.get("k")
 
@@ -346,41 +346,41 @@ defmodule BoltxTest do
 
     @tag :core
     test "query/2 and query!/2", c do
-      assert r = Boltx.query!(c.conn, "RETURN [10,11,21] AS arr")
+      assert r = Bolty.query!(c.conn, "RETURN [10,11,21] AS arr")
       assert [10, 11, 21] = Response.first(r)["arr"]
 
-      assert {:ok, %Response{} = r} = Boltx.query(c.conn, "RETURN [10,11,21] AS arr")
+      assert {:ok, %Response{} = r} = Bolty.query(c.conn, "RETURN [10,11,21] AS arr")
       assert [10, 11, 21] = Response.first(r)["arr"]
     end
 
     @tag :core
     test "create a Bob node and check it was deleted afterwards", c do
       assert %Response{stats: stats} =
-               Boltx.query!(c.conn, "CREATE (a:Person {name:'Bob'})")
+               Bolty.query!(c.conn, "CREATE (a:Person {name:'Bob'})")
 
       assert stats["labels-added"] == 1
       assert stats["nodes-created"] == 1
       assert stats["properties-set"] == 1
 
       assert ["Bob"] ==
-               Boltx.query!(c.conn, "MATCH (a:Person {name: 'Bob'}) RETURN a.name AS name")
+               Bolty.query!(c.conn, "MATCH (a:Person {name: 'Bob'}) RETURN a.name AS name")
                |> Enum.map(& &1["name"])
 
       assert %Response{stats: stats} =
-               Boltx.query!(c.conn, "MATCH (a:Person {name:'Bob'}) DELETE a")
+               Bolty.query!(c.conn, "MATCH (a:Person {name:'Bob'}) DELETE a")
 
       assert stats["nodes-deleted"] == 1
     end
 
     @tag :core
     test "can execute a query after a failure", c do
-      assert {:error, _} = Boltx.query(c.conn, "INVALID CYPHER")
-      assert {:ok, %Response{results: [%{"n" => 22}]}} = Boltx.query(c.conn, "RETURN 22 as n")
+      assert {:error, _} = Bolty.query(c.conn, "INVALID CYPHER")
+      assert {:ok, %Response{results: [%{"n" => 22}]}} = Bolty.query(c.conn, "RETURN 22 as n")
     end
 
     @tag :core
     test "negative numbers are returned as negative numbers", c do
-      assert {:ok, %Response{results: [%{"n" => -1}]}} = Boltx.query(c.conn, "RETURN -1 as n")
+      assert {:ok, %Response{results: [%{"n" => -1}]}} = Bolty.query(c.conn, "RETURN -1 as n")
     end
 
     @tag :core
@@ -388,14 +388,14 @@ defmodule BoltxTest do
       assert %Response{
                results: [
                  %{
-                   "p" => %Boltx.Types.Node{
+                   "p" => %Bolty.Types.Node{
                      id: _,
                      labels: ["Person"],
-                     properties: %{"boltx" => true, "name" => "Patrick Rothfuss"}
+                     properties: %{"bolty" => true, "name" => "Patrick Rothfuss"}
                    }
                  }
                ]
-             } = Boltx.query!(c.conn, "MATCH (p:Person {name: 'Patrick Rothfuss'}) RETURN p")
+             } = Bolty.query!(c.conn, "MATCH (p:Person {name: 'Patrick Rothfuss'}) RETURN p")
     end
 
     @tag :core
@@ -408,7 +408,7 @@ defmodule BoltxTest do
       assert %Response{
                results: [
                  %{
-                   "r" => %Boltx.Types.Relationship{
+                   "r" => %Bolty.Types.Relationship{
                      end: _,
                      id: _,
                      properties: %{},
@@ -417,34 +417,34 @@ defmodule BoltxTest do
                    }
                  }
                ]
-             } = Boltx.query!(c.conn, cypher)
+             } = Bolty.query!(c.conn, cypher)
     end
 
     @tag :core
     test "simple path", c do
       cypher = """
-      MERGE p = ({name:'Alice', boltx: true})-[:KNOWS]->({name:'Bob', boltx: true})
+      MERGE p = ({name:'Alice', bolty: true})-[:KNOWS]->({name:'Bob', bolty: true})
       RETURN p
       """
 
       assert %Response{
                results: [
                  %{
-                   "p" => %Boltx.Types.Path{
+                   "p" => %Bolty.Types.Path{
                      nodes: [
-                       %Boltx.Types.Node{
+                       %Bolty.Types.Node{
                          id: _,
                          labels: [],
-                         properties: %{"boltx" => true, "name" => "Alice"}
+                         properties: %{"bolty" => true, "name" => "Alice"}
                        },
-                       %Boltx.Types.Node{
+                       %Bolty.Types.Node{
                          id: _,
                          labels: [],
-                         properties: %{"boltx" => true, "name" => "Bob"}
+                         properties: %{"bolty" => true, "name" => "Bob"}
                        }
                      ],
                      relationships: [
-                       %Boltx.Types.UnboundRelationship{
+                       %Bolty.Types.UnboundRelationship{
                          id: _,
                          properties: %{},
                          type: "KNOWS"
@@ -454,14 +454,14 @@ defmodule BoltxTest do
                    }
                  }
                ]
-             } = Boltx.query!(c.conn, cypher)
+             } = Bolty.query!(c.conn, cypher)
     end
 
     @tag :bolt_3_x
     @tag :bolt_4_x
     @tag :bolt_5_x
     test "Cypher with plan resul", c do
-      assert %Response{plan: plan} = Boltx.query!(c.conn, "EXPLAIN RETURN 1")
+      assert %Response{plan: plan} = Bolty.query!(c.conn, "EXPLAIN RETURN 1")
       refute plan == nil
       assert Regex.match?(~r/[3|4|5]/iu, plan["args"]["planner-version"])
     end
@@ -471,7 +471,7 @@ defmodule BoltxTest do
     @tag :bolt_5_x
     test "EXPLAIN MATCH (n), (m) RETURN n, m", c do
       assert %Response{notifications: notifications, plan: plan} =
-               Boltx.query!(c.conn, "EXPLAIN MATCH (n), (m) RETURN n, m")
+               Bolty.query!(c.conn, "EXPLAIN MATCH (n), (m) RETURN n, m")
 
       refute notifications == nil
       refute plan == nil
@@ -499,11 +499,11 @@ defmodule BoltxTest do
       query = "RETURN point($point_data) AS pt"
       params = %{point_data: Point.create(:cartesian, 50, 60.5)}
 
-      assert {:ok, %Response{results: res}} = Boltx.query(c.conn, query, params)
+      assert {:ok, %Response{results: res}} = Bolty.query(c.conn, query, params)
 
       assert res == [
                %{
-                 "pt" => %Boltx.Types.Point{
+                 "pt" => %Bolty.Types.Point{
                    crs: "cartesian",
                    height: nil,
                    latitude: nil,
@@ -548,22 +548,22 @@ defmodule BoltxTest do
         year: 2
       }
 
-      assert {:ok, %Response{results: [%{"d" => ^expected}]}} = Boltx.query(c.conn, query, params)
+      assert {:ok, %Response{results: [%{"d" => ^expected}]}} = Bolty.query(c.conn, query, params)
     end
   end
 
   defp connect(c) do
-    {:ok, conn} = Boltx.start_link(@opts)
+    {:ok, conn} = Bolty.start_link(@opts)
     Map.put(c, :conn, conn)
   end
 
   defp truncate(c) do
-    Boltx.query!(c.conn, "MATCH (n) DETACH DELETE n")
+    Bolty.query!(c.conn, "MATCH (n) DETACH DELETE n")
     c
   end
 
   defp rebuild_fixtures(c) do
-    Boltx.Test.Fixture.create_graph(c.conn, :boltx)
+    Bolty.Test.Fixture.create_graph(c.conn, :bolty)
     c
   end
 end

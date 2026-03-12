@@ -1,6 +1,4 @@
-defmodule Boltx.Error do
-  @moduledoc false
-
+defmodule Bolty.Error do
   @error_map %{
     "Neo.ClientError.Security.Unauthorized" => :unauthorized,
     "Neo.ClientError.Request.Invalid" => :request_invalid,
@@ -35,7 +33,7 @@ defmodule Boltx.Error do
 
   ### Examples
 
-       iex> {:error, %Boltx.Error{} = error} = do_something()
+       iex> {:error, %Bolty.Error{} = error} = do_something()
        iex> Exception.message(error)
        "Unable to perform this action."
 

@@ -1,4 +1,4 @@
-defmodule Boltx.BoltProtocol.ServerResponse do
+defmodule Bolty.BoltProtocol.ServerResponse do
   @moduledoc false
 
   import Record

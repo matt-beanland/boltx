@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.MessageEncoderTest do
+defmodule Bolty.BoltProtocol.Message.MessageEncoderTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.{
+  alias Bolty.BoltProtocol.Message.{
     AckFailureMessage,
     InitMessage,
     BeginMessage,
@@ -18,7 +18,7 @@ defmodule Boltx.BoltProtocol.Message.MessageEncoderTest do
   @moduletag :core
 
   defmodule TestUser do
-    defstruct name: "", boltx: true
+    defstruct name: "", bolty: true
   end
 
   describe "Encode ACK_FAILURE" do
@@ -118,11 +118,11 @@ defmodule Boltx.BoltProtocol.Message.MessageEncoderTest do
 
     test "with parameters encoding a structure" do
       query = "CREATE (n:User $props)"
-      params = %{props: %TestUser{boltx: true, name: "Strut"}}
+      params = %{props: %TestUser{bolty: true, name: "Strut"}}
 
       assert <<0, 88, 179, 16, 208, 22, 67, 82, 69, 65, 84, 69, 32, 40, 110, 58, 85, 115, 101,
                114, 32, 36, 112, 114, 111, 112, 115, 41, 161, 133, 112, 114, 111, 112, 115, 162,
-               132, 110, 97, 109, 101, 133, 83, 116, 114, 117, 116, 133, 98, 111, 108, 116, 120,
+               132, 110, 97, 109, 101, 133, 83, 116, 114, 117, 116, 133, 98, 111, 108, 116, 121,
                195, 164, 132, 109, 111, 100, 101, 129, 119, 137, 98, 111, 111, 107, 109, 97, 114,
                107, 115, 144, 130, 100, 98, 192, 139, 116, 120, 95, 109, 101, 116, 97, 100, 97,
                116, 97, 192, 0, 0>> ==

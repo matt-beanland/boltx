@@ -1,5 +1,5 @@
-defmodule Boltx.Response do
-  import Boltx.BoltProtocol.ServerResponse
+defmodule Bolty.Response do
+  import Bolty.BoltProtocol.ServerResponse
 
   @type t :: %__MODULE__{
           results: list,
@@ -19,7 +19,7 @@ defmodule Boltx.Response do
   @type element :: any
 
   @doc """
-  Una estructura que representa una consulta Boltx.
+  Una estructura que representa una consulta Bolty.
 
   * `statement` - La declaración de la consulta.
   * `extra` - Datos adicionales asociados con la consulta.

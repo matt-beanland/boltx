@@ -1,6 +1,6 @@
 defmodule ConvertersTest do
   use ExUnit.Case
-  alias Boltx.Utils.Converters
+  alias Bolty.Utils.Converters
 
   describe "to_float/1" do
     @tag core: true

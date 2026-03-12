@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.RollbackMessage do
+defmodule Bolty.BoltProtocol.Message.RollbackMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x13
 
@@ -12,7 +12,7 @@ defmodule Boltx.BoltProtocol.Message.RollbackMessage do
 
   def encode(_) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "ROLLBACK message version not supported"
      })}

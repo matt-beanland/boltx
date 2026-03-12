@@ -10,11 +10,11 @@ import Config
 
 # You can configure for your application as:
 #
-#     config :boltx, key: :value
+#     config :bolty, key: :value
 #
 # And access this configuration in your application as:
 #
-#     Application.get_env(:boltx, :key)
+#     Application.get_env(:bolty, :key)
 #
 # Or configure a 3rd-party app:
 #

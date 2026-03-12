@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.MessageEncoder do
+defmodule Bolty.BoltProtocol.MessageEncoder do
   @moduledoc false
 
-  alias Boltx.PackStream
+  alias Bolty.PackStream
 
   @max_chunk_size 65_535
   @end_marker <<0x00, 0x00>>
@@ -10,14 +10,14 @@ defmodule Boltx.BoltProtocol.MessageEncoder do
   @struct16_marker 0xDD
 
   def encode(signature, data) do
-    Boltx.Utils.Logger.log_message(:client, :message_type, data)
+    Bolty.Utils.Logger.log_message(:client, :message_type, data)
 
     encoded =
       signature
       |> do_encode(data)
       |> generate_chunks([])
 
-    Boltx.Utils.Logger.log_message(:client, :message_type, encoded, :hex)
+    Bolty.Utils.Logger.log_message(:client, :message_type, encoded, :hex)
     encoded |> IO.iodata_to_binary()
   end
 

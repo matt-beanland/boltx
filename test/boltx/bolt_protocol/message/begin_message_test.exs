@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.BeginMessageTest do
+defmodule Bolty.BoltProtocol.Message.BeginMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.BeginMessage
+  alias Bolty.BoltProtocol.Message.BeginMessage
 
   describe "BeginMessage.encode/2" do
     @tag :core
@@ -31,8 +31,8 @@ defmodule Boltx.BoltProtocol.Message.BeginMessageTest do
       bolt_version = 2.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.BeginMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.BeginMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = BeginMessage.encode(bolt_version, %{})
     end

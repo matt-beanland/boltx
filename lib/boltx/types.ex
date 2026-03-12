@@ -1,4 +1,4 @@
-defmodule Boltx.Types do
+defmodule Bolty.Types do
   @moduledoc """
   Basic support for representing nodes, relationships and paths belonging to
   a Neo4j graph database.
@@ -28,7 +28,7 @@ defmodule Boltx.Types do
   - 3D point (cartesian or geographic)
   """
 
-  alias Boltx.TypesHelper
+  alias Bolty.TypesHelper
 
   defmodule Entity do
     @moduledoc """
@@ -170,7 +170,7 @@ defmodule Boltx.Types do
           struct(UnboundRelationship, unbound_relationship)
         else
           # rel: rels[-rel_index - 1], start/end: (next_node.id, ln.id)
-          # Neo4j sends: -1, and Boltx.Internals. returns 255 instead? Investigating,
+          # Neo4j sends: -1, and Bolty.Internals. returns 255 instead? Investigating,
           # meanwhile ugly path:
           # oh dear ...
           haha = if h == 255, do: -1, else: h
@@ -313,7 +313,7 @@ defmodule Boltx.Types do
 
     ## Examples:
         iex> Point.create(:cartesian, 10, 20.0)
-        %Boltx.Types.Point{
+        %Bolty.Types.Point{
           crs: "cartesian",
           height: nil,
           latitude: nil,
@@ -324,7 +324,7 @@ defmodule Boltx.Types do
           z: nil
         }
         iex> Point.create(4326, 10, 20.0)
-        %Boltx.Types.Point{
+        %Bolty.Types.Point{
           crs: "wgs-84",
           height: nil,
           latitude: 20.0,
@@ -373,7 +373,7 @@ defmodule Boltx.Types do
 
     ## Examples:
         iex> Point.create(:cartesian, 10, 20.0, 30)
-        %Boltx.Types.Point{
+        %Bolty.Types.Point{
           crs: "cartesian-3d",
           height: nil,
           latitude: nil,
@@ -384,7 +384,7 @@ defmodule Boltx.Types do
           z: 30.0
         }
         iex> Point.create(4979, 10, 20.0, 30)
-        %Boltx.Types.Point{
+        %Bolty.Types.Point{
           crs: "wgs-84-3d",
           height: 30.0,
           latitude: 20.0,

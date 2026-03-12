@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.RunMessage do
+defmodule Bolty.BoltProtocol.Message.RunMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x10
 
@@ -19,7 +19,7 @@ defmodule Boltx.BoltProtocol.Message.RunMessage do
 
   def encode(_, _, _, _) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "RUN message version not supported"
      })}
@@ -42,7 +42,7 @@ defmodule Boltx.BoltProtocol.Message.RunMessage do
 
       {:failure, response} ->
         {:error,
-         Boltx.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
     end
   end
 

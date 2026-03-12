@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.ResetMessage do
+defmodule Bolty.BoltProtocol.Message.ResetMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x0F
 
@@ -11,7 +11,7 @@ defmodule Boltx.BoltProtocol.Message.ResetMessage do
 
   def encode(_) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "RESET message version not supported"
      })}

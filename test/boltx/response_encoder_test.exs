@@ -1,6 +1,6 @@
-defmodule Boltx.ResponseEncoderTest do
+defmodule Bolty.ResponseEncoderTest do
   use ExUnit.Case, async: true
   @moduletag :legacy
 
-  doctest Boltx.ResponseEncoder
+  doctest Bolty.ResponseEncoder
 end

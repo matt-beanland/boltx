@@ -1,4 +1,4 @@
-alias Boltx.Utils.Converters
+alias Bolty.Utils.Converters
 
 Logger.configure(level: :debug)
 
@@ -11,7 +11,7 @@ exclude = [
 
 include = [:core]
 
-available_versions = Boltx.BoltProtocol.Versions.available_versions()
+available_versions = Bolty.BoltProtocol.Versions.available_versions()
 
 env_versions =
   System.get_env("BOLT_VERSIONS", "")
@@ -45,12 +45,12 @@ env_versions =
 ExUnit.start(capture_log: true, assert_receive_timeout: 500, exclude: exclude, include: include)
 Application.ensure_started(:porcelain)
 
-defmodule Boltx.TestHelper do
+defmodule Bolty.TestHelper do
   def opts() do
     [
       hostname: "127.0.0.1",
       auth: [username: "neo4j", password: "password"],
-      user_agent: "boltxTest/1",
+      user_agent: "boltyTest/1",
       ssl_opts: ssl_opts(),
       pool_size: 1,
       prefix: :default,
@@ -62,7 +62,7 @@ defmodule Boltx.TestHelper do
   def opts_without_auth() do
     [
       hostname: "127.0.0.1",
-      user_agent: "boltxTest/1",
+      user_agent: "boltyTest/1",
       ssl_opts: ssl_opts(),
       pool_size: 1,
       max_overflow: 3,
@@ -99,10 +99,10 @@ defmodule Boltx.TestHelper do
   defp file_error_description(reason), do: "due to #{reason}."
 end
 
-# Boltx.start_link(Application.get_env(:boltx, Bolt))
+# Bolty.start_link(Application.get_env(:bolty, Bolt))
 
 # I am using the test db for debugging and the line below will clear *everything*
-# Boltx.query(Boltx.conn, "MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r")
+# Bolty.query(Bolty.conn, "MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r")
 #
 # todo: The tests should cleanup the data they create.
 

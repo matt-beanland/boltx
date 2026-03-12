@@ -1,7 +1,7 @@
-defmodule Boltx.TypesHelperTest do
+defmodule Bolty.TypesHelperTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.TypesHelper
+  alias Bolty.TypesHelper
   @moduletag :legacy
 
   describe "decompose_in_hms/1:" do

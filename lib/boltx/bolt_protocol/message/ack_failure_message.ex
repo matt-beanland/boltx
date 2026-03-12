@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.AckFailureMessage do
+defmodule Bolty.BoltProtocol.Message.AckFailureMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x0E
 
@@ -11,7 +11,7 @@ defmodule Boltx.BoltProtocol.Message.AckFailureMessage do
 
   def encode(_) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "ACK FAILURE message version not supported"
      })}

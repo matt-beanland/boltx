@@ -1,20 +1,20 @@
-defmodule Boltx.Mixfile do
+defmodule Bolty.Mixfile do
   use Mix.Project
 
-  @version "0.0.6"
-  @url_docs "https://hexdocs.pm/boltx"
-  @url_github "https://github.com/sagastume/boltx"
+  @version "0.0.7"
+  @url_docs "https://hexdocs.pm/bolty"
+  @url_github "https://github.com/diffo-dev/bolty"
 
   def project do
     [
-      app: :boltx,
+      app: :bolty,
       version: @version,
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       package: package(),
       description: "Neo4j driver for Elixir, using the fast Bolt protocol",
-      name: "Boltx",
+      name: "Bolty",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       docs: docs(),
@@ -34,7 +34,7 @@ defmodule Boltx.Mixfile do
       preferred_envs: [
         bench: :bench,
         credo: :dev,
-        boltx: :test,
+        bolty: :test,
         coveralls: :test,
         "coveralls.html": :test,
         "coveralls.travis": :test
@@ -66,9 +66,9 @@ defmodule Boltx.Mixfile do
         "mix.exs",
         "LICENSE"
       ],
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       maintainers: [
-        "Luis Sagastume"
+        "Matt Beanland"
       ],
       links: %{
         "Docs" => @url_docs,

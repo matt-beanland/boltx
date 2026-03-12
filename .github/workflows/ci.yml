@@ -98,7 +98,7 @@ jobs:
       TEST_PARTITION_NUMBER: ${{ matrix.mixTestPartition }}
       RUN_ID: ${{github.run_id}}
     steps:
-      - run: docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/boltxPassword -e NEO4J_dbms_connector_bolt_listen__address=:7687 --detach ${{matrix.db}}
+      - run: docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/boltyPassword -e NEO4J_dbms_connector_bolt_listen__address=:7687 --detach ${{matrix.db}}
       - name: Checkout code
         uses: actions/checkout@v4
 

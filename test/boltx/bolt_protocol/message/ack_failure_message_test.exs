@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.AckFailureMessageTest do
+defmodule Bolty.BoltProtocol.Message.AckFailureMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.AckFailureMessage
+  alias Bolty.BoltProtocol.Message.AckFailureMessage
 
   describe "AckFailureMessage.encode/1" do
     @tag :core
@@ -16,8 +16,8 @@ defmodule Boltx.BoltProtocol.Message.AckFailureMessageTest do
       bolt_version = 3.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.AckFailureMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.AckFailureMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = AckFailureMessage.encode(bolt_version)
     end
@@ -27,8 +27,8 @@ defmodule Boltx.BoltProtocol.Message.AckFailureMessageTest do
       bolt_version = 1
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.AckFailureMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.AckFailureMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = AckFailureMessage.encode(bolt_version)
     end

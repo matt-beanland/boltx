@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.BeginMessage do
+defmodule Bolty.BoltProtocol.Message.BeginMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x11
 
@@ -13,7 +13,7 @@ defmodule Boltx.BoltProtocol.Message.BeginMessage do
 
   def encode(_, _) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "BEGIN message version not supported"
      })}

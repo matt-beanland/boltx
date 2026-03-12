@@ -1,9 +1,9 @@
-defmodule Boltx.BoltProtocol.Message.PullMessage do
+defmodule Bolty.BoltProtocol.Message.PullMessage do
   @moduledoc false
 
-  import Boltx.BoltProtocol.ServerResponse
+  import Bolty.BoltProtocol.ServerResponse
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x3F
 
@@ -20,7 +20,7 @@ defmodule Boltx.BoltProtocol.Message.PullMessage do
 
   def encode(_, _) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "PULL message version not supported"
      })}
@@ -32,7 +32,7 @@ defmodule Boltx.BoltProtocol.Message.PullMessage do
     case List.keymember?(messages, :failure, 0) do
       true ->
         {:error,
-         Boltx.Error.wrap(__MODULE__, %{
+         Bolty.Error.wrap(__MODULE__, %{
            code: messages[:failure]["code"],
            message: messages[:failure]["message"]
          })}

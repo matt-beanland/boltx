@@ -1,6 +1,6 @@
 defmodule Large.Param.Set.Test do
   use ExUnit.Case
-  doctest Boltx
+  doctest Bolty
   @moduletag :legacy
 
   @doc """
@@ -11,11 +11,11 @@ defmodule Large.Param.Set.Test do
     conn = context[:conn]
 
     cypher = """
-      MATCH (n:Person {boltx: true})
+      MATCH (n:Person {bolty: true})
       FOREACH (i IN $largeRange| SET n.test = TRUE )
     """
 
-    case Boltx.query(conn, cypher, %{largeRange: Enum.to_list(0..1_000_000)}) do
+    case Bolty.query(conn, cypher, %{largeRange: Enum.to_list(0..1_000_000)}) do
       {:ok, stats} ->
         assert stats["properties-set"] > 0, "Expecting many properties set"
 

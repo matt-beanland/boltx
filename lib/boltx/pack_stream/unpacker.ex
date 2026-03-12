@@ -1,9 +1,9 @@
-defmodule Boltx.PackStream.Unpacker do
+defmodule Bolty.PackStream.Unpacker do
   @moduledoc false
 
-  use Boltx.PackStream.Markers
+  use Bolty.PackStream.Markers
 
-  alias Boltx.Types.{
+  alias Bolty.Types.{
     TimeWithTZOffset,
     DateTimeWithTZOffset,
     Point,
@@ -13,7 +13,7 @@ defmodule Boltx.PackStream.Unpacker do
     Path
   }
 
-  alias Boltx.TypesHelper
+  alias Bolty.TypesHelper
 
   # Null
   def unpack(<<@null_marker, rest::binary>>) do
@@ -231,7 +231,7 @@ defmodule Boltx.PackStream.Unpacker do
         :nanosecond
       )
 
-    dt = Boltx.TypesHelper.datetime_with_micro(naive_dt, zone_id)
+    dt = Bolty.TypesHelper.datetime_with_micro(naive_dt, zone_id)
     [dt | rest]
   end
 

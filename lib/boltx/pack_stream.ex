@@ -1,8 +1,8 @@
-defmodule Boltx.PackStream do
+defmodule Bolty.PackStream do
   @moduledoc false
 
-  alias Boltx.PackStream.Packer
-  alias Boltx.PackStream.Unpacker
+  alias Bolty.PackStream.Packer
+  alias Bolty.PackStream.Unpacker
 
   def pack(term, options \\ []) do
     iodata? = Keyword.get(options, :iodata, false)
@@ -13,7 +13,7 @@ defmodule Boltx.PackStream do
       :throw, error ->
         {:error, error}
 
-      :error, %Protocol.UndefinedError{protocol: Boltx.PackStream.Packer} = exception ->
+      :error, %Protocol.UndefinedError{protocol: Bolty.PackStream.Packer} = exception ->
         {:error, exception}
     else
       iodata when iodata? ->

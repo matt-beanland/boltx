@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.ResetMessageTest do
+defmodule Bolty.BoltProtocol.Message.ResetMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.ResetMessage
+  alias Bolty.BoltProtocol.Message.ResetMessage
 
   describe "ResetMessage.encode/1" do
     @tag :core
@@ -15,8 +15,8 @@ defmodule Boltx.BoltProtocol.Message.ResetMessageTest do
       bolt_version = 2.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.ResetMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.ResetMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = ResetMessage.encode(bolt_version)
     end
@@ -26,8 +26,8 @@ defmodule Boltx.BoltProtocol.Message.ResetMessageTest do
       bolt_version = 1
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.ResetMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.ResetMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = ResetMessage.encode(bolt_version)
     end

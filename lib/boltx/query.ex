@@ -1,8 +1,8 @@
-defmodule Boltx.Query do
+defmodule Bolty.Query do
   @moduledoc """
-  This module defines a structure to represent Boltx single query.
+  This module defines a structure to represent Bolty single query.
 
-  A Boltx query consists of a statement and additional data (extra).
+  A Bolty query consists of a statement and additional data (extra).
 
   """
 
@@ -34,22 +34,22 @@ defmodule Boltx.Query do
             extra: %{}
 end
 
-defmodule Boltx.Queries do
+defmodule Bolty.Queries do
   @moduledoc """
-  This module defines a structure to represent Boltx queries.
+  This module defines a structure to represent Bolty queries.
 
   It consists of a statement and additional data (extra). The extra configuration applies to all queries.
   """
 
   @type t :: %__MODULE__{
           statement: String.t(),
-          extra: Boltx.Query.extra()
+          extra: Bolty.Query.extra()
         }
   defstruct statement: "",
             extra: %{}
 end
 
-defimpl DBConnection.Query, for: [Boltx.Query, Boltx.Queries] do
+defimpl DBConnection.Query, for: [Bolty.Query, Bolty.Queries] do
   def describe(query, _), do: query
 
   def parse(query, _), do: query

@@ -1,6 +1,6 @@
-defprotocol Boltx.PackStream.Packer do
+defprotocol Bolty.PackStream.Packer do
   @moduledoc """
-  The `Boltx.PackStream.Packer` protocol is responsible for serializing any Elixir data
+  The `Bolty.PackStream.Packer` protocol is responsible for serializing any Elixir data
   structure according to the PackStream specification.
 
   ##  Serializing for structs
@@ -9,7 +9,7 @@ defprotocol Boltx.PackStream.Packer do
   perform a derivation. Below is an example:
 
       defmodule Book do
-        @derive [{Boltx.PackStream.Packer, fields: [:name]}]
+        @derive [{Bolty.PackStream.Packer, fields: [:name]}]
         defstruct [:name, :other_data]
       end`
 
@@ -18,8 +18,8 @@ defprotocol Boltx.PackStream.Packer do
   def pack(term)
 end
 
-defimpl Boltx.PackStream.Packer, for: Atom do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Atom do
+  use Bolty.PackStream.Markers
 
   def pack(nil), do: <<@null_marker>>
   def pack(false), do: <<@false_marker>>
@@ -32,15 +32,15 @@ defimpl Boltx.PackStream.Packer, for: Atom do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: BitString do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: BitString do
+  use Bolty.PackStream.Markers
 
   def pack(binary) when is_binary(binary) do
     [marker(binary), binary]
   end
 
   def pack(bits) do
-    throw(Boltx.Error.wrap(__MODULE__, :not_encodable, bits: bits))
+    throw(Bolty.Error.wrap(__MODULE__, :not_encodable, bits: bits))
   end
 
   defp marker(binary) do
@@ -51,13 +51,13 @@ defimpl Boltx.PackStream.Packer, for: BitString do
       size <= 255 -> <<@bitstring8_marker, size::8>>
       size <= 65_535 -> <<@bitstring16_marker, size::16>>
       size <= 4_294_967_295 -> <<@bitstring32_marker, size::32>>
-      true -> throw(Boltx.Error.wrap(__MODULE__, :not_encodable_too_big, bits: binary))
+      true -> throw(Bolty.Error.wrap(__MODULE__, :not_encodable_too_big, bits: binary))
     end
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Integer do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Integer do
+  use Bolty.PackStream.Markers
 
   def pack(integer) when integer in -16..127 do
     <<integer>>
@@ -80,16 +80,16 @@ defimpl Boltx.PackStream.Packer, for: Integer do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Float do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Float do
+  use Bolty.PackStream.Markers
 
   def pack(number) do
     <<@float_marker, number::float>>
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: List do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: List do
+  use Bolty.PackStream.Markers
 
   def pack(list) do
     [marker(list), list |> Enum.map(&@protocol.pack(&1))]
@@ -103,13 +103,13 @@ defimpl Boltx.PackStream.Packer, for: List do
       length <= 255 -> <<@list8_marker, length::8>>
       length <= 65_535 -> <<@list16_marker, length::16>>
       length <= 4_294_967_295 -> <<@list32_marker, length::32>>
-      true -> throw(Boltx.Error.wrap(__MODULE__, :not_encodable_too_big, bits: list))
+      true -> throw(Bolty.Error.wrap(__MODULE__, :not_encodable_too_big, bits: list))
     end
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Map do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Map do
+  use Bolty.PackStream.Markers
 
   def pack(map) do
     [marker(map), map |> encode_kv()]
@@ -123,7 +123,7 @@ defimpl Boltx.PackStream.Packer, for: Map do
       length <= 255 -> <<@map8_marker, length::8>>
       length <= 65_535 -> <<@map16_marker, length::16>>
       length <= 4_294_967_295 -> <<@map32_marker, length::32>>
-      true -> throw(Boltx.Error.wrap(__MODULE__, :not_encodable_too_big, bits: map))
+      true -> throw(Bolty.Error.wrap(__MODULE__, :not_encodable_too_big, bits: map))
     end
   end
 
@@ -141,8 +141,8 @@ defimpl Boltx.PackStream.Packer, for: Map do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Time do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Time do
+  use Bolty.PackStream.Markers
 
   def pack(time) do
     local_time = day_time(time)
@@ -159,8 +159,8 @@ defimpl Boltx.PackStream.Packer, for: Time do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Date do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Date do
+  use Bolty.PackStream.Markers
 
   def pack(date) do
     epoch = Date.diff(date, ~D[1970-01-01])
@@ -168,8 +168,8 @@ defimpl Boltx.PackStream.Packer, for: Date do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: DateTime do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: DateTime do
+  use Bolty.PackStream.Markers
 
   def pack(datetime) do
     data =
@@ -196,8 +196,8 @@ defimpl Boltx.PackStream.Packer, for: DateTime do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: NaiveDateTime do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: NaiveDateTime do
+  use Bolty.PackStream.Markers
 
   def pack(local_datetime) do
     data =
@@ -220,10 +220,10 @@ defimpl Boltx.PackStream.Packer, for: NaiveDateTime do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Boltx.Types.TimeWithTZOffset do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Bolty.Types.TimeWithTZOffset do
+  use Bolty.PackStream.Markers
 
-  def pack(%Boltx.Types.TimeWithTZOffset{time: time, timezone_offset: offset}) do
+  def pack(%Bolty.Types.TimeWithTZOffset{time: time, timezone_offset: offset}) do
     time_and_offset = [day_time(time), offset]
 
     data =
@@ -241,10 +241,10 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.TimeWithTZOffset do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Boltx.Types.DateTimeWithTZOffset do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Bolty.Types.DateTimeWithTZOffset do
+  use Bolty.PackStream.Markers
 
-  def pack(%Boltx.Types.DateTimeWithTZOffset{naive_datetime: ndt, timezone_offset: tz_offset}) do
+  def pack(%Bolty.Types.DateTimeWithTZOffset{naive_datetime: ndt, timezone_offset: tz_offset}) do
     data =
       Enum.map(
         decompose_datetime(ndt) ++ [tz_offset],
@@ -269,8 +269,8 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.DateTimeWithTZOffset do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Duration do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Duration do
+  use Bolty.PackStream.Markers
 
   def pack(duration) do
     data =
@@ -292,10 +292,10 @@ defimpl Boltx.PackStream.Packer, for: Duration do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Boltx.Types.Point do
-  use Boltx.PackStream.Markers
+defimpl Bolty.PackStream.Packer, for: Bolty.Types.Point do
+  use Bolty.PackStream.Markers
 
-  def pack(%Boltx.Types.Point{z: nil} = point) do
+  def pack(%Bolty.Types.Point{z: nil} = point) do
     data =
       Enum.map(
         [point.srid, point.x, point.y],
@@ -305,7 +305,7 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.Point do
     [<<@tiny_struct_marker::4, @point2d_struct_size::4, @point2d_signature>>, data]
   end
 
-  def pack(%Boltx.Types.Point{} = point) do
+  def pack(%Bolty.Types.Point{} = point) do
     data =
       Enum.map(
         [point.srid, point.x, point.y, point.z],
@@ -316,7 +316,7 @@ defimpl Boltx.PackStream.Packer, for: Boltx.Types.Point do
   end
 end
 
-defimpl Boltx.PackStream.Packer, for: Any do
+defimpl Bolty.PackStream.Packer, for: Any do
   defmacro __deriving__(module, struct, options) do
     deriving(module, struct, options)
   end

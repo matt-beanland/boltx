@@ -1,4 +1,4 @@
-defmodule Boltx.TypesHelper do
+defmodule Bolty.TypesHelper do
   @moduledoc false
 
   @doc """

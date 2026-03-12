@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.MessageDecoder do
+defmodule Bolty.BoltProtocol.MessageDecoder do
   @moduledoc false
 
-  alias Boltx.PackStream
+  alias Bolty.PackStream
 
   @type in_signature :: :failure | :ignored | :record | :success
   @type encoded :: <<_::16, _::_*8>>
@@ -34,7 +34,7 @@ defmodule Boltx.BoltProtocol.MessageDecoder do
   end
 
   defp build_response(message_type, data, nb_entries) do
-    Boltx.Utils.Logger.log_message(:server, message_type, data, :hex)
+    Bolty.Utils.Logger.log_message(:server, message_type, data, :hex)
 
     response =
       case PackStream.unpack(data) do
@@ -45,7 +45,7 @@ defmodule Boltx.BoltProtocol.MessageDecoder do
           response
       end
 
-    Boltx.Utils.Logger.log_message(:server, message_type, response)
+    Bolty.Utils.Logger.log_message(:server, message_type, response)
     {message_type, response}
   end
 end

@@ -1,6 +1,6 @@
-defmodule Boltx.ResponseEncoder do
+defmodule Bolty.ResponseEncoder do
   @moduledoc """
-  This module provides functions to encode a query result or data containing Boltx.Types
+  This module provides functions to encode a query result or data containing Bolty.Types
   into various format.
 
   For now, only JSON is supported.
@@ -18,18 +18,18 @@ defmodule Boltx.ResponseEncoder do
   - the result is encoded in json via Jason
 
   Both of these steps are overridable, see:
-  - for step 1: `Boltx.ResponseEncoder.Json`
+  - for step 1: `Bolty.ResponseEncoder.Json`
   - for step 2 (depending of your preferred library):
-  - `Boltx.ResponseEncoder.Json.Jason`
-  - `Boltx.ResponseEncoder.Json.Poison`
+  - `Bolty.ResponseEncoder.Json.Jason`
+  - `Bolty.ResponseEncoder.Json.Poison`
 
   ## Example
 
-      iex> data = %{"t1" => %Boltx.Types.Node{
+      iex> data = %{"t1" => %Bolty.Types.Node{
       ...>     id: 69,
       ...>     labels: ["Test"],
       ...>     properties: %{
-      ...>       "created" => %Boltx.Types.DateTimeWithTZOffset{
+      ...>       "created" => %Bolty.Types.DateTimeWithTZOffset{
       ...>         naive_datetime: ~N[2016-05-24 13:26:08.543],
       ...>         timezone_offset: 7200
       ...>       },
@@ -37,10 +37,10 @@ defmodule Boltx.ResponseEncoder do
       ...>     }
       ...>   }
       ...> }
-      iex> Boltx.ResponseEncoder.encode(data, :json)
+      iex> Bolty.ResponseEncoder.encode(data, :json)
       {:ok, ~S|{"t1":{"id":69,"labels":["Test"],"properties":{"created":"2016-05-24T13:26:08.543+02:00","uuid":12345}}}|}
 
-      iex> Boltx.ResponseEncoder.encode("\\xFF", :json)
+      iex> Bolty.ResponseEncoder.encode("\\xFF", :json)
       {:error, %Jason.EncodeError{message: "invalid byte 0xFF in <<255>>"}}
   """
   @spec encode(any(), :json) ::
@@ -58,11 +58,11 @@ defmodule Boltx.ResponseEncoder do
 
   ## Example
 
-      iex> data = %{"t1" => %Boltx.Types.Node{
+      iex> data = %{"t1" => %Bolty.Types.Node{
       ...>     id: 69,
       ...>     labels: ["Test"],
       ...>     properties: %{
-      ...>       "created" => %Boltx.Types.DateTimeWithTZOffset{
+      ...>       "created" => %Bolty.Types.DateTimeWithTZOffset{
       ...>         naive_datetime: ~N[2016-05-24 13:26:08.543],
       ...>         timezone_offset: 7200
       ...>       },
@@ -70,10 +70,10 @@ defmodule Boltx.ResponseEncoder do
       ...>     }
       ...>   }
       ...> }
-      iex> Boltx.ResponseEncoder.encode!(data, :json)
+      iex> Bolty.ResponseEncoder.encode!(data, :json)
       ~S|{"t1":{"id":69,"labels":["Test"],"properties":{"created":"2016-05-24T13:26:08.543+02:00","uuid":12345}}}|
 
-      iex> Boltx.ResponseEncoder.encode!("\\xFF", :json)
+      iex> Bolty.ResponseEncoder.encode!("\\xFF", :json)
       ** (Jason.EncodeError) invalid byte 0xFF in <<255>>
   """
   @spec encode!(any(), :json) :: String.t() | no_return()
@@ -85,6 +85,6 @@ defmodule Boltx.ResponseEncoder do
 
   defp jsonable_response(response) do
     response
-    |> Boltx.ResponseEncoder.Json.encode()
+    |> Bolty.ResponseEncoder.Json.encode()
   end
 end

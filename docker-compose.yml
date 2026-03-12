@@ -9,7 +9,7 @@ services:
     ports:
       - 7688:7687
     environment:
-      - NEO4J_AUTH=neo4j/boltxPassword
+      - NEO4J_AUTH=neo4j/boltyPassword
       - NEO4J_dbms_mode=CORE
       - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
       - NEO4J_dbms_connector_bolt_listen__address=:7687
@@ -21,7 +21,7 @@ services:
     ports:
       - 7689:7687
     environment:
-      - NEO4J_AUTH=neo4j/boltxPassword
+      - NEO4J_AUTH=neo4j/boltyPassword
   neo4j-5.13.0:
     image: neo4j:5.13.0-community
     labels:
@@ -30,7 +30,7 @@ services:
     ports:
       - 7690:7687
     environment:
-      - NEO4J_AUTH=neo4j/boltxPassword
+      - NEO4J_AUTH=neo4j/boltyPassword
   memgraph-2.13.0:
     image: "memgraph/memgraph:2.13.0"
     labels:
@@ -40,6 +40,6 @@ services:
       - "7691:7687"
     environment:
       MEMGRAPH_USER: "neo4j"
-      MEMGRAPH_PASSWORD: "boltxPassword"
+      MEMGRAPH_PASSWORD: "boltyPassword"
     command: ["--also-log-to-stderr=true", "--bolt-server-name-for-init=Neo4j/5.2.0"]
     entrypoint: ["/usr/lib/memgraph/memgraph", "--log-level=TRACE"]

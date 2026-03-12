@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: >
-        Thank you for contributing to Boltx! :heart:
+        Thank you for contributing to Bolty! :heart:
 
   - type: textarea
     id: elixir-and-otp-version
@@ -33,10 +33,10 @@ body:
       required: true
 
   - type: input
-    id: boltx
+    id: bolty
     attributes:
-      label: Boltx version
-      description: The version of Boltx in which this problem occurs. (Boltx 0.0.5, etc.)
+      label: Bolty version
+      description: The version of Bolty in which this problem occurs. (Bolty 0.0.5, etc.)
     validations:
       required: true
 

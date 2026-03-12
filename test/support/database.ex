@@ -1,5 +1,5 @@
-defmodule Boltx.Test.Support.Database do
+defmodule Bolty.Test.Support.Database do
   def clear(conn) do
-    Boltx.query!(conn, "MATCH (n) DETACH DELETE n")
+    Bolty.query!(conn, "MATCH (n) DETACH DELETE n")
   end
 end

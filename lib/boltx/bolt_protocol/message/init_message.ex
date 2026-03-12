@@ -1,9 +1,9 @@
-defmodule Boltx.BoltProtocol.Message.InitMessage do
+defmodule Bolty.BoltProtocol.Message.InitMessage do
   @moduledoc false
 
-  import Boltx.BoltProtocol.Message.Shared.AuthHelper
+  import Bolty.BoltProtocol.Message.Shared.AuthHelper
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x01
 
@@ -14,7 +14,7 @@ defmodule Boltx.BoltProtocol.Message.InitMessage do
 
   def encode(_, _) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "INIT message version not supported"
      })}

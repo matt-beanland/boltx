@@ -1,4 +1,4 @@
-defmodule Boltx.PackStream.Markers do
+defmodule Bolty.PackStream.Markers do
   @moduledoc false
   defmacro __using__(_opts) do
     quote do

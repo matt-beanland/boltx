@@ -1,13 +1,15 @@
-# Boltx
+# Bolty
 
-`Boltx` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
+
+
+`Bolty` is a reluctant fork of the the 'Boltx' Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
 
 - Supports Neo4j versions: 3.0.x/3.1.x/3.2.x/3.4.x/3.5.x/4.x/5.9 -5.13.0
 - Supports Bolt version: 1.0/2.0/3.0/4.x/5.0/5.1/5.2/5.3/5.4
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
 
-Documentation: [https://hexdocs.pm/boltx](https://hexdocs.pm/boltx)
+Documentation: [https://hexdocs.pm/bolty](https://hexdocs.pm/bolty)
 
 ## Features
 
@@ -20,12 +22,12 @@ Documentation: [https://hexdocs.pm/boltx](https://hexdocs.pm/boltx)
 
 ## Usage
 
-Add :boltx to your dependencies:
+Add :bolty to your dependencies:
 
 ```elixir
 def deps() do
   [
-    {:boltx, "~> 0.0.6"}
+    {:bolty, "~> 0.0.7"}
   ]
 end
 ```
@@ -36,22 +38,22 @@ Using the latest version.
 
 opts = [
     hostname: "127.0.0.1",
-    auth: [username: "neo4j", password: ""],
-    user_agent: "boltxTest/1",
+    auth: [username: "neo4j", password: "password"],
+    user_agent: "boltyTest/1",
     pool_size: 15,
     max_overflow: 3,
     prefix: :default
 ]
 
-iex> {:ok, conn} = Boltx.start_link(opts)
+iex> {:ok, conn} = Bolty.start_link(opts)
 {:ok, #PID<0.237.0>}
 
-iex> Boltx.query!(conn, "return 1 as n") |> Boltx.Response.first()
+iex> Bolty.query!(conn, "return 1 as n") |> Bolty.Response.first()
 %{"n" => 1}
 
 # Commit is performed automatically if everythings went fine
-Boltx.transaction(conn, fn conn ->
-  result = Boltx.query!(conn, "CREATE (m:Movie {title: "Matrix"}) RETURN m")
+Bolty.transaction(conn, fn conn ->
+  result = Bolty.query!(conn, "CREATE (m:Movie {title: "Matrix"}) RETURN m")
 end)
 
 ```
@@ -67,17 +69,17 @@ Add the configuration to the corresponding files for each environment or to your
 ```elixir
 import Config
 
-config :boltx, Bolt,
+config :bolty, Bolt,
   uri: "bolt://localhost:7687",
   auth: [username: "neo4j", password: "password"],
-  user_agent: "boltxTest/1",
+  user_agent: "boltyTest/1",
   pool_size: 15,
   max_overflow: 3,
   prefix: :default,
   name: Bolt
 ```
 
-Add Boltx to the application's main monitoring tree and let OTP manage it.
+Add Bolty to the application's main monitoring tree and let OTP manage it.
 
 ```elixir
 # lib/n4_d/application.ex
@@ -90,8 +92,8 @@ defmodule N4D.Application do
   def start(_type, _args) do
     children = [
       %{
-        id: Boltx,
-        start: {Boltx, :start_link, [Application.get_env(:boltx, Bolt)] },
+        id: Bolty,
+        start: {Bolty, :start_link, [Application.get_env(:bolty, Bolt)] },
       }
     ]
 
@@ -104,13 +106,13 @@ Or
 
 ```elixir
 children = [
-  {Boltx, Application.get_env(:boltx, Bolt)}
+  {Bolty, Application.get_env(:bolty, Bolt)}
 ]
 ```
 Now you can run query with the name you set
 
 ```elixir
-iex> Boltx.query!(Bolt, "return 1 as n") |> Boltx.Response.first()
+iex> Bolty.query!(Bolt, "return 1 as n") |> Bolty.Response.first()
 %{"n" => 1}
 ```
 
@@ -160,3 +162,7 @@ By default, all tags are disabled except the `:core` tag. To enable the tags, it
 
 #### Help script
 To simplify test execution, the test-runner.sh script is available. You can find the corresponding documentation here: [Help script](scripts/README.md)
+
+## Acknowledgments
+
+Thanks to [Florin Patrascu](https://github.com/florinpatrascu) for [bolt_sips](https://github.com/florinpatrascu/bolt_sips) and[Luis Sagastume](https://github.com/sagastume) for [boltx](https://github.com/sagastume/boltx).

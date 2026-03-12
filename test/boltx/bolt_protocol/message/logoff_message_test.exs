@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.LogoffMessageTest do
+defmodule Bolty.BoltProtocol.Message.LogoffMessageTest do
   use ExUnit.Case, async: true
 
-  alias Boltx.BoltProtocol.Message.LogoffMessage
+  alias Bolty.BoltProtocol.Message.LogoffMessage
 
   describe "LogoffMessage.encode/1" do
     @tag :core
@@ -16,8 +16,8 @@ defmodule Boltx.BoltProtocol.Message.LogoffMessageTest do
       bolt_version = 2.0
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.LogoffMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.LogoffMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = LogoffMessage.encode(bolt_version)
     end
@@ -27,8 +27,8 @@ defmodule Boltx.BoltProtocol.Message.LogoffMessageTest do
       bolt_version = 1
 
       assert {:error,
-              %Boltx.Error{
-                module: Boltx.BoltProtocol.Message.LogoffMessage,
+              %Bolty.Error{
+                module: Bolty.BoltProtocol.Message.LogoffMessage,
                 bolt: %{code: :unsupported_message_version}
               }} = LogoffMessage.encode(bolt_version)
     end

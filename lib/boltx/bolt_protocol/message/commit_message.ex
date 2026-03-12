@@ -1,7 +1,7 @@
-defmodule Boltx.BoltProtocol.Message.CommitMessage do
+defmodule Bolty.BoltProtocol.Message.CommitMessage do
   @moduledoc false
 
-  alias Boltx.BoltProtocol.MessageEncoder
+  alias Bolty.BoltProtocol.MessageEncoder
 
   @signature 0x12
 
@@ -12,7 +12,7 @@ defmodule Boltx.BoltProtocol.Message.CommitMessage do
 
   def encode(_) do
     {:error,
-     Boltx.Error.wrap(__MODULE__, %{
+     Bolty.Error.wrap(__MODULE__, %{
        code: :unsupported_message_version,
        message: "COMMIT message version not supported"
      })}
