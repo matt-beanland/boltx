@@ -580,9 +580,14 @@ defmodule BoltyTest do
     @tag :bolt_3_x
     @tag :bolt_4_x
     @tag :bolt_5_x
-    test "transform Point in cypher-compliant data", c do
+    test "Cypher point() constructor accepts a Map parameter", c do
+      # Cypher's `point()` function requires a Map argument — it does not
+      # accept a native Bolt Point. Users who want to construct a Point via
+      # Cypher pass a plain Map; users who want to store/return a Point as
+      # data pass a `%Bolty.Types.Point{}` directly (see the property-store
+      # tests above).
       query = "RETURN point($point_data) AS pt"
-      params = %{point_data: Point.create(:cartesian, 50, 60.5)}
+      params = %{point_data: %{x: 50, y: 60.5}}
 
       assert {:ok, %Response{results: res}} = Bolty.query(c.conn, query, params)
 
