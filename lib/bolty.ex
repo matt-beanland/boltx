@@ -42,8 +42,6 @@ defmodule Bolty do
           tx_metadata: map() | nil
         }
 
-  alias Bolty.{Types}
-
   @doc """
   Starts the connection process and connects to a Bolt/Neo4j server.
 
@@ -183,8 +181,6 @@ defmodule Bolty do
       {:error, _} = error -> error
     end
   end
-
-  defp format_param({name, %Types.Point{} = point}), do: {name, Types.Point.format_param(point)}
 
   defp format_param({name, value}), do: {name, {:ok, value}}
 end

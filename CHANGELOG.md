@@ -5,6 +5,16 @@ SPDX-License-Identifier: Apache-2.0
 
 # Changelog
 
+## Unreleased
+
+* 32 `%Bolty.Types.Point{}` parameters are now sent as native PackStream
+  Points instead of being silently converted to Maps. This allows Points
+  (and arrays of Points) to be stored directly as Neo4j node properties.
+  **Breaking:** callers that pass a `%Bolty.Types.Point{}` to Cypher's
+  `point()` constructor must now pass a Map instead (or use
+  `Bolty.Types.Point.format_param/1` to convert). See
+  https://github.com/diffo-dev/bolty/pull/<TODO>.
+
 ## v0.0.12
 
 * 25 Execute/4 sends send_reset for :syntax_error/:semantic_error when inside a transaction
