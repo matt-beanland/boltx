@@ -140,8 +140,17 @@ defmodule Bolty.ClientTest do
     test "no versions specified" do
       opts = [] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      last_version = hd(Versions.latest_versions())
-      assert last_version == client.bolt_version
+      # latest_versions/0 returns ranged tuples like `{5, 0..4}`; the
+      # negotiated `client.bolt_version` is the latest float in that range.
+      {major, minor_or_range} = hd(Versions.latest_versions())
+
+      minor =
+        case minor_or_range do
+          %Range{} = r -> List.last(Range.to_list(r))
+          m when is_integer(m) -> m
+        end
+
+      assert major + minor / 10 == client.bolt_version
     end
 
     @tag core: true

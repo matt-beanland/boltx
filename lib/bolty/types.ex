@@ -335,7 +335,7 @@ defmodule Bolty.Types do
           srid: 4326,
           x: 10.0,
           y: 20.0,
-          z: 30.0
+          z: nil
         }
     """
     @spec create(:cartesian | :wgs_84 | 4326 | 7203, number(), number()) :: Point.t()
@@ -372,7 +372,7 @@ defmodule Bolty.Types do
 
     A 3D point either needs:
     - 3 coordinates and a atom (:cartesian or :wgs_84) to define its type
-    - 3 coordinates and a srid (4979 or 9147) to define its type
+    - 3 coordinates and a srid (4979 or 9157) to define its type
 
     ## Examples:
         iex> Point.create(:cartesian, 10, 20.0, 30)
@@ -441,11 +441,17 @@ defmodule Bolty.Types do
     defp format_coord(coord), do: coord
 
     @doc """
-    Convert a Point struct into a cypher-compliant map
+    Convert a Point struct into a Map suitable as an argument to Cypher's
+    `point()` function.
+
+    To store a Point as a property (or return one from a query), pass a
+    `%Bolty.Types.Point{}` directly as a parameter — Bolty packs it as a
+    native PackStream Point. Use this function only when you specifically
+    want the Map shape that Cypher's `point()` constructor accepts.
 
     ## Example
-        iex(8)> Point.create(4326, 10, 20.0) |> Point.format_to_param
-        %{crs: "wgs-84", latitude: 20.0, longitude: 10.0, x: 10.0, y: 20.0}
+        iex> Point.create(4326, 10, 20.0) |> Point.format_param()
+        {:ok, %{crs: "wgs-84", latitude: 20.0, longitude: 10.0, x: 10.0, y: 20.0}}
     """
     @spec format_param(Point.t()) :: {:ok, map()} | {:error, any()}
     def format_param(
