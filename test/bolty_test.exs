@@ -602,6 +602,104 @@ defmodule BoltyTest do
              ]
     end
 
+    # Reproducers for #32: a `%Bolty.Types.Point{}` parameter must reach the
+    # server as a native PackStream Point, not as a Map. Until the fix lands,
+    # these all fail with a Neo4j TypeError because Neo4j refuses Maps as
+    # property values.
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store Point as node property — wgs-84 2D", c do
+      point = Point.create(:wgs_84, 151.2093, -33.8688)
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p"
+
+      assert {:ok, %Response{results: [%{"p" => ^point}]}} =
+               Bolty.query(c.conn, query, %{p: point})
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store Point as node property — wgs-84 3D", c do
+      point = Point.create(:wgs_84, 151.2093, -33.8688, 42.0)
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p"
+
+      assert {:ok, %Response{results: [%{"p" => ^point}]}} =
+               Bolty.query(c.conn, query, %{p: point})
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store Point as node property — cartesian 2D", c do
+      point = Point.create(:cartesian, 10.0, 20.0)
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p"
+
+      assert {:ok, %Response{results: [%{"p" => ^point}]}} =
+               Bolty.query(c.conn, query, %{p: point})
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store Point as node property — cartesian 3D", c do
+      point = Point.create(:cartesian, 10.0, 20.0, 30.0)
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p"
+
+      assert {:ok, %Response{results: [%{"p" => ^point}]}} =
+               Bolty.query(c.conn, query, %{p: point})
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store array of Points as node property", c do
+      points = [
+        Point.create(:wgs_84, 151.2093, -33.8688),
+        Point.create(:wgs_84, 144.9631, -37.8136),
+        Point.create(:wgs_84, 153.0260, -27.4705)
+      ]
+
+      query = "CREATE (n:PointTest {ps: $ps}) RETURN n.ps AS ps"
+
+      assert {:ok, %Response{results: [%{"ps" => ^points}]}} =
+               Bolty.query(c.conn, query, %{ps: points})
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "store Point with integer coordinate inputs as node property", c do
+      # Point.create/3 normalises integers to floats; the round-tripped value
+      # therefore comes back with float coordinates.
+      point = Point.create(:cartesian, 10, 20)
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p"
+
+      assert {:ok, %Response{results: [%{"p" => ^point}]}} =
+               Bolty.query(c.conn, query, %{p: point})
+
+      assert %Point{x: 10.0, y: 20.0} = point
+    end
+
+    @tag :bolt_2_x
+    @tag :bolt_3_x
+    @tag :bolt_4_x
+    @tag :bolt_5_x
+    test "nil parameter where a Point would otherwise sit", c do
+      # `nil` should pass through untouched — Neo4j treats a null property
+      # value as "do not set the property", so the node has no `p` key.
+      query = "CREATE (n:PointTest {p: $p}) RETURN n.p AS p, properties(n) AS props"
+
+      assert {:ok, %Response{results: [%{"p" => nil, "props" => %{}}]}} =
+               Bolty.query(c.conn, query, %{p: nil})
+    end
+
     @tag :core
     @tag :bolt_2_x
     @tag :bolt_3_x
