@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Changelog
 
-## Unreleased
+## v0.0.12
 
 * 32 `%Bolty.Types.Point{}` parameters are now sent as native PackStream
   Points instead of being silently converted to Maps. This allows Points
@@ -13,7 +13,9 @@ SPDX-License-Identifier: Apache-2.0
   **Breaking:** callers that pass a `%Bolty.Types.Point{}` to Cypher's
   `point()` constructor must now pass a Map instead (or use
   `Bolty.Types.Point.format_param/1` to convert). See
-  https://github.com/diffo-dev/bolty/pull/<TODO>.
+  https://github.com/diffo-dev/bolty/pull/35
+
+  **Full Changelog**: https://github.com/diffo-dev/bolty/compare/0.0.12...0.0.13
 
 ## v0.0.12
 
