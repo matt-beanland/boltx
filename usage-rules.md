@@ -202,9 +202,7 @@ Local server matrix via `docker-compose.yml`:
 
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
-| `neo4j-3.4.0` | `neo4j:3.4.0` | `7688:7687` | 1.0, 2.0 |
-| `neo4j-4.4` | `neo4j:4.4.27-community` | `7689:7687` | 3.0, 4.0–4.4 |
-| `neo4j-5.26.22` | `neo4j:5.26.22-community` | `7690:7687` | 5.0–5.4 |
+| `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4 |
 | `memgraph-2.13.0` | `memgraph/memgraph:2.13.0` | `7691:7687` | 5.0–5.2 |
 
 All use credentials `neo4j / boltyPassword`.
@@ -219,7 +217,9 @@ Test runner orchestrates this via `./scripts/test-runner.sh -c "mix test" -b "1.
 - `mix dialyzer` — PLT adds `:jason`, `:poison`, `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
 - `mix docs` — ex_doc; README.md is the main page.
 - `mix test --cover` / `mix coveralls` — 70% threshold gate.
+- `mix test.matrix` — runs the full test suite once per supported Bolt version against a local Neo4j instance and prints a pass/fail summary. Respects `BOLT_TCP_PORT` (default 7687).
 - `mix bench` (if present as an alias) — uses `benchee`, outputs via `benchee_html`; benchees live in `benchees/`.
+- `mix changelog` — regenerates `CHANGELOG.md` from conventional commits using git-cliff (`brew install git-cliff`). Pass `--tag vX.Y.Z` when cutting a release to name the unreleased section. Pass `--unreleased` to preview without writing.
 
 ## 14. Implementation notes (for maintainers)
 
@@ -239,8 +239,7 @@ Bolty                      (top-level API; format_param dispatch, transaction wr
 
 Init dispatch in `Bolty.Connection.do_init/3`:
 
-- Bolt ≤ 2.0 → `INIT`.
-- Bolt 3.0–5.0 → `HELLO`.
+- Bolt 5.0 → `HELLO`.
 - Bolt ≥ 5.1 → `HELLO` then `LOGON` (auth split out of HELLO).
 
 `handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`, `handle_close`, `handle_declare`, `handle_fetch`, `handle_deallocate` are all trivial; `handle_status` is hardcoded to `:idle`. Revisit if true streaming lands.
@@ -267,7 +266,58 @@ Authoritative design (including calibration history and non-goals): [`.agent-not
 - `format_param/1` at the top level only rewrites `Point`. Temporal-with-offset structs pass through as-is; call their own `format_param/1` if you need Cypher-ready strings.
 - Env-var-overrides-opts precedence for `:auth` (BOLT_USER / BOLT_PWD) — as noted in §5.
 
-## 16. Issues (GitHub)
+## 16. Commit format and changelog
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). The type determines which section of the changelog the change appears under:
+
+| Type | Changelog section |
+| --- | --- |
+| `feat` | Features |
+| `fix` | Bug Fixes |
+| `perf` | Performance |
+| `refactor` | Refactoring |
+| `chore` | Chores |
+| `docs` | Documentation |
+| `test` | Testing |
+| `ci` | CI/CD |
+| `style` | Style |
+| `revert` | Reverts |
+
+Append `!` or include `BREAKING CHANGE:` in the footer for breaking changes — these are bolded in the changelog.
+
+**Examples:**
+
+```
+feat: add Bolt 6.0 handshake support
+fix: prevent timeout on idle connections under heavy load
+chore: drop support for Neo4j 3.x and 4.x (Bolt 1.0–4.4)
+```
+
+**Changelog workflow:**
+
+```sh
+# Preview unreleased changes
+mix changelog --unreleased
+
+# Generate CHANGELOG.md tagged as the next release (explicit tag)
+mix changelog --tag v0.1.0
+
+# Or let git-cliff calculate the next version from commit types (requires
+# at least one conventional commit since the last tag)
+mix changelog --bump
+
+# Commit and tag
+git add CHANGELOG.md && git commit -m "chore: release v0.1.0"
+git tag v0.1.0
+```
+
+**Pre-1.0 bump rules** (`cliff.toml` `[bump]` section): a breaking change bumps the minor (`0.0.x → 0.1.0`), not the major. Features and fixes bump the patch. Flip `breaking_always_bump_major` back to `true` when the project reaches 1.0.
+
+**Bootstrapping note:** `--bump` requires at least one conventional commit since the last tag to infer a version. For the first release using this system, use `--tag vX.Y.Z` explicitly. Make the release commit itself a conventional commit so it appears in the changelog entry — e.g. `chore!: drop support for Neo4j 3.x and 4.x` with `BREAKING CHANGE:` in the footer.
+
+`git-cliff` reads `cliff.toml` at the repo root. Requires `brew install git-cliff`.
+
+## 17. Issues (GitHub)
 
 Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 
@@ -289,7 +339,7 @@ Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 | [#8](https://github.com/diffo-dev/bolty/issues/8) | duration stored as string | 0.0.9 | Further fix — `Duration` outside of a map/struct wrapper was still being stored as a string. |
 | [#10](https://github.com/diffo-dev/bolty/issues/10) | dateTime param illegal | 0.0.10 | `%DateTime{}` was packed with the evolved 0x69 tag unconditionally and broke against Neo4j 5.x when `:versions` was constrained to Bolt 4.x. Fixed by policy-driven packstream: `%Bolty.Policy{datetime: :legacy \| :evolved}` resolved at HELLO, dispatched in the packer. See `.agent-notes/policy-design.md`. |
 
-## 17. Licensing and REUSE
+## 18. Licensing and REUSE
 
 bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. The compliance scheme — decided together with the maintainers and documented here so future contributors don't need to re-derive it:
 
@@ -314,7 +364,7 @@ bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. T
 
 `bolty contributors` is a collective attribution label; the authoritative list of contributors is `git shortlog -sn --no-merges`.
 
-## 18. Evolving this document
+## 19. Evolving this document
 
 - Keep it agent-first: dense, scannable, honest about gaps.
 - When bolty gains a capability, update §11 and add a usage snippet in §3 if there is a new ergonomic.

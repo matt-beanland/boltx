@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-License-Identifier: Apache-2.0
+
+[changelog]
+header = """
+<!--
+SPDX-FileCopyrightText: 2024 bolty contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Changelog\n
+"""
+body = """
+{% if version %}\
+## {{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}\
+- {% if commit.breaking %}**BREAKING** {% endif %}\
+{{ commit.message | upper_first }} \
+([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/diffo-dev/bolty/commit/{{ commit.id }}))
+{% endfor %}\
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+# Pre-1.0 semver: breaking changes bump minor (0.x → 0.x+1), not major.
+# Features and fixes bump patch. Flip breaking_always_bump_major back to true
+# when the project reaches 1.0.
+[bump]
+breaking_always_bump_major = false
+breaking_always_bump_minor = true
+features_always_bump_minor = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { message = "^feat",     group = "Features" },
+  { message = "^fix",      group = "Bug Fixes" },
+  { message = "^perf",     group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^chore",    group = "Chores" },
+  { message = "^docs",     group = "Documentation" },
+  { message = "^test",     group = "Testing" },
+  { message = "^ci",       group = "CI/CD" },
+  { message = "^style",    group = "Style" },
+  { message = "^revert",   group = "Reverts" },
+]
+tag_pattern = "v[0-9]*"
+protect_breaking_commits = false
+filter_commits = false
