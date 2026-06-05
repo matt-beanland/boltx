@@ -18,11 +18,8 @@ defmodule Bolty.ClientTest do
         Client.send_logon(client, opts)
         metadata
 
-      version when version >= 3.0 ->
+      _ ->
         Client.send_hello(client, opts)
-
-      version when version <= 2.0 ->
-        Client.send_init(client, opts)
     end
   end
 
@@ -165,14 +162,6 @@ defmodule Bolty.ClientTest do
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
-    @tag :bolt_version_1_0
-    test "one version specified" do
-      opts = [versions: [1]] ++ @opts
-      assert {:ok, client} = Client.connect(opts)
-      assert is_map(client)
-      assert is_tuple(client.sock)
-      assert 1.0 == client.bolt_version
-    end
   end
 
   describe "recv_packets" do
@@ -348,7 +337,6 @@ defmodule Bolty.ClientTest do
       assert [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]] == records
     end
 
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "simple query with wrong extra parameters" do
       assert {:ok, client} = Client.connect(@opts)
@@ -399,19 +387,8 @@ defmodule Bolty.ClientTest do
       assert {:ok, _} = Client.send_commit(client)
     end
 
-    @tag :bolt_1_x
-    @tag :bolt_2_x
-    test "simple commit message without starting a transaction in menor bolt 2" do
-      assert {:ok, client} = Client.connect(@opts)
-      handle_handshake(client, @opts)
-
-      assert {:error, %Bolty.Error{code: :semantic_error}} = Client.send_commit(client)
-    end
-
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
-    test "simple commit message without starting a transaction mayor 3" do
+    test "simple commit message without starting a transaction" do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
@@ -427,10 +404,8 @@ defmodule Bolty.ClientTest do
       assert {:ok, _} = Client.send_rollback(client)
     end
 
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
-    test "simple rollback message without starting a transaction mayor 3" do
+    test "simple rollback message without starting a transaction" do
       assert {:ok, client} = Client.connect(@opts)
       handle_handshake(client, @opts)
 
@@ -452,33 +427,7 @@ defmodule Bolty.ClientTest do
     end
   end
 
-  describe "ack_failure message" do
-    @tag :bolt_1_x
-    @tag :bolt_2_x
-    test "allows to recover from error with ack_failure" do
-      assert {:ok, client} = Client.connect(@opts)
-      handle_handshake(client, @opts)
-
-      assert {:error, _} = Client.run_statement(client, "Invalid cypher", %{}, %{})
-      assert {:ok, _} = Client.send_ack_failure(client)
-
-      assert {:ok, _} = Client.run_statement(client, "RETURN 1 as num", %{}, %{})
-    end
-
-    @tag :bolt_1_x
-    @tag :bolt_2_x
-    test "returns proper error when misusing ack_failure and reset" do
-      assert {:ok, client} = Client.connect(@opts)
-      handle_handshake(client, @opts)
-
-      {:error, %Bolty.Error{code: :request_invalid}} =
-        Client.send_ack_failure(client)
-    end
-  end
-
   describe "reset message" do
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "ok send_reset" do
       assert {:ok, client} = Client.connect(@opts)
@@ -488,8 +437,6 @@ defmodule Bolty.ClientTest do
       assert {:ok, _} = Client.send_reset(client)
     end
 
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "allows to recover from error with send_reset" do
       assert {:ok, client} = Client.connect(@opts)
@@ -503,8 +450,6 @@ defmodule Bolty.ClientTest do
   end
 
   describe "goodbye message" do
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "goodbye/1" do
       assert {:ok, client} = Client.connect(@opts)
@@ -528,8 +473,6 @@ defmodule Bolty.ClientTest do
 
   describe "Hello Message:" do
     @tag :bolt_5_x
-    @tag :bolt_4_x
-    @tag :bolt_3_x
     test "send_hello/1 (successful)" do
       assert {:ok, client} = Client.connect(@opts)
       assert {:ok, %{"connection_id" => _, "hints" => _}} = Client.send_hello(client, @opts)
@@ -560,8 +503,6 @@ defmodule Bolty.ClientTest do
       assert {:ok, true} = Client.send_ping(client)
     end
 
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "send_ping/1 (failure)" do
       opts = @opts ++ [pool_size: 1]

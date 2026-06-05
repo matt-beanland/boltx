@@ -5,8 +5,6 @@ defmodule Bolty.BoltProtocol.Message.MessageEncoderTest do
   use ExUnit.Case, async: true
 
   alias Bolty.BoltProtocol.Message.{
-    AckFailureMessage,
-    InitMessage,
     BeginMessage,
     CommitMessage,
     DiscardMessage,
@@ -22,23 +20,6 @@ defmodule Bolty.BoltProtocol.Message.MessageEncoderTest do
 
   defmodule TestUser do
     defstruct name: "", bolty: true
-  end
-
-  describe "Encode ACK_FAILURE" do
-    test "without params" do
-      assert <<0x0, 0x2, 0xB0, 0xE, 0x0, 0x0>> == AckFailureMessage.encode(1.0)
-    end
-  end
-
-  describe "Encode Init" do
-    test "without params" do
-      assert <<0x0, _, 0xB2, 0x1, _::binary>> = InitMessage.encode(1.0, [])
-    end
-
-    test "with params" do
-      assert <<0x0, _, 0xB2, 0x1, _::binary>> =
-               InitMessage.encode(1.0, auth: [username: "hello", password: "hellopw"])
-    end
   end
 
   describe "Encode HELLO" do

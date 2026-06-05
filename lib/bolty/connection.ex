@@ -71,10 +71,7 @@ defmodule Bolty.Connection do
 
   @impl true
   def disconnect(_reason, state) do
-    if state.client.bolt_version >= 3.0 do
-      Client.send_goodbye(state.client)
-    end
-
+    Client.send_goodbye(state.client)
     Client.disconnect(state.client)
   end
 
@@ -123,9 +120,7 @@ defmodule Bolty.Connection do
 
       {:error, %Bolty.Error{code: error_code} = error} ->
         if error_code in [:syntax_error, :semantic_error] and not state.in_transaction do
-          if client.bolt_version >= 3.0,
-            do: Client.send_reset(client),
-            else: Client.send_ack_failure(client)
+          Client.send_reset(client)
         end
 
         {:error, error, state}
@@ -166,12 +161,8 @@ defmodule Bolty.Connection do
     end
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version >= 3.0 do
+  defp do_init(bolt_version, client, opts) when is_float(bolt_version) do
     Client.send_hello(client, opts)
-  end
-
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version <= 2.0 do
-    Client.send_init(client, opts)
   end
 
   defp get_server_metadata_state(response_metadata) do

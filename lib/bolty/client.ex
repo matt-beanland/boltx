@@ -16,14 +16,12 @@ defmodule Bolty.Client do
 
   alias Bolty.BoltProtocol.Message.{
     HelloMessage,
-    InitMessage,
     LogonMessage,
     RunMessage,
     PullMessage,
     BeginMessage,
     CommitMessage,
     RollbackMessage,
-    AckFailureMessage,
     ResetMessage,
     GoodbyeMessage,
     DiscardMessage,
@@ -279,14 +277,6 @@ defmodule Bolty.Client do
     end
   end
 
-  def send_init(client, fields) do
-    payload = InitMessage.encode(client.bolt_version, fields)
-
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
-  end
-
   def send_run(client, query, parameters, extra_parameters) do
     payload =
       RunMessage.encode(client.bolt_version, query, parameters, extra_parameters, client.policy)
@@ -336,32 +326,11 @@ defmodule Bolty.Client do
     end)
   end
 
-  def send_begin(client, _extra_parameters)
-      when is_float(client.bolt_version) and client.bolt_version <= 2.0 do
-    case run_statement(client, "BEGIN", %{}, %{}) do
-      {:ok, pull_result(success_data: success_data)} ->
-        {:ok, success_data}
-
-      other ->
-        other
-    end
-  end
-
   def send_begin(client, extra_parameters) do
     payload = BeginMessage.encode(client.bolt_version, extra_parameters)
 
     with :ok <- send_packet(client, payload) do
       recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
-  end
-
-  def send_commit(client) when is_float(client.bolt_version) and client.bolt_version <= 2.0 do
-    case run_statement(client, "COMMIT", %{}, %{}) do
-      {:ok, pull_result(success_data: success_data)} ->
-        {:ok, success_data}
-
-      other ->
-        other
     end
   end
 
@@ -373,27 +342,8 @@ defmodule Bolty.Client do
     end
   end
 
-  def send_rollback(client)
-      when is_float(client.bolt_version) and client.bolt_version <= 2.0 do
-    case run_statement(client, "ROLLBACK", %{}, %{}) do
-      {:ok, pull_result(success_data: success_data)} ->
-        {:ok, success_data}
-
-      other ->
-        other
-    end
-  end
-
   def send_rollback(client) do
     payload = RollbackMessage.encode(client.bolt_version)
-
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
-  end
-
-  def send_ack_failure(client) do
-    payload = AckFailureMessage.encode(client.bolt_version)
 
     with :ok <- send_packet(client, payload) do
       recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
