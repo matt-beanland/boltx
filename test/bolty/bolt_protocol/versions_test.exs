@@ -8,14 +8,6 @@ defmodule Bolty.BoltProtocol.VersionsTest do
     @tag core: true
     test "returns a list of available versions" do
       assert Bolty.BoltProtocol.Versions.available_versions() == [
-               1.0,
-               2.0,
-               3.0,
-               4.0,
-               4.1,
-               4.2,
-               4.3,
-               4.4,
                5.0,
                5.1,
                5.2,
@@ -30,9 +22,9 @@ defmodule Bolty.BoltProtocol.VersionsTest do
     test "latest_versions/1" do
       assert Bolty.BoltProtocol.Versions.latest_versions() == [
                {5, 0..4},
-               {4, 3..4},
-               {4, 2},
-               {4, 1}
+               {0, 0},
+               {0, 0},
+               {0, 0}
              ]
     end
   end

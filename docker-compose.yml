@@ -4,29 +4,8 @@
 version: "3.0"
 
 services:
-  neo4j-3.4.0:
-    image: neo4j:3.4.0
-    labels:
-        - "boltVersions=1.0,2.0"
-        - "database=neo4j"
-    ports:
-      - 7688:7687
-    environment:
-      - NEO4J_AUTH=neo4j/boltyPassword
-      - NEO4J_dbms_mode=CORE
-      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-      - NEO4J_dbms_connector_bolt_listen__address=:7687
-  neo4j-4.4:
-    image: neo4j:4.4.27-community
-    labels:
-        - "boltVersions=3.0,4.0,4.1,4.2,4.3,4.4"
-        - "database=neo4j"
-    ports:
-      - 7689:7687
-    environment:
-      - NEO4J_AUTH=neo4j/boltyPassword
-  neo4j-5.26.22:
-    image: neo4j:5.26.22-community
+  neo4j-5.26.26:
+    image: neo4j:5.26.26-community
     labels:
         - "boltVersions=5.0,5.1,5.2,5.3,5.4"
         - "database=neo4j"
