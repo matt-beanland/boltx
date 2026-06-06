@@ -5,17 +5,14 @@ defmodule Bolty.Policy do
   @moduledoc """
   Resolved driver behaviour for a single connection.
 
-  Produced by `Bolty.Policy.Resolver` from the negotiated Bolt version (and
-  optionally the HELLO response metadata), then stashed on the connection state
-  and threaded into every pack/unpack/message call. Code pattern-matches on
-  policy fields and never reads a Bolt or server version directly.
+  Resolved from the negotiated Bolt version (and optionally the HELLO response
+  metadata) at connection time, then stashed on the connection state and threaded
+  into every pack/unpack/message call. Code pattern-matches on policy fields and
+  never reads a Bolt or server version directly.
 
   Policy is an internal distillation of negotiated facts, not a user-facing
   configuration surface. Users influence policy by passing connection options
-  (e.g. constraining `:versions` at negotiation); the resolver responds
-  accordingly.
-
-  See `.agent-notes/policy-design.md` for the authoritative design.
+  (e.g. constraining `:versions` at negotiation).
   """
 
   @typedoc """
