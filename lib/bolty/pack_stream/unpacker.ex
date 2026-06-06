@@ -313,7 +313,7 @@ defmodule Bolty.PackStream.Unpacker do
   # Private
   @spec decode_string(binary(), integer()) :: list()
   defp decode_string(bytes, str_length) do
-    <<string::binary-size(str_length), rest::binary>> = bytes
+    <<string::binary-size(^str_length), rest::binary>> = bytes
 
     [string | unpack(rest)]
   end
