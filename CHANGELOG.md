@@ -38,224 +38,44 @@ SPDX-License-Identifier: Apache-2.0
 - Update message encoder tests from Bolt 3.x/2.x to 5.x ([`7afc3e8`](https://github.com/diffo-dev/bolty/commit/7afc3e836d1d66137251e115b3f0a3fdf78d79bc))
 - Remove hardcoded server version assertions in connection_test ([`c5f27ac`](https://github.com/diffo-dev/bolty/commit/c5f27acf4ec4ca68c0e918d44a3f1307d7cc2b78))
 
-## v0.0.11 — 2026-05-01
+## v0.0.13
 
-### BOLT
-- Struct Handler For PackEncoder ([`ec9965c`](https://github.com/diffo-dev/bolty/commit/ec9965c71ab8e02fb1c31a52840e9764978f84a1))
-- Struct Handler for PackEncoder ([`1e5d167`](https://github.com/diffo-dev/bolty/commit/1e5d16719a50552bd0cebbdb36f1b0da8e7f594d))
-- Struct Handler For Pack Encoder ([`0964a09`](https://github.com/diffo-dev/bolty/commit/0964a0911462c33288ca7451177ed51ceac41459))
+* `%Bolty.Types.Point{}` parameters are now sent as native PackStream Points instead of being silently converted to Maps. This allows Points (and arrays of Points) to be stored directly as Neo4j node properties. **Breaking:** callers that pass a `%Bolty.Types.Point{}` to Cypher's `point()` constructor must now pass a Map instead (or use `Bolty.Types.Point.format_param/1` to convert). See https://github.com/diffo-dev/bolty/pull/35
 
-### Bug Fixes
-- (Bolt.Sips.Exception) unable to encode value: -128 ([`3ce397e`](https://github.com/diffo-dev/bolty/commit/3ce397e39a0e1773fa38be62a53a8d3095bae834))
-- Fix to_bytes function for floating point versions ([`d31077d`](https://github.com/diffo-dev/bolty/commit/d31077dab84b7f46ebb979ec6b7a95f8a0b1754d))
-- Version in example ([`c553310`](https://github.com/diffo-dev/bolty/commit/c553310f70a623786a5e2335dc071a834d3a944f))
-- The eye drops dependency is eliminated in the execution of the tests ([`ec532f9`](https://github.com/diffo-dev/bolty/commit/ec532f957508c8e1d5bab9054c58e121bb4e8d53))
-- Eye_drops dependency is eliminated ([`99f264d`](https://github.com/diffo-dev/bolty/commit/99f264d1301df8aa30669286c95f28a338b5722a))
-- Run the test script in the root directory: ([`55fd834`](https://github.com/diffo-dev/bolty/commit/55fd8343f22aafb53ca3387aab95487bab4a4323))
-- Update package name to boltx ([`4c6aba4`](https://github.com/diffo-dev/bolty/commit/4c6aba4f8af5944a066dbfc6f47e233e9975b910))
-- Change app name to boltx ([`d89aa00`](https://github.com/diffo-dev/bolty/commit/d89aa00781a1fd7d9e910ec8f66b4f4c8991a393))
-- Update bolt version ([`f7f43e6`](https://github.com/diffo-dev/bolty/commit/f7f43e6f04987d18b45bcb71a1943178ef872e78))
-- Name change from Bolt.Sips to Boltx (#3) ([`069e6c6`](https://github.com/diffo-dev/bolty/commit/069e6c602e8d8bea54635f7895dc2ec5312fa750))
-- Centralize the creation of errors ([`98051a2`](https://github.com/diffo-dev/bolty/commit/98051a2f1fa0a683f863cf40f396307be4eef59f))
-- Excludes Bolt versions, and includes only the version being tested. ([`c91af60`](https://github.com/diffo-dev/bolty/commit/c91af605debb3b115fc6a0d5a324cba770b8726e))
-- Rename file bolt_sips to boltx ([`6deeb4c`](https://github.com/diffo-dev/bolty/commit/6deeb4c0a7e06e65ead4f5769507944ee13c007c))
-- The version 3 is included for sending without parameters ([`11009ed`](https://github.com/diffo-dev/bolty/commit/11009eda67e116e4a42585f5984f30ff80f009e5))
-- Generate an Atom tag per version ([`5c4cccf`](https://github.com/diffo-dev/bolty/commit/5c4cccf148de35cef98c6230acdc911ce6c3d1fd))
-- Use error wrapping to generate errors for the encode functions ([`da558fe`](https://github.com/diffo-dev/bolty/commit/da558fe21f22e928a2cbfa5aae2ebab41188d530))
-- Rename the client functions to express the message sending ([`b468fe6`](https://github.com/diffo-dev/bolty/commit/b468fe62c2a8762e61e97bc58fee7918920e6a57))
-- Save the connection_id in the state of a connection ([`f3fa15e`](https://github.com/diffo-dev/bolty/commit/f3fa15e5693284d00d5f4f20766aab68d356b78b))
-- Reset the connection when there is a syntax error ([`085c502`](https://github.com/diffo-dev/bolty/commit/085c502b4b754ad7807e058442ddba2adfdd044e))
-- Delete legacy routing files ([`f349767`](https://github.com/diffo-dev/bolty/commit/f349767e2fe746f06514f048ec063faec86b4aac))
-- Delete legacy files ([`31a7ee6`](https://github.com/diffo-dev/bolty/commit/31a7ee60f5519dbcf9ef65dc9765215b72fcf064))
-- Bolt_agent not allowed to set ([`8155abf`](https://github.com/diffo-dev/bolty/commit/8155abffc70a556bd76e24bd0240d40914f3646f))
-- Convert charlist to hostname when connection starts ([`fc4d5a4`](https://github.com/diffo-dev/bolty/commit/fc4d5a450feb37c1e3affc1f6f9cfeb46533293f))
-- Add configuration to the memgraph service ([`9d81d19`](https://github.com/diffo-dev/bolty/commit/9d81d19e22166f11c3f9b22c40a838c54cf1f578))
-- Return errors using Boltx.Error ([`f39a4d3`](https://github.com/diffo-dev/bolty/commit/f39a4d335440d3695643726fce031eff7f3bde65))
-- Remove files from the pack stream legacy implementation ([`1372005`](https://github.com/diffo-dev/bolty/commit/13720051b485de269d813b389e2ebc0744e101d0))
-- Validate when connection timeout ([`cb153e6`](https://github.com/diffo-dev/bolty/commit/cb153e63359ba2dbd026955e2e5859607755b2d8))
-- Moving the logger to utils ([`84ee2d0`](https://github.com/diffo-dev/bolty/commit/84ee2d0af32ebd9a65c4daf01e1ee61a98357be3))
-- Names are changed to Snake_case ([`c3ad9d7`](https://github.com/diffo-dev/bolty/commit/c3ad9d775158fde537712faffad74308d242f2d5))
-- Set name to the default process when it does not exist in the configuration ([`d9debec`](https://github.com/diffo-dev/bolty/commit/d9debec9df457300ec0251cd8fb348b473919027))
-- Avoid a default name to be able to generate other PIDs ([`6190152`](https://github.com/diffo-dev/bolty/commit/61901520acd8b87bd02078014250c66688a43112))
-- Documentation on how to add it to an application ([`74978af`](https://github.com/diffo-dev/bolty/commit/74978af6b6b567066e372dbc3e5829c2d0a54543))
-- Replace DateTime as Legacy DateTime ([`6439a3a`](https://github.com/diffo-dev/bolty/commit/6439a3a4eae516334e958fb2a4babd3399a305e4))
-- The offset is added to the seconds, the seconds are no longer precalculated ([`a89deea`](https://github.com/diffo-dev/bolty/commit/a89deea7249fede6670065367d1cdc5edabdfe60))
-- New DateTimeZoneId structure added ([`a97ede9`](https://github.com/diffo-dev/bolty/commit/a97ede949e5e4e5f9553068d11bb619b1e385307))
-- Correct tags to run test ([`8389a7e`](https://github.com/diffo-dev/bolty/commit/8389a7e5f283a8ae42c4581a2f1ebd792096aea9))
-- Generic decoder to reduce code ([`bad68b1`](https://github.com/diffo-dev/bolty/commit/bad68b1b8e274984a3947ecf3c49fab7bf737eda))
-- Unused alias MessageDecoder is removed ([`01fb366`](https://github.com/diffo-dev/bolty/commit/01fb366eec8c71f4382bbb5ad3bf3f08b6754a76))
-- Template form for issues ([`46644dd`](https://github.com/diffo-dev/bolty/commit/46644dd6f1c78316abcfe88ee84e434901efea63))
-- Unique IDs for fields ([`ba5fde8`](https://github.com/diffo-dev/bolty/commit/ba5fde86bee2ebc24b87f24f29b848d281ba80a4))
-- Remove deep nesting from function ([`83cf051`](https://github.com/diffo-dev/bolty/commit/83cf051d535b6fe8ddfe48701a7fe387ef0e08a6))
-- Duplicate variable declaration ([`831a86a`](https://github.com/diffo-dev/bolty/commit/831a86a5c1641ea444b32c899d8366c58e34089b))
-- Pipe chain error in get_schema/1 and get_hostname_and_port/1 ([`0f79691`](https://github.com/diffo-dev/bolty/commit/0f796918925702f4e731a0955ef34e4e35202e91))
-- Ssl_opts was declared more than once ([`5f8b1e7`](https://github.com/diffo-dev/bolty/commit/5f8b1e7818d5c48c89570fc56162292f1135ae61))
-- Pipe chain should start with a raw value ([`79725bf`](https://github.com/diffo-dev/bolty/commit/79725bfcf5071423b3f7f149e591370df2fde7e6))
-- Gets one message at a time and waits for a summary message ([`d02d5f4`](https://github.com/diffo-dev/bolty/commit/d02d5f468f68add628bbd8bc9b1dfb2f1a48069c))
-- Separates functionality to reduce the complexity of with/else ([`997b388`](https://github.com/diffo-dev/bolty/commit/997b388d5c4b4770f8171b767445d74639e3738f))
-- Replace the decode function of the messages with a prepare messages ([`9c647a8`](https://github.com/diffo-dev/bolty/commit/9c647a8078b97377c9449c14e2049e421f80bd26))
-- Indentation correction ([`8db5cdb`](https://github.com/diffo-dev/bolty/commit/8db5cdb0aca1ce346a1fc4f48b3927dc42107e2b))
-- Save the entire cover folder in cache ([`6b5559a`](https://github.com/diffo-dev/bolty/commit/6b5559af35cdcd1a74022e4c8fdacf1d04331691))
-- Include the partition number in the generated coverage file ([`6ef1fc2`](https://github.com/diffo-dev/bolty/commit/6ef1fc2a0011df89181bc84cbefee5e858998ddb))
-- Generates cache per workflow execution ([`dca1840`](https://github.com/diffo-dev/bolty/commit/dca1840992fedcf7f36d73fc25940fa448235cd0))
-- Replace cache action with artifact action ([`78576a7`](https://github.com/diffo-dev/bolty/commit/78576a72936ed00b0edd7279e2b0cf51bb2a18eb))
-- Decode 32 bit string ([`1d87ef1`](https://github.com/diffo-dev/bolty/commit/1d87ef15e830662741184193f5bd098e6dbed783))
-- Change label from debug to core ([`819ac50`](https://github.com/diffo-dev/bolty/commit/819ac50dbe16070557b43e9e2133672b0bb44eb6))
-- Do not partition tests to get real results coverage ([`9c1b44f`](https://github.com/diffo-dev/bolty/commit/9c1b44fb9e752512f1bbe95fda3980c2e255b08c))
-- Add the partition number to the artifact name ([`97ac9d8`](https://github.com/diffo-dev/bolty/commit/97ac9d80a23f9ffac580788819ba55ad8d8dda2c))
-- Remove the inspector module ([`51405a4`](https://github.com/diffo-dev/bolty/commit/51405a432259e920c371256971300878343d26cd))
+**Full Changelog**: https://github.com/diffo-dev/bolty/compare/0.0.12...0.0.13
 
-### CI/CD
-- Run the tests for each version of bolt and with a different database ([`86bad17`](https://github.com/diffo-dev/bolty/commit/86bad17ee61148beeb6295fbef4f5c9297617900))
-- Run the database in Docker and then run the tests. ([`dfcfd1c`](https://github.com/diffo-dev/bolty/commit/dfcfd1c67badba3c9836c053761bfbc268e35f5b))
-- Sets the database to run ([`761be4e`](https://github.com/diffo-dev/bolty/commit/761be4e1d4614574740427f7b9462601b0a9c2a3))
-- Run the container in the background ([`7bb1e7e`](https://github.com/diffo-dev/bolty/commit/7bb1e7e172b691c653014fef7cfe36f6b520fe0f))
-- Send version as float ([`39ed709`](https://github.com/diffo-dev/bolty/commit/39ed709a232135014bf444cdec74c1bec8548d55))
-- Run the tests for 3 bolt versions ([`1152b5b`](https://github.com/diffo-dev/bolty/commit/1152b5ba690899ff60a7fba28da15449b7ba38e6))
-- Friendly name for the job ([`64a4752`](https://github.com/diffo-dev/bolty/commit/64a475239b5c3ed881d15d2a47d6bc93d10f676b))
-- Specific version of neo4 to run bolt 3 tests ([`3686e84`](https://github.com/diffo-dev/bolty/commit/3686e84cfda71cab210274bd2e07265763a04a9f))
-- Correct name of neo4j image for bolt 3 ([`9d77564`](https://github.com/diffo-dev/bolty/commit/9d77564081a58d1550ba0944c3305a48ce4410b9))
-- Run the tests only when pr is done to the v3 branch ([`54b7037`](https://github.com/diffo-dev/bolty/commit/54b703778d91935f8b866046d8e1bc53d305bf1c))
-- Check Code formatting ([`1fa1919`](https://github.com/diffo-dev/bolty/commit/1fa19190b0a7f09863eed4466d3c3d7e505f674c))
-- Add the lint job ([`13765ae`](https://github.com/diffo-dev/bolty/commit/13765aeec889fedfd964ef08ddeea66283532db3))
-- Verify code quality before running tests ([`c56cdac`](https://github.com/diffo-dev/bolty/commit/c56cdac741231acbdfd6510b4f178d9242ec6bc9))
-- Upload the version of otp and elixir for testing ([`35851ca`](https://github.com/diffo-dev/bolty/commit/35851ca37290d163c31efb776394a77d5dcc1ec4))
-- Add new test for queries ([`583507b`](https://github.com/diffo-dev/bolty/commit/583507b094a9c214f927dbfcb71e7b9bb3eda62e))
-- Add more tests to execute queries ([`9582ea8`](https://github.com/diffo-dev/bolty/commit/9582ea8a5c2a0a2d3681313458810c13085fba08))
-- Tests to validate the configuration through uri ([`ad7f2f2`](https://github.com/diffo-dev/bolty/commit/ad7f2f271e7abbd9129433e624359a4f0ba569cc))
-- Add tests for rollback, commit in transactions ([`ba9c05a`](https://github.com/diffo-dev/bolty/commit/ba9c05a95f0a93736e9459548a19fa9e0fe0823f))
-- Implementation of tests to validate message encoding functionality ([`77c26a8`](https://github.com/diffo-dev/bolty/commit/77c26a809284138a33b4e902cb7937a9a44ff8b1))
-- Configure dependabot ([`91b4382`](https://github.com/diffo-dev/bolty/commit/91b4382c27c9bc6c440816ef0895433762ad514e))
-- A query to get a Node with temporal functions ([`6036b9c`](https://github.com/diffo-dev/bolty/commit/6036b9cfda1ec1b090fedaea3c62e540924b613a))
-- Add a Job to generate coverage report ([`6762a85`](https://github.com/diffo-dev/bolty/commit/6762a85a8b29fe209c92d1ca78079cdbce2341ee))
+## v0.0.12
 
-### Documentation
-- Query!/2 and query!/3 raises Bolt.Sips.Exception ([`b4a73af`](https://github.com/diffo-dev/bolty/commit/b4a73afcf463000261a33c6bd8b643cbe03a494a))
-- Update README with use and installation for helper script ([`19b0e4c`](https://github.com/diffo-dev/bolty/commit/19b0e4cf08e570347ee7e8aaa25d3bd319aed959))
-- Add feature table to README ([`1fd72e9`](https://github.com/diffo-dev/bolty/commit/1fd72e9036e1941d1c05615b719429f7a2a39b93))
-- Delete legacy documentation files ([`9595522`](https://github.com/diffo-dev/bolty/commit/95955226df590cbb6d0d8e28e95574b68c1b67c9))
-- Correction of library name in basic use documentation ([`2165198`](https://github.com/diffo-dev/bolty/commit/216519850b6d6f77a11e606f8b34d3ba9322debc))
-- Documentation for starting a connection is added ([`4fd8b79`](https://github.com/diffo-dev/bolty/commit/4fd8b79a0edd914d97247a29df6a1d0e6575349c))
-- Updates docs indicating that transactions are implemented ([`50c4917`](https://github.com/diffo-dev/bolty/commit/50c491705fac53a50a557e80e2aa35cc9195b670))
-- Documentation for version 0.02 ([`179fcf3`](https://github.com/diffo-dev/bolty/commit/179fcf3d16846c452fa6cdee8499cb4dd0bc227e))
-- Usage for version 0.0.3 ([`5f2d9b6`](https://github.com/diffo-dev/bolty/commit/5f2d9b62e7eb4f27cabdbb4bdf26a95e093cb561))
-- Query and queries documentation ([`be75b16`](https://github.com/diffo-dev/bolty/commit/be75b160d749e042a394c13a3e7af98e487d56ac))
-- Packstream documentation update ([`334908a`](https://github.com/diffo-dev/bolty/commit/334908a6986e1e99972889e721df5d51bf33368a))
-- Documentation to be able to contribute ([`9823b9d`](https://github.com/diffo-dev/bolty/commit/9823b9d135380bc23bd87507341c4c085b218ff4))
-- Correction in query example ([`18df0f2`](https://github.com/diffo-dev/bolty/commit/18df0f276a6ae348ee38a67235adcd712a24273b))
-- Removes information from implemented messages from the readme ([`e18087f`](https://github.com/diffo-dev/bolty/commit/e18087fa8f1aa710e2c166cb42c190209d815650))
-- Removes Multi tenancy as feature ([`4047774`](https://github.com/diffo-dev/bolty/commit/40477742f1c55195cadf770aeb0106677b4d81dd))
-- Documentation update for version 0.0.6 ([`7565943`](https://github.com/diffo-dev/bolty/commit/7565943919085597342e8aadee28a08f7d6d83d5))
+* Execute/4 sends send_reset for :syntax_error/:semantic_error when inside a transaction ([#26](https://github.com/diffo-dev/bolty/pull/26))
+* Additional bolty issues with transactions ([#28](https://github.com/diffo-dev/bolty/pull/28))
+* Unknown Error (CaseClauseError) no case clause matching: `{:ignored, [0, 0]}` ([#29](https://github.com/diffo-dev/bolty/pull/29))
 
-### Features
-- Support connection options in queries (#82) ([`dcbaac8`](https://github.com/diffo-dev/bolty/commit/dcbaac896fe68bf52d09d074428a02a497e2fd25))
-- Add client to establish a socket and handshake with the server ([`26ed5fb`](https://github.com/diffo-dev/bolty/commit/26ed5fbdeaa8e679d7932c160c984db3c40aaddf))
-- Returns error when  negotiation failure with the server version ([`1accdbc`](https://github.com/diffo-dev/bolty/commit/1accdbcc77183839c14e3de8f4724abab200204b))
-- Add auxiliary script for running tests ([`e724986`](https://github.com/diffo-dev/bolty/commit/e724986c2077d605abe102f5dc839864a36a3f3e))
-- Accept various Bolt versions and different databases ([`a66aa0d`](https://github.com/diffo-dev/bolty/commit/a66aa0dbf8a778bee3e3371268a79a04cd4b999a))
-- Support for setting bolt protocol version ([`23f37d4`](https://github.com/diffo-dev/bolty/commit/23f37d4319b053951fe0813dba031c0d4ecbc478))
-- Support for setting bolt protocol version ([`ac77f28`](https://github.com/diffo-dev/bolty/commit/ac77f28affc9bd548afcbabf239d4ae103c803ff))
-- Implementation of hello and init message ([`1932b8a`](https://github.com/diffo-dev/bolty/commit/1932b8af54621e2633acba8fd08b683ec8669757))
-- Saves the server response metadata in the connection state ([`7a17847`](https://github.com/diffo-dev/bolty/commit/7a178477375dc0eeaf0a77fc5d432eb19c085278))
-- AuthHelper is added with common functions between messages for auth parameters ([`563c9d1`](https://github.com/diffo-dev/bolty/commit/563c9d16f4a1c95d1229a024fa3f34a99846d3e7))
-- Add hello and logon message for versions 5.x ([`5e470a7`](https://github.com/diffo-dev/bolty/commit/5e470a713813baa83b3f52ccf95084b39953416e))
-- Add hello and logon message for versions 5.x ([`f84c7b3`](https://github.com/diffo-dev/bolty/commit/f84c7b30d480db4ef27ace70439f44841afea99e))
-- Tests are run when a pr to master is created ([`ee4c325`](https://github.com/diffo-dev/bolty/commit/ee4c32500b38b9c573b7d5673aa68d48a4867aaa))
-- Added 'run' and 'pull' messages, 'run statement' functionality for queries up to Bolt v3 ([`1c3ebe1`](https://github.com/diffo-dev/bolty/commit/1c3ebe1d67fc379e429a0548048f5fa02b94dafc))
-- Send additional parameters in pull to be able to receive records > bolt 4 ([`a5a0bf3`](https://github.com/diffo-dev/bolty/commit/a5a0bf3d11763078d43300bc17c79ef12e512e25))
-- Extra parameters for run message ([`09efaa3`](https://github.com/diffo-dev/bolty/commit/09efaa31facbb833710266aa4b9e9957ea659727))
-- Add begin message to client ([`f0e0f3a`](https://github.com/diffo-dev/bolty/commit/f0e0f3a1964ed83339cb35bd682caf9e6e61f8e6))
-- Implementation of messages for creating explicit transactions ([`04c217e`](https://github.com/diffo-dev/bolty/commit/04c217e6a34687c48c6c445aa863ae4482146bee))
-- Ack_failure message implementation ([`406df3a`](https://github.com/diffo-dev/bolty/commit/406df3adc7b0e16a637478ecbcdb461f7e0f5035))
-- Reset message implementation ([`2e40fde`](https://github.com/diffo-dev/bolty/commit/2e40fdeb6d0abef31b8954f9634afc0470558b92))
-- Implements the goodbye message ([`213c226`](https://github.com/diffo-dev/bolty/commit/213c2265afbb6f412cd38f7d780b5a80f2507a76))
-- Implements the discard message ([`2ce03ba`](https://github.com/diffo-dev/bolty/commit/2ce03bab072ff7a27090f3a43e448d2cbe9bef23))
-- Implement the logoff message ([`6f67ba9`](https://github.com/diffo-dev/bolty/commit/6f67ba9ade4cfdb2ae8b8b39989d7ff8700f7777))
-- Complete the DBConnection interface ([`b8bccb7`](https://github.com/diffo-dev/bolty/commit/b8bccb78b7df14e3850e822d479835ee90439bbe))
-- Execute queries and multi queries and return a Response ([`5309f90`](https://github.com/diffo-dev/bolty/commit/5309f9076450fa34bed7082a90fa2d83071d3780))
-- EElement_id field added for node type structure ([`b7cd237`](https://github.com/diffo-dev/bolty/commit/b7cd237665b3f1541ef96e9be5458625bcaa3102))
-- Adds fields and removes fields for the UnboundRelationship and Path structures ([`54691c4`](https://github.com/diffo-dev/bolty/commit/54691c4e6145fc7bbf4f0bc8c6ac02356659c679))
-- Support for point and duration structure queries ([`5eeb906`](https://github.com/diffo-dev/bolty/commit/5eeb9063ef0b65375b30013183ab4fb8a44239fc))
-- New parameters are added for notification codes ([`5f74dd6`](https://github.com/diffo-dev/bolty/commit/5f74dd63f98b0a42cce9c04995c6de3ca443ccd2))
-- Configure a client with a uri ([`2f85e60`](https://github.com/diffo-dev/bolty/commit/2f85e60203010a7a376f9f735b45b0db2671ef05))
-- Start a transaction with extra parameters ([`fb7b68d`](https://github.com/diffo-dev/bolty/commit/fb7b68d9d7e2ed7d1a75b5c96be76183dfc05a74))
-- New version of packstream ([`315746c`](https://github.com/diffo-dev/bolty/commit/315746c42c174ab9b85716ca275e6643fe08fbaf))
-- Decode temporal types and special structures ([`3891d36`](https://github.com/diffo-dev/bolty/commit/3891d367750a8e2e11973507a1b761d8bf62e430))
-- Adds MessageDecoder and is added to all messages ([`fc81e26`](https://github.com/diffo-dev/bolty/commit/fc81e26fce09d1e47eee521f4a83e390d8f2d32a))
-- Adds MessageEncoder and is added to all messages ([`0f8ba78`](https://github.com/diffo-dev/bolty/commit/0f8ba789c78e4436496d82f2fb5eb10cd729b7f3))
-- Establishes ssl/tls connections and validates the URI scheme ([`2ecfd6e`](https://github.com/diffo-dev/bolty/commit/2ecfd6ebb196e51125891a267b493be9499b0e7c))
-- Implement ping to check session health ([`f6aeb98`](https://github.com/diffo-dev/bolty/commit/f6aeb98003ebc0ee105bc43cfb228828c06bc01d))
-- Release v0.0.6 ([`2620b9a`](https://github.com/diffo-dev/bolty/commit/2620b9a3b61f6454425c640263ade27baae0741d))
-- Define code owners ([`b737807`](https://github.com/diffo-dev/bolty/commit/b7378075b38aece856a9caea976ee0a11b72c28c))
-- Enable the sponsor button ([`86c0a6c`](https://github.com/diffo-dev/bolty/commit/86c0a6caf2c2d10fb5b3896a721d17ba93c9cd09))
-- Extract all artifacts to the same directory ([`6421cee`](https://github.com/diffo-dev/bolty/commit/6421cee108fb6b8a4d3c012a33a4d1938bc3f30a))
-- 70 percent minimum test coverage is established ([`3dbd9ed`](https://github.com/diffo-dev/bolty/commit/3dbd9ed2efa65c1d205ea6b4c08df970aef2c33e))
+**Full Changelog**: https://github.com/diffo-dev/bolty/compare/0.0.11...0.0.12
 
-### Proposal
-- Proposal for encoding (#60) ([`0e024c7`](https://github.com/diffo-dev/bolty/commit/0e024c7e3f1c5c53506025c15ac36514af40d32d))
+## v0.0.11
 
-### Testing
-- Adds connection test for versions 4.x and 5.0 ([`edf4eb3`](https://github.com/diffo-dev/bolty/commit/edf4eb30be0b222751be698f69eb63ffe9815064))
-- Connection test is not available ([`fd42662`](https://github.com/diffo-dev/bolty/commit/fd426621dbd2f395947de541f9c6d389ee270bfd))
-- Execute all test ([`a4bdb62`](https://github.com/diffo-dev/bolty/commit/a4bdb6283da0922f1402b06d991b02076647a657))
-- Run logoff test for versions greater than 5_1 ([`bf14212`](https://github.com/diffo-dev/bolty/commit/bf142128afd7e40e96acd588b150ebc349d4abce))
-- Add tests for different temporal functions ([`291b46c`](https://github.com/diffo-dev/bolty/commit/291b46ceb6768127bc66fc032ecfd9fbbc64761e))
-- Check of derivation of a structure ([`c32ae3f`](https://github.com/diffo-dev/bolty/commit/c32ae3fcfe736bdc804def45f494d8fc8a7e893f))
-- Make the city test compatible with version 1 and 3 ([`005db8c`](https://github.com/diffo-dev/bolty/commit/005db8c9d0b227ad8608333b228937518db0a1c2))
-- Ping testing with active and inactive connections ([`fdba359`](https://github.com/diffo-dev/bolty/commit/fdba359882503db2118ffb48947ca11e12432735))
-- For connection dbconnection methods ([`ff3e23f`](https://github.com/diffo-dev/bolty/commit/ff3e23ffb422b7fd372ae3e3a0153f37b92bdbc9))
-- Test coverage for messages ([`34b9bf2`](https://github.com/diffo-dev/bolty/commit/34b9bf2603b4d52c4788176efdb4d24bce72a479))
+* Fix UndefinedFunctionError when formatting a Neo4j EntityNotFound error ([#21](https://github.com/diffo-dev/bolty/pull/21))
 
-### Bugfix
-- The results are not guaranteed to be returned in a specific order hence the `ORDER BY` clause added for ensuring predictive results. A couple of tests were failing randomly just because of this reason ([`30a3b7c`](https://github.com/diffo-dev/bolty/commit/30a3b7c0b01e33c942a7e1a7bd8011e4a4157ab8))
+**Full Changelog**: https://github.com/diffo-dev/bolty/compare/0.0.10...0.0.11
 
-### Build
-- Bump excoveralls from 0.15.3 to 0.18.0 ([`93c280c`](https://github.com/diffo-dev/bolty/commit/93c280c8e0c400ae4541bc0f0d28f5822d0de18c))
-- Bump actions/cache from 2 to 3 ([`9e8a6ee`](https://github.com/diffo-dev/bolty/commit/9e8a6eefb0ecabad80ac8b9541be5e538fc3c6f7))
-- Bump credo from 1.6.7 to 1.7.3 ([`19c6b95`](https://github.com/diffo-dev/bolty/commit/19c6b95480062a93ed47dff49572b652551c1b74))
-- Bump benchee_html from 1.0.0 to 1.0.1 ([`33b49bf`](https://github.com/diffo-dev/bolty/commit/33b49bfe43a9d15a3bf6a89ac4ba5d68d4d1b6e7))
-- Bump actions/checkout from 2 to 4 ([`2385c80`](https://github.com/diffo-dev/bolty/commit/2385c80e5d7ee1d642f8212c8c264709a1db2ed1))
-- Bump dialyxir from 1.2.0 to 1.4.3 ([`14dde9d`](https://github.com/diffo-dev/bolty/commit/14dde9d2556cd4b69b34ff55ec3f5b373730a9fa))
-- Bump benchee from 1.1.0 to 1.3.0 ([`1e64405`](https://github.com/diffo-dev/bolty/commit/1e64405a298b96a65b8df36e32ecd90039f6b172))
-- Bump ex_doc from 0.30.6 to 0.31.1 ([`de9eab6`](https://github.com/diffo-dev/bolty/commit/de9eab6c1a93cb4edcd0520db0247a9f0a2a2ece))
-- Bump db_connection from 2.4.3 to 2.6.0 ([`233c52c`](https://github.com/diffo-dev/bolty/commit/233c52c7c3b0da61d10db18ee6fbaead34aad8c7))
-- Bump actions/cache from 3 to 4 ([`f415cb5`](https://github.com/diffo-dev/bolty/commit/f415cb50bb36f820d94550477b3ac25155f2e3f5))
-- Bump credo from 1.7.3 to 1.7.4 ([`de54298`](https://github.com/diffo-dev/bolty/commit/de542983d0123be32940001ba16b3f10f6fc15ce))
-- Bump credo from 1.7.4 to 1.7.5 ([`5d763ac`](https://github.com/diffo-dev/bolty/commit/5d763acb1f383c690c2fd1f8f333e58e2a6f9ad5))
-- Bump ex_doc from 0.31.1 to 0.31.2 ([`61e6998`](https://github.com/diffo-dev/bolty/commit/61e6998798d27c149b733cf142cd037102b6281e))
-- Bump excoveralls from 0.18.0 to 0.18.1 ([`a4bbacf`](https://github.com/diffo-dev/bolty/commit/a4bbacf346f0916e072eeca704f39558fc1f34ab))
-- Bump ex_doc from 0.31.2 to 0.32.1 ([`d15ca54`](https://github.com/diffo-dev/bolty/commit/d15ca540978637b5f26d0675a9b190cd8ecb0d97))
-- Bump ex_doc from 0.32.1 to 0.32.2 ([`bcd6243`](https://github.com/diffo-dev/bolty/commit/bcd62431c6f031545a0a295f0d72d54dbf34d54f))
-- Bump credo from 1.7.5 to 1.7.6 ([`6209211`](https://github.com/diffo-dev/bolty/commit/6209211414c6455d877468fa176d6985a88ac0bd))
-- Bump ex_doc from 0.32.2 to 0.33.0 ([`98bc2c2`](https://github.com/diffo-dev/bolty/commit/98bc2c227ce635ba904cb01049e105e327d2939b))
-- Bump ex_doc from 0.33.0 to 0.34.0 ([`2342f51`](https://github.com/diffo-dev/bolty/commit/2342f51aec0afce760873ff047425462fbc91e69))
-- Bump benchee from 1.3.0 to 1.3.1 ([`273291d`](https://github.com/diffo-dev/bolty/commit/273291d577218ab7b5ad6453b5f4306ff9b7dc49))
-- Bump poison from 5.0.0 to 6.0.0 ([`11f8cb1`](https://github.com/diffo-dev/bolty/commit/11f8cb1c316dd0920aabb137ead819c35f7fdc54))
-- Bump credo from 1.7.6 to 1.7.7 ([`49dd642`](https://github.com/diffo-dev/bolty/commit/49dd64275ec69fa1685e41a85ce6d04eb9a9f2e7))
-- Bump ex_doc from 0.34.0 to 0.34.1 ([`d3fe690`](https://github.com/diffo-dev/bolty/commit/d3fe690c698a2c72b8015a556d1ef39553bfe626))
-- Bump jason from 1.4.1 to 1.4.3 ([`d5ccb30`](https://github.com/diffo-dev/bolty/commit/d5ccb305b3b47934270f7d1e454d26b8773bbbc4))
-- Bump db_connection from 2.6.0 to 2.7.0 ([`0424b51`](https://github.com/diffo-dev/bolty/commit/0424b51c4f1e50d08662771a22e60be400e0a337))
-- Bump ex_doc from 0.34.1 to 0.34.2 ([`eb6951c`](https://github.com/diffo-dev/bolty/commit/eb6951c83a614f564229427c3dc411e749b5930f))
-- Bump excoveralls from 0.18.1 to 0.18.2 ([`77f4b24`](https://github.com/diffo-dev/bolty/commit/77f4b2443e4769327314b0954b84d2abe77486b9))
-- Bump jason from 1.4.3 to 1.4.4 ([`9e468ae`](https://github.com/diffo-dev/bolty/commit/9e468aedf28d4652e91a68dbf97b377cd04f75b5))
-- Bump excoveralls from 0.18.2 to 0.18.3 ([`9931d20`](https://github.com/diffo-dev/bolty/commit/9931d20131c40ca3d2a17647d1570113b44f0ac1))
-- Bump tzdata from 1.1.1 to 1.1.2 ([`c7f5a31`](https://github.com/diffo-dev/bolty/commit/c7f5a31b38ad70a5fd23b8ff05d153ca424e786b))
-- Bump credo from 1.7.7 to 1.7.9 ([`8b085b9`](https://github.com/diffo-dev/bolty/commit/8b085b9a4ee0f77d6be159dbe1515827c75fd7b1))
-- Bump dialyxir from 1.4.3 to 1.4.4 ([`a201605`](https://github.com/diffo-dev/bolty/commit/a201605fa89c680ee11ea9309abd7fde657bec70))
-- Bump credo from 1.7.9 to 1.7.10 ([`8855410`](https://github.com/diffo-dev/bolty/commit/8855410ed46afdda6c35c21a7716aea8631a1be0))
-- Bump credo from 1.7.10 to 1.7.11 ([`40feefe`](https://github.com/diffo-dev/bolty/commit/40feefe52d064ee344ddd1aedb1a3b1d348764e7))
-- Bump ex_doc from 0.34.2 to 0.36.1 ([`f7d128f`](https://github.com/diffo-dev/bolty/commit/f7d128f741dbefa54b5c685286e3fbcb16b0e859))
-- Bump excoveralls from 0.18.3 to 0.18.4 ([`f905d92`](https://github.com/diffo-dev/bolty/commit/f905d926071909bff9892e635ae397a10724ad79))
-- Bump ex_doc from 0.36.1 to 0.37.0 ([`d1b58fb`](https://github.com/diffo-dev/bolty/commit/d1b58fbfb6460a313e6e7a4e4049158455ce3933))
-- Bump excoveralls from 0.18.4 to 0.18.5 ([`3ec5f89`](https://github.com/diffo-dev/bolty/commit/3ec5f89f63bc20e601ae1239569fffbefcf9f8a6))
-- Bump ex_doc from 0.37.0 to 0.37.2 ([`fe185b0`](https://github.com/diffo-dev/bolty/commit/fe185b08f0112a1c9c121b00e4efc64062a6b57e))
-- Bump ex_doc from 0.37.2 to 0.38.2 ([`6416e46`](https://github.com/diffo-dev/bolty/commit/6416e468ecddd61c27c191786e231b3a14245eac))
+## v0.0.10
 
-### Doc
-- Basic usage added to readme ([`b35c381`](https://github.com/diffo-dev/bolty/commit/b35c38154b966ff3675c381f428469573b172f58))
-- Correct URL for documentation in hexpm ([`23a7d3a`](https://github.com/diffo-dev/bolty/commit/23a7d3a7bdef65799f41e9c93dbed2df7dc0bd37))
+* DateTime param illegal — policy-driven PackStream encoding ([#14](https://github.com/diffo-dev/bolty/pull/14))
 
-### Lint
-- Code formatting fix ([`a68318f`](https://github.com/diffo-dev/bolty/commit/a68318f1d7934416eb3d4b8ea7f24ace882acc1c))
+**Full Changelog**: https://github.com/diffo-dev/bolty/compare/0.0.9...0.0.10
 
+## v0.0.9
+
+* Fix duration stored as string
+
+## v0.0.8
+
+* Fix duration microseconds
+
+## v0.0.7
+
+* Initial fork from boltx v0.0.6
+* Duration support
+* Maintenance
+* Negotiate range
 
