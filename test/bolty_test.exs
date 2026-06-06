@@ -5,7 +5,7 @@ defmodule BoltyTest do
   use ExUnit.Case, async: true
 
   alias Bolty.Response
-  alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset}
+  alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset, Vector}
 
   alias Bolty.TypesHelper
 
@@ -737,6 +737,36 @@ defmodule BoltyTest do
 
       assert {:ok, %Response{results: [%{"d" => ^expected}]}} =
                Bolty.query(c.conn, query, params)
+    end
+  end
+
+  describe "vector (Bolt 6.0+)" do
+    setup [:connect]
+
+    @tag :bolt_6_x
+    test "float32 vector round-trips over the wire", c do
+      embedding = Vector.new(:float32, [0.1, 0.2, 0.3, 0.4])
+
+      assert {:ok, %Response{results: [%{"v" => result}]}} =
+               Bolty.query(c.conn, "RETURN $v AS v", %{v: embedding})
+
+      assert %Vector{type: :float32} = result
+      assert length(result.data) == 4
+      # float32 has ~7 decimal digits of precision; assert within single-precision epsilon
+      Enum.zip(embedding.data, result.data)
+      |> Enum.each(fn {expected, actual} ->
+        assert_in_delta expected, actual, 1.0e-6
+      end)
+    end
+
+    @tag :bolt_6_x
+    test "float64 vector round-trips over the wire", c do
+      embedding = Vector.new(:float64, [1.0, 2.0, 3.0, 4.0])
+
+      assert {:ok, %Response{results: [%{"v" => result}]}} =
+               Bolty.query(c.conn, "RETURN $v AS v", %{v: embedding})
+
+      assert %Vector{type: :float64, data: [1.0, 2.0, 3.0, 4.0]} = result
     end
   end
 

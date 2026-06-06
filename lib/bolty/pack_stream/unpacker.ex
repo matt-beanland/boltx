@@ -10,6 +10,7 @@ defmodule Bolty.PackStream.Unpacker do
     TimeWithTZOffset,
     DateTimeWithTZOffset,
     Point,
+    Vector,
     Relationship,
     UnboundRelationship,
     Node,
@@ -52,6 +53,19 @@ defmodule Bolty.PackStream.Unpacker do
 
   def unpack(<<@bitstring32_marker, str_length::32, rest::binary>>) do
     decode_string(rest, str_length)
+  end
+
+  # Bytes
+  def unpack(<<@bytes8_marker, size::8, data::binary-size(size), rest::binary>>) do
+    [data | unpack(rest)]
+  end
+
+  def unpack(<<@bytes16_marker, size::16, data::binary-size(size), rest::binary>>) do
+    [data | unpack(rest)]
+  end
+
+  def unpack(<<@bytes32_marker, size::32, data::binary-size(size), rest::binary>>) do
+    [data | unpack(rest)]
   end
 
   # Lists
@@ -310,6 +324,12 @@ defmodule Bolty.PackStream.Unpacker do
     [point | rest]
   end
 
+  # Vector (Bolt 6.0+)
+  def unpack({@vector_signature, struct, @vector_struct_size}) do
+    {[type_marker, data], rest} = decode_struct(struct, @vector_struct_size)
+    [decode_vector(type_marker, data) | rest]
+  end
+
   # Private
   @spec decode_string(binary(), integer()) :: list()
   defp decode_string(bytes, str_length) do
@@ -329,6 +349,17 @@ defmodule Bolty.PackStream.Unpacker do
     {map, rest} = map |> unpack() |> Enum.split(entries * 2)
 
     [to_map(map) | rest]
+  end
+
+  @spec decode_vector(binary(), binary()) :: Vector.t()
+  defp decode_vector(<<@vector_float32_marker>>, data) do
+    values = for <<v::big-float-size(32) <- data>>, do: v
+    %Vector{type: :float32, data: values}
+  end
+
+  defp decode_vector(<<@vector_float64_marker>>, data) do
+    values = for <<v::big-float-size(64) <- data>>, do: v
+    %Vector{type: :float64, data: values}
   end
 
   @spec decode_struct(binary(), integer()) :: {list(), list()}

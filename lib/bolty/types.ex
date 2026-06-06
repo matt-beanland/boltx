@@ -268,6 +268,40 @@ defmodule Bolty.Types do
     end
   end
 
+  defmodule Vector do
+    @moduledoc """
+    A typed vector of floating-point values, as introduced in Bolt 6.0 (Neo4j 2026.05+).
+
+    Use `%Vector{}` as a query parameter to store embeddings, or receive one back
+    when querying a node property of type VECTOR.
+
+    ## Fields
+    - `type` — element precision: `:float32` (IEEE-754 single) or `:float64` (IEEE-754 double)
+    - `data` — list of float values
+
+    ## Example
+
+        alias Bolty.Types.Vector
+
+        embedding = Vector.new(:float32, [0.1, 0.2, 0.3])
+        Bolty.query!(conn, "CREATE (n:Item {embedding: $v}) RETURN n", %{v: embedding})
+    """
+
+    @type element_type :: :float32 | :float64
+
+    @type t :: %__MODULE__{
+            type: element_type(),
+            data: [float()]
+          }
+
+    defstruct [:type, :data]
+
+    @spec new(:float32 | :float64, [float()]) :: t()
+    def new(type, data) when type in [:float32, :float64] and is_list(data) do
+      %__MODULE__{type: type, data: data}
+    end
+  end
+
   defmodule Point do
     @moduledoc """
     Manage spatial data introduced in Bolt V2
