@@ -86,7 +86,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.0
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -104,7 +104,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.1
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -122,7 +122,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.2
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -140,7 +140,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.3
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -158,7 +158,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.4
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -176,7 +176,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.6
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -194,7 +194,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.7
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -212,7 +212,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(@opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == 5.8
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
@@ -233,7 +233,7 @@ defmodule Bolty.ConnectionTest do
        conn_data} =
       Connection.connect(opts)
 
-    assert server_version == "Neo4j/5.26.26"
+    assert String.starts_with?(server_version, "Neo4j/")
     assert client.bolt_version == last_version
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
