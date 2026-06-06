@@ -11,8 +11,8 @@ SPDX-License-Identifier: Apache-2.0
 
 `bolty` is an Elixir driver for [Neo4j](https://neo4j.com/) and other Bolt-speaking graph databases (notably Memgraph). It is a **reluctant fork** of [`boltx`](https://github.com/sagastume/boltx) — kept alive because specific fixes were needed (duration handling, maintenance), not because we wanted a new driver. Treat it as boltx-compatible in spirit; the upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
-- **Protocol**: Bolt 1.0 → 5.4, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 3.0.x → 5.13, Memgraph 2.13 (Bolt 5.0–5.2, advertised as Neo4j/5.2.0).
+- **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
+- **Server compatibility**: Neo4j 5.26.26 LTS (Bolt 5.0–5.4, 5.6–5.8), Memgraph 2.13 (Bolt 5.0–5.2, advertised as Neo4j/5.2.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -93,7 +93,8 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:versions` | Bolt versions to negotiate (e.g. `[4.4]` to prevent Bolt 5) | server-driven negotiation |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
 | `:notifications_minimum_severity` | Bolt 5.2+ | `nil` |
-| `:notifications_disabled_categories` | Bolt 5.2+ | `nil` |
+| `:notifications_disabled_categories` | Bolt 5.2–5.5 | `nil` |
+| `:notifications_disabled_classifications` | Bolt 5.6+ (renamed field; also accepts old key) | `nil` |
 | `:connect_timeout` | ms | `15_000` |
 | `:ssl_opts` | `:ssl.tls_client_option()` list | merged with scheme-implied defaults |
 | `:socket_options` | `:gen_tcp.connect_option()` list | `[mode: :binary, packet: :raw, active: false]` |
@@ -202,7 +203,7 @@ Local server matrix via `docker-compose.yml`:
 
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
-| `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4 |
+| `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
 | `memgraph-2.13.0` | `memgraph/memgraph:2.13.0` | `7691:7687` | 5.0–5.2 |
 
 All use credentials `neo4j / boltyPassword`.

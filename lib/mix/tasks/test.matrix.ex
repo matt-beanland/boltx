@@ -27,7 +27,7 @@ defmodule Mix.Tasks.Test.Matrix do
     versions = Bolty.BoltProtocol.Versions.available_versions()
     port = System.get_env("BOLT_TCP_PORT", "7687")
 
-    results =
+    per_version_results =
       Enum.map(versions, fn version ->
         version_str = Float.to_string(version)
         Mix.shell().info([:bright, "\n── Bolt #{version_str} ──\n"])
@@ -43,11 +43,25 @@ defmodule Mix.Tasks.Test.Matrix do
         {version_str, status}
       end)
 
+    # Test both ranges negotiated together: server picks the best version from
+    # the full latest_versions() handshake (two-range offer).
+    Mix.shell().info([:bright, "\n── Both ranges (full negotiation) ──\n"])
+
+    {_, negotiation_status} =
+      System.cmd(
+        "mix",
+        ["test", "--only", "core" | args],
+        env: [{"BOLT_TCP_PORT", port}],
+        into: IO.stream(:stdio, :line)
+      )
+
+    results = per_version_results ++ [{"both-range negotiation", negotiation_status}]
+
     Mix.shell().info([:bright, "\n── Matrix results ──\n"])
 
-    for {version, status} <- results do
+    for {label, status} <- results do
       tag = if status == 0, do: [:green, "PASS"], else: [:red, "FAIL"]
-      Mix.shell().info(["  Bolt ", version, "  ", tag])
+      Mix.shell().info(["  Bolt ", label, "  ", tag])
     end
 
     failures =

@@ -27,24 +27,17 @@ defmodule Bolty.BoltProtocol.Message.DiscardMessage do
      })}
   end
 
-  def prepare_messages(bolt_version, messages) do
+  def prepare_messages(_bolt_version, messages) do
     case hd(messages) do
       {:success, response} ->
-        success_data =
-          if bolt_version <= 2.0 do
-            Map.merge(
-              %{"t_last" => messages[:success]["result_consumed_after"]},
-              Map.delete(messages[:success], "result_consumed_after")
-            )
-          else
-            response
-          end
-
-        {:ok, success_data}
+        {:ok, response}
 
       {:failure, response} ->
         {:error,
-         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{
+           code: response["neo4j_code"] || response["code"],
+           message: response["description"] || response["message"]
+         })}
     end
   end
 

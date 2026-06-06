@@ -4,7 +4,7 @@
 defmodule Bolty.BoltProtocol.Versions do
   @moduledoc false
 
-  @available_bolt_versions [5.0, 5.1, 5.2, 5.3, 5.4]
+  @available_bolt_versions [5.0, 5.1, 5.2, 5.3, 5.4, 5.6, 5.7, 5.8]
 
   def available_versions() do
     @available_bolt_versions
@@ -76,13 +76,21 @@ defmodule Bolty.BoltProtocol.Versions do
                 [value | acc]
 
               is_integer(prev_minor_or_range) ->
-                [{prev_major, Range.new(minor, prev_minor_or_range)} | tail]
+                if minor + 1 == prev_minor_or_range do
+                  [{prev_major, Range.new(minor, prev_minor_or_range)} | tail]
+                else
+                  [value | acc]
+                end
 
               true ->
-                [
-                  {prev_major, Range.new(minor, List.last(Range.to_list(prev_minor_or_range)))}
-                  | tail
-                ]
+                if minor + 1 == prev_minor_or_range.first do
+                  [
+                    {prev_major, Range.new(minor, List.last(Range.to_list(prev_minor_or_range)))}
+                    | tail
+                  ]
+                else
+                  [value | acc]
+                end
             end
         end
       end

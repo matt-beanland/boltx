@@ -29,7 +29,7 @@ defmodule Bolty.BoltProtocol.Message.PullMessage do
      })}
   end
 
-  def prepare_messages(bolt_version, messages) do
+  def prepare_messages(_bolt_version, messages) do
     records = Enum.reduce(messages, [], &group_record/2)
 
     cond do
@@ -39,22 +39,12 @@ defmodule Bolty.BoltProtocol.Message.PullMessage do
       List.keymember?(messages, :failure, 0) ->
         {:error,
          Bolty.Error.wrap(__MODULE__, %{
-           code: messages[:failure]["code"],
-           message: messages[:failure]["message"]
+           code: messages[:failure]["neo4j_code"] || messages[:failure]["code"],
+           message: messages[:failure]["description"] || messages[:failure]["message"]
          })}
 
       true ->
-        success_data =
-          if bolt_version <= 2.0 do
-            Map.merge(
-              %{"t_last" => messages[:success]["result_consumed_after"]},
-              Map.delete(messages[:success], "result_consumed_after")
-            )
-          else
-            messages[:success]
-          end
-
-        {:ok, pull_result(records: records, success_data: success_data)}
+        {:ok, pull_result(records: records, success_data: messages[:success])}
     end
   end
 
