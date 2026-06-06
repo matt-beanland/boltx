@@ -17,7 +17,13 @@ defmodule Mix.Tasks.Test.Matrix do
 
       mix test.matrix --only core
 
-  `BOLT_TCP_PORT` is respected (defaults to 7687).
+  Environment variables:
+  - `BOLT_TCP_PORT` — port for Bolt 5.x servers (defaults to 7687)
+  - `BOLT_6_TCP_PORT` — port for Bolt 6.x servers (defaults to `BOLT_TCP_PORT`)
+
+  Example with separate Docker instances:
+
+      BOLT_TCP_PORT=7690 BOLT_6_TCP_PORT=7689 mix test.matrix
   """
 
   @requirements ["compile"]
@@ -25,12 +31,14 @@ defmodule Mix.Tasks.Test.Matrix do
   @impl Mix.Task
   def run(args) do
     versions = Bolty.BoltProtocol.Versions.available_versions()
-    port = System.get_env("BOLT_TCP_PORT", "7687")
+    default_port = System.get_env("BOLT_TCP_PORT", "7687")
+    bolt6_port = System.get_env("BOLT_6_TCP_PORT", default_port)
 
     per_version_results =
       Enum.map(versions, fn version ->
         version_str = Float.to_string(version)
-        Mix.shell().info([:bright, "\n── Bolt #{version_str} ──\n"])
+        port = if trunc(version) >= 6, do: bolt6_port, else: default_port
+        Mix.shell().info([:bright, "\n── Bolt #{version_str} (port #{port}) ──\n"])
 
         {_, status} =
           System.cmd(
@@ -43,15 +51,16 @@ defmodule Mix.Tasks.Test.Matrix do
         {version_str, status}
       end)
 
-    # Test both ranges negotiated together: server picks the best version from
-    # the full latest_versions() handshake (two-range offer).
-    Mix.shell().info([:bright, "\n── Both ranges (full negotiation) ──\n"])
+    # Test full negotiation: server picks the best version it supports from the
+    # complete latest_versions() handshake offer. Run against the Bolt 6 port
+    # so the result reflects the highest available version.
+    Mix.shell().info([:bright, "\n── Full negotiation (port #{bolt6_port}) ──\n"])
 
     {_, negotiation_status} =
       System.cmd(
         "mix",
         ["test", "--only", "core" | args],
-        env: [{"BOLT_TCP_PORT", port}],
+        env: [{"BOLT_TCP_PORT", bolt6_port}],
         into: IO.stream(:stdio, :line)
       )
 
