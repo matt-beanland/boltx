@@ -11,9 +11,9 @@ SPDX-License-Identifier: Apache-2.0
 [![REUSE status](https://api.reuse.software/badge/github.com/diffo-dev/bolty)](https://api.reuse.software/info/github.com/diffo-dev/bolty)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/diffo-dev/bolty)
 
-`Bolty` is a reluctant fork of the the 'Boltx' Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
+`Bolty` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol, forked from `Boltx` and now developed independently.
 
-- Supports Neo4j 5.26.26 LTS, Neo4j 2026.05, and compatible servers (Memgraph 2.13+)
+- Supports Neo4j 5.26.26 LTS and Neo4j 2026.05
 - Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
@@ -252,4 +252,4 @@ To simplify test execution, the test-runner.sh script is available. You can find
 
 ## Acknowledgments
 
-Thanks to [Florin Patrascu](https://github.com/florinpatrascu) for [bolt_sips](https://github.com/florinpatrascu/bolt_sips) and[Luis Sagastume](https://github.com/sagastume) for [boltx](https://github.com/sagastume/boltx).
+Thanks to [Florin Patrascu](https://github.com/florinpatrascu) for [bolt_sips](https://github.com/florinpatrascu/bolt_sips) and [Luis Sagastume](https://github.com/sagastume) for [boltx](https://github.com/sagastume/boltx).

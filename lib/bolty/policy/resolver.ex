@@ -34,7 +34,6 @@ defmodule Bolty.Policy.Resolver do
 
   # Bolt 5.x uses evolved DateTime struct tags (0x49/0x69).
   # Bolt 4.x and below (no longer supported) used :legacy.
-  # Memgraph advertises "Neo4j/5.2.0" but speaks Bolt 5.x — :evolved applies.
   defp put_datetime(policy, bolt_version, _server_version)
        when is_float(bolt_version) and bolt_version >= 5.0 do
     %{policy | datetime: :evolved}

@@ -22,12 +22,6 @@ defmodule Bolty.Policy.ResolverTest do
       assert %Policy{datetime: :evolved} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
     end
 
-    test "Memgraph masquerading as Neo4j/5.2.0 at Bolt 5.2 resolves to :evolved" do
-      # If calibration later shows Memgraph needs :legacy at Bolt 5.x, add a
-      # server_version branch in `put_datetime/3`.
-      assert %Policy{datetime: :evolved} = Resolver.resolve(5.2, %{"server" => "Neo4j/5.2.0"})
-    end
-
     test "missing server metadata does not crash; still decides from bolt_version" do
       assert %Policy{datetime: :evolved} = Resolver.resolve(5.0, %{})
     end
