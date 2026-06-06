@@ -11,11 +11,13 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
   @signature 0x01
 
   def encode(bolt_version, fields) when is_float(bolt_version) and bolt_version >= 5.1 do
+    policy = Keyword.get(fields, :policy, %Bolty.Policy{})
+
     message = [
       bolt_version
       |> get_user_agent(fields)
       |> Map.merge(get_bolt_agent(fields))
-      |> Map.merge(get_extra_parameters(bolt_version, fields))
+      |> Map.merge(get_extra_parameters(policy, fields))
     ]
 
     MessageEncoder.encode(@signature, message)
@@ -34,28 +36,21 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
      })}
   end
 
-  defp get_extra_parameters(bolt_version, fields) do
+  defp get_extra_parameters(policy, fields) do
     min_severity = Keyword.get(fields, :notifications_minimum_severity)
 
-    # Bolt 5.6 renamed notifications_disabled_categories → notifications_disabled_classifications
-    {categories_key, categories_value} =
-      if bolt_version >= 5.6 do
-        value =
-          Keyword.get(fields, :notifications_disabled_classifications) ||
-            Keyword.get(fields, :notifications_disabled_categories)
-
-        {:notifications_disabled_classifications, value}
-      else
-        {:notifications_disabled_categories,
-         Keyword.get(fields, :notifications_disabled_categories)}
-      end
+    categories_value =
+      Keyword.get(fields, :notifications_disabled_classifications) ||
+        Keyword.get(fields, :notifications_disabled_categories)
 
     %{}
     |> then(fn acc ->
       if min_severity, do: Map.put(acc, :notifications_minimum_severity, min_severity), else: acc
     end)
     |> then(fn acc ->
-      if categories_value, do: Map.put(acc, categories_key, categories_value), else: acc
+      if categories_value,
+        do: Map.put(acc, policy.notifications_field, categories_value),
+        else: acc
     end)
   end
 end

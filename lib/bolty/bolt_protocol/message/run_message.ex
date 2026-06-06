@@ -17,12 +17,6 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
     MessageEncoder.encode(@signature, message, policy)
   end
 
-  def encode(bolt_version, query, parameters, _extra_parameters, policy)
-      when is_float(bolt_version) and bolt_version <= 2.0 do
-    message = [query, parameters]
-    MessageEncoder.encode(@signature, message, policy)
-  end
-
   def encode(_, _, _, _, _) do
     {:error,
      Bolty.Error.wrap(__MODULE__, %{

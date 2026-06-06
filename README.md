@@ -145,6 +145,54 @@ By default the scheme is `bolt+s`
 | bolt+s     | Secured with full certificate              | [verify: :verify_none]  |
 | bolt+ssc   | Secured with self-signed certificate       | [verify: :verify_peer]  |
 
+## Negotiated capabilities
+
+Bolty negotiates the highest mutually-supported Bolt version during connection. The outcome determines which protocol behaviours are active for the lifetime of that connection. Call `Bolty.connection_info/1` to inspect what was negotiated:
+
+```elixir
+iex> Bolty.connection_info(conn)
+%{
+  bolt_version: 5.8,
+  server_version: "Neo4j/5.26.26",
+  policy: %Bolty.Policy{
+    datetime: :evolved,
+    notifications_field: :notifications_disabled_classifications,
+    gql_errors: true
+  }
+}
+```
+
+### Capability table
+
+| Capability | Bolt 5.0 – 5.5 | Bolt 5.6 | Bolt 5.7+ |
+|---|---|---|---|
+| DateTime encoding | evolved (UTC-aware) | evolved | evolved |
+| Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
+| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys |
+| Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON |
+
+The `policy` struct is the single source of truth for version-driven behaviour inside the driver. User code should not need to branch on `bolt_version` directly — check `connection_info/1` if you need to gate application-level features on negotiated capabilities.
+
+### Restricting the negotiated version
+
+By default Bolty offers all supported Bolt versions to the server and the highest common version wins. Use the `:versions` option to constrain the offer if your application requires specific capabilities:
+
+```elixir
+# Require GQL-compliant errors (Bolt 5.7+)
+opts = [versions: [{5, 7..8}]] ++ opts
+
+# Require the renamed notification field (Bolt 5.6+)
+opts = [versions: [{5, 6..8}]] ++ opts
+
+# Target a single known version
+opts = [versions: [5.4]] ++ opts
+
+# Offer two disjoint ranges when you want broad compatibility but must skip 5.5
+opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
+```
+
+The handshake has four slots; range tuples let you cover a span of minor versions in a single slot. If the server cannot satisfy the offered range(s) the connection will fail with a version-negotiation error rather than silently falling back to an unsupported version.
+
 ## Contributing
 
 ### Getting Started

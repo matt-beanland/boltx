@@ -244,6 +244,21 @@ defmodule Bolty.ConnectionTest do
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
+  describe "Bolty.connection_info/1" do
+    @tag :core
+    test "returns negotiated metadata inside a transaction" do
+      {:ok, pid} = Bolty.start_link(@opts)
+
+      Bolty.transaction(pid, fn conn ->
+        info = Bolty.connection_info(conn)
+
+        assert is_float(info.bolt_version)
+        assert is_bitstring(info.server_version)
+        assert %Bolty.Policy{} = info.policy
+      end)
+    end
+  end
+
   describe "Connection.ping/1" do
     @tag :core
     test "with an active connection" do
