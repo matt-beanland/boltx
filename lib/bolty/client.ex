@@ -271,7 +271,7 @@ defmodule Bolty.Client do
   end
 
   def send_hello(client, fields) do
-    payload = HelloMessage.encode(client.bolt_version, fields)
+    payload = HelloMessage.encode(client.bolt_version, [{:policy, client.policy} | fields])
 
     with :ok <- send_packet(client, payload) do
       recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)

@@ -24,11 +24,21 @@ defmodule Bolty.Connection do
   def connect(opts) do
     config = Client.Config.new(opts)
 
-    with {:ok, %Client{} = client} <- Client.connect(config),
-         {:ok, response_server_metadata} <- do_init(client, opts) do
-      policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
-      state = get_server_metadata_state(response_server_metadata)
-      {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+    with {:ok, %Client{} = client} <- Client.connect(config) do
+      # Resolve a preliminary policy from bolt_version alone so that HELLO
+      # message construction can use policy fields (e.g. notifications_field)
+      # rather than reading bolt_version directly. The final policy is resolved
+      # again below from the full HELLO response metadata; all current
+      # dimensions depend only on bolt_version so both calls produce the same
+      # result in practice.
+      preliminary_policy = Policy.Resolver.resolve(client.bolt_version, %{})
+      client_with_policy = %{client | policy: preliminary_policy}
+
+      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts) do
+        policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
+        state = get_server_metadata_state(response_server_metadata)
+        {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+      end
     end
   end
 

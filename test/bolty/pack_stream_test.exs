@@ -241,10 +241,10 @@ defmodule Bolty.PackStreamTest do
                PackStream.pack!(datetime, @evolved)
     end
 
-    test "default policy is :legacy (DateTime falls back to 0x66)" do
+    test "default policy is :evolved (DateTime uses 0x69)" do
       datetime = ~U[2025-05-11 07:45:41.429903Z]
       <<0xB3, tag, _rest::binary>> = PackStream.pack!(datetime)
-      assert tag == 0x66
+      assert tag == 0x69
     end
 
     test "duration with all values" do
