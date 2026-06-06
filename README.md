@@ -13,8 +13,8 @@ SPDX-License-Identifier: Apache-2.0
 
 `Bolty` is a reluctant fork of the the 'Boltx' Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
 
-- Supports Neo4j 5.26.26 LTS and compatible servers (Memgraph 2.13+)
-- Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8
+- Supports Neo4j 5.26.26 LTS, Neo4j 2026.05, and compatible servers (Memgraph 2.13+)
+- Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
 
@@ -164,12 +164,12 @@ iex> Bolty.connection_info(conn)
 
 ### Capability table
 
-| Capability | Bolt 5.0 – 5.5 | Bolt 5.6 | Bolt 5.7+ |
-|---|---|---|---|
-| DateTime encoding | evolved (UTC-aware) | evolved | evolved |
-| Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
-| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys |
-| Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON |
+| Capability | Bolt 5.0 – 5.5 | Bolt 5.6 | Bolt 5.7 – 5.8 | Bolt 6.0+ |
+|---|---|---|---|---|
+| DateTime encoding | evolved (UTC-aware) | evolved | evolved | evolved |
+| Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
+| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys | Yes |
+| Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON | LOGON |
 
 The `policy` struct is the single source of truth for version-driven behaviour inside the driver. User code should not need to branch on `bolt_version` directly — check `connection_info/1` if you need to gate application-level features on negotiated capabilities.
 
