@@ -31,27 +31,20 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
      })}
   end
 
-  def prepare_messages(bolt_version, messages) do
+  def prepare_messages(_bolt_version, messages) do
     case hd(messages) do
       {:success, response} ->
-        case bolt_version <= 2.0 do
-          true ->
-            {:ok,
-             Map.merge(
-               %{"t_first" => response["result_available_after"]},
-               Map.delete(response, "result_available_after")
-             )}
-
-          false ->
-            {:ok, response}
-        end
+        {:ok, response}
 
       {:ignored, _} ->
         {:error, Bolty.Error.wrap(__MODULE__, :ignored)}
 
       {:failure, response} ->
         {:error,
-         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{
+           code: response["neo4j_code"] || response["code"],
+           message: response["description"] || response["message"]
+         })}
     end
   end
 

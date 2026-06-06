@@ -52,6 +52,9 @@ jobs:
           - '5.2'
           - '5.3'
           - '5.4'
+          - '5.6'
+          - '5.7'
+          - '5.8'
         include:
           - boltVersion: '5.0'
             db: neo4j:5.26.26-community
@@ -68,6 +71,15 @@ jobs:
           - boltVersion: '5.4'
             db: neo4j:5.26.26-community
             mixTestPartition: 5
+          - boltVersion: '5.6'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 6
+          - boltVersion: '5.7'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 7
+          - boltVersion: '5.8'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 8
     env:
       MIX_ENV: test
       BOLT_VERSIONS: ${{matrix.boltVersion}}

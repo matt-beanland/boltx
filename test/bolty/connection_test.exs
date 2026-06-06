@@ -169,6 +169,60 @@ defmodule Bolty.ConnectionTest do
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
+  @tag :bolt_version_5_6
+  test "connect/1 successful with bolt version 5.6" do
+    {:ok,
+     %Connection{client: client, server_version: server_version, connection_id: connection_id} =
+       conn_data} =
+      Connection.connect(@opts)
+
+    assert server_version == "Neo4j/5.26.26"
+    assert client.bolt_version == 5.6
+    assert is_bitstring(connection_id)
+    assert String.contains?(connection_id, "bolt-")
+
+    assert {:ok, %Connection{client: _} = conn_data} =
+             Connection.checkin(conn_data)
+
+    :ok = Connection.disconnect(:stop, conn_data)
+  end
+
+  @tag :bolt_version_5_7
+  test "connect/1 successful with bolt version 5.7" do
+    {:ok,
+     %Connection{client: client, server_version: server_version, connection_id: connection_id} =
+       conn_data} =
+      Connection.connect(@opts)
+
+    assert server_version == "Neo4j/5.26.26"
+    assert client.bolt_version == 5.7
+    assert is_bitstring(connection_id)
+    assert String.contains?(connection_id, "bolt-")
+
+    assert {:ok, %Connection{client: _} = conn_data} =
+             Connection.checkin(conn_data)
+
+    :ok = Connection.disconnect(:stop, conn_data)
+  end
+
+  @tag :bolt_version_5_8
+  test "connect/1 successful with bolt version 5.8" do
+    {:ok,
+     %Connection{client: client, server_version: server_version, connection_id: connection_id} =
+       conn_data} =
+      Connection.connect(@opts)
+
+    assert server_version == "Neo4j/5.26.26"
+    assert client.bolt_version == 5.8
+    assert is_bitstring(connection_id)
+    assert String.contains?(connection_id, "bolt-")
+
+    assert {:ok, %Connection{client: _} = conn_data} =
+             Connection.checkin(conn_data)
+
+    :ok = Connection.disconnect(:stop, conn_data)
+  end
+
   @tag :last_version
   test "connect/1 successful with specific bolt version" do
     last_version = List.last(Versions.available_versions())

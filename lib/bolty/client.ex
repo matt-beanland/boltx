@@ -257,7 +257,10 @@ defmodule Bolty.Client do
 
       {:failure, response} ->
         {:error,
-         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{
+           code: response["neo4j_code"] || response["code"],
+           message: response["description"] || response["message"]
+         })}
     end
   end
 

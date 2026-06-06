@@ -15,7 +15,7 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
       bolt_version
       |> get_user_agent(fields)
       |> Map.merge(get_bolt_agent(fields))
-      |> Map.merge(get_extra_parameters(fields))
+      |> Map.merge(get_extra_parameters(bolt_version, fields))
     ]
 
     MessageEncoder.encode(@signature, message)
@@ -34,14 +34,28 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
      })}
   end
 
-  defp get_extra_parameters(fields) do
-    keys_to_extract = [:notifications_minimum_severity, :notifications_disabled_categories]
+  defp get_extra_parameters(bolt_version, fields) do
+    min_severity = Keyword.get(fields, :notifications_minimum_severity)
 
-    Enum.reduce(keys_to_extract, %{}, fn key, acc ->
-      case Keyword.get(fields, key) do
-        nil -> acc
-        value -> Map.put_new(acc, key, value)
+    # Bolt 5.6 renamed notifications_disabled_categories → notifications_disabled_classifications
+    {categories_key, categories_value} =
+      if bolt_version >= 5.6 do
+        value =
+          Keyword.get(fields, :notifications_disabled_classifications) ||
+            Keyword.get(fields, :notifications_disabled_categories)
+
+        {:notifications_disabled_classifications, value}
+      else
+        {:notifications_disabled_categories,
+         Keyword.get(fields, :notifications_disabled_categories)}
       end
+
+    %{}
+    |> then(fn acc ->
+      if min_severity, do: Map.put(acc, :notifications_minimum_severity, min_severity), else: acc
+    end)
+    |> then(fn acc ->
+      if categories_value, do: Map.put(acc, categories_key, categories_value), else: acc
     end)
   end
 end
