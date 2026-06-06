@@ -59,6 +59,16 @@ defmodule Bolty.Connection do
   end
 
   @impl true
+  def handle_execute(%Bolty.ConnectionInfo{} = query, _params, _opts, state) do
+    result = %{
+      bolt_version: state.client.bolt_version,
+      server_version: state.server_version,
+      policy: state.client.policy
+    }
+
+    {:ok, query, result, state}
+  end
+
   def handle_execute(query, params, opts, state) do
     case execute(query, params, opts, state) do
       {:ok, _} = result ->
