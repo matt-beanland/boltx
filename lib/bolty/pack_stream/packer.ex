@@ -333,6 +333,46 @@ defimpl Bolty.PackStream.Packer, for: Bolty.Types.Point do
   end
 end
 
+defimpl Bolty.PackStream.Packer, for: Bolty.Types.Vector do
+  use Bolty.PackStream.Markers
+
+  alias Bolty.Policy
+
+  def pack(%Bolty.Types.Vector{}, %Policy{vectors: false}) do
+    throw(Bolty.Error.wrap(__MODULE__, :vector_requires_bolt_6))
+  end
+
+  def pack(%Bolty.Types.Vector{type: :float32, data: values}, _policy) do
+    binary = for v <- values, into: <<>>, do: <<v::big-float-size(32)>>
+
+    [
+      <<@tiny_struct_marker::4, @vector_struct_size::4, @vector_signature>>,
+      pack_bytes(<<@vector_float32_marker>>),
+      pack_bytes(binary)
+    ]
+  end
+
+  def pack(%Bolty.Types.Vector{type: :float64, data: values}, _policy) do
+    binary = for v <- values, into: <<>>, do: <<v::big-float-size(64)>>
+
+    [
+      <<@tiny_struct_marker::4, @vector_struct_size::4, @vector_signature>>,
+      pack_bytes(<<@vector_float64_marker>>),
+      pack_bytes(binary)
+    ]
+  end
+
+  defp pack_bytes(bin) do
+    size = byte_size(bin)
+
+    cond do
+      size <= 255 -> [<<@bytes8_marker, size>>, bin]
+      size <= 65_535 -> [<<@bytes16_marker, size::16>>, bin]
+      true -> [<<@bytes32_marker, size::32>>, bin]
+    end
+  end
+end
+
 defimpl Bolty.PackStream.Packer, for: Any do
   defmacro __deriving__(module, struct, options) do
     deriving(module, struct, options)

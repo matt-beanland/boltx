@@ -10,8 +10,8 @@ defmodule Bolty.PackStreamTest do
   alias Bolty.TypesHelper
   alias Bolty.TestDerivationStruct
 
-
   @evolved %Policy{datetime: :evolved}
+  @bolt_6 %Policy{datetime: :evolved, vectors: true}
 
   defmodule TestStruct do
     defstruct foo: "bar"
@@ -763,6 +763,78 @@ defmodule Bolty.PackStreamTest do
                    0xC1, 0x40, 0x46, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0xC1, 0x40, 0x62, 0xC0, 0x0,
                    0x0, 0x0, 0x0, 0x0>>
                )
+    end
+  end
+
+  describe "Vector (Bolt 6.0+):" do
+    @describetag :core
+
+    alias Bolty.Types.Vector
+
+    test "pack float32 vector" do
+      packed = PackStream.pack!(Vector.new(:float32, [1.0, 2.0, 3.0]), @bolt_6)
+
+      assert <<
+               # tiny struct, 2 fields, sig 0x56
+               0xB2, 0x56,
+               # type_marker: bytes(1) = 0xC6
+               0xCC, 0x01, 0xC6,
+               # data: bytes(12) — three float32 big-endian values
+               0xCC, 0x0C,
+               0x3F, 0x80, 0x00, 0x00,
+               0x40, 0x00, 0x00, 0x00,
+               0x40, 0x40, 0x00, 0x00
+             >> = packed
+    end
+
+    test "pack float64 vector" do
+      packed = PackStream.pack!(Vector.new(:float64, [1.0, 2.0]), @bolt_6)
+
+      assert <<
+               # tiny struct, 2 fields, sig 0x56
+               0xB2, 0x56,
+               # type_marker: bytes(1) = 0xC1
+               0xCC, 0x01, 0xC1,
+               # data: bytes(16) — two float64 big-endian values
+               0xCC, 0x10,
+               0x3F, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+               0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+             >> = packed
+    end
+
+    test "float32 round-trip" do
+      vector = Vector.new(:float32, [0.0, 1.0, -1.0, 100.0])
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
+
+      assert result.type == :float32
+      assert length(result.data) == 4
+      # float32 has ~7 decimal digits of precision; these values are exact
+      assert result.data == [0.0, 1.0, -1.0, 100.0]
+    end
+
+    test "float64 round-trip" do
+      vector = Vector.new(:float64, [0.0, 1.0, -1.0, 1.0e100])
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
+
+      assert result.type == :float64
+      assert result.data == [0.0, 1.0, -1.0, 1.0e100]
+    end
+
+    test "unpack from raw bytes (struct tuple form)" do
+      # type_marker bytes: <<0xC6>> (float32)
+      # data bytes: 1.0f32, 2.0f32
+      assert [%Vector{type: :float32, data: [1.0, 2.0]}] ==
+               PackStream.unpack!(
+                 {0x56,
+                  <<0xCC, 0x01, 0xC6, 0xCC, 0x08, 0x3F, 0x80, 0x00, 0x00, 0x40, 0x00, 0x00,
+                    0x00>>, 2}
+               )
+    end
+
+    test "packing Vector on a pre-6.0 connection raises :vector_requires_bolt_6" do
+      assert_raise Bolty.Error, fn ->
+        PackStream.pack!(Vector.new(:float32, [1.0, 2.0]), %Policy{vectors: false})
+      end
     end
   end
 end
