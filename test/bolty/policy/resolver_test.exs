@@ -81,4 +81,16 @@ defmodule Bolty.Policy.ResolverTest do
       assert %Policy{gql_errors: true} = Resolver.resolve(5.8, %{})
     end
   end
+
+  describe "resolve/2 vectors dimension" do
+    @describetag :core
+
+    test "Bolt 5.8 has vectors: false" do
+      assert %Policy{vectors: false} = Resolver.resolve(5.8, %{})
+    end
+
+    test "Bolt 6.0 has vectors: true" do
+      assert %Policy{vectors: true} = Resolver.resolve(6.0, %{})
+    end
+  end
 end

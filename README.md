@@ -157,7 +157,8 @@ iex> Bolty.connection_info(conn)
   policy: %Bolty.Policy{
     datetime: :evolved,
     notifications_field: :notifications_disabled_classifications,
-    gql_errors: true
+    gql_errors: true,
+    vectors: false
   }
 }
 ```
@@ -170,6 +171,7 @@ iex> Bolty.connection_info(conn)
 | Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
 | GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys | Yes |
 | Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON | LOGON |
+| Vector type | No | No | No | Yes |
 
 The `policy` struct is the single source of truth for version-driven behaviour inside the driver. User code should not need to branch on `bolt_version` directly — check `connection_info/1` if you need to gate application-level features on negotiated capabilities.
 
@@ -192,6 +194,28 @@ opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
 ```
 
 The handshake has four slots; range tuples let you cover a span of minor versions in a single slot. If the server cannot satisfy the offered range(s) the connection will fail with a version-negotiation error rather than silently falling back to an unsupported version.
+
+## Vector embeddings (Bolt 6.0+)
+
+`Bolty.Types.Vector` represents a typed list of floating-point values for embedding and similarity search. It is available on connections negotiated at Bolt 6.0 (Neo4j 2026.05+). Attempting to send a `Vector` over an older connection raises `Bolty.Error` with code `:vector_requires_bolt_6`.
+
+```elixir
+alias Bolty.Types.Vector
+
+# Ensure a Bolt 6.0 connection
+{:ok, conn} = Bolty.start_link([versions: [6.0]] ++ opts)
+
+embedding = Vector.new(:float32, [0.1, 0.2, 0.3])
+
+# Pass as a parameter — round-trips the value over the wire:
+[%{"v" => result}] = Bolty.query!(conn, "RETURN $v AS v", %{v: embedding})
+
+# Storing vectors as node properties requires Neo4j Enterprise Edition.
+```
+
+Supported element types:
+- `:float32` — IEEE-754 single precision (4 bytes per element)
+- `:float64` — IEEE-754 double precision (8 bytes per element)
 
 ## Contributing
 

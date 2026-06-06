@@ -10,8 +10,8 @@ defmodule Bolty.PackStreamTest do
   alias Bolty.TypesHelper
   alias Bolty.TestDerivationStruct
 
-
   @evolved %Policy{datetime: :evolved}
+  @bolt_6 %Policy{datetime: :evolved, vectors: true}
 
   defmodule TestStruct do
     defstruct foo: "bar"
@@ -772,7 +772,7 @@ defmodule Bolty.PackStreamTest do
     alias Bolty.Types.Vector
 
     test "pack float32 vector" do
-      packed = PackStream.pack!(Vector.new(:float32, [1.0, 2.0, 3.0]))
+      packed = PackStream.pack!(Vector.new(:float32, [1.0, 2.0, 3.0]), @bolt_6)
 
       assert <<
                # tiny struct, 2 fields, sig 0x56
@@ -788,7 +788,7 @@ defmodule Bolty.PackStreamTest do
     end
 
     test "pack float64 vector" do
-      packed = PackStream.pack!(Vector.new(:float64, [1.0, 2.0]))
+      packed = PackStream.pack!(Vector.new(:float64, [1.0, 2.0]), @bolt_6)
 
       assert <<
                # tiny struct, 2 fields, sig 0x56
@@ -804,7 +804,7 @@ defmodule Bolty.PackStreamTest do
 
     test "float32 round-trip" do
       vector = Vector.new(:float32, [0.0, 1.0, -1.0, 100.0])
-      [result] = PackStream.pack!(vector) |> PackStream.unpack!()
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
 
       assert result.type == :float32
       assert length(result.data) == 4
@@ -814,7 +814,7 @@ defmodule Bolty.PackStreamTest do
 
     test "float64 round-trip" do
       vector = Vector.new(:float64, [0.0, 1.0, -1.0, 1.0e100])
-      [result] = PackStream.pack!(vector) |> PackStream.unpack!()
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
 
       assert result.type == :float64
       assert result.data == [0.0, 1.0, -1.0, 1.0e100]
@@ -829,6 +829,12 @@ defmodule Bolty.PackStreamTest do
                   <<0xCC, 0x01, 0xC6, 0xCC, 0x08, 0x3F, 0x80, 0x00, 0x00, 0x40, 0x00, 0x00,
                     0x00>>, 2}
                )
+    end
+
+    test "packing Vector on a pre-6.0 connection raises :vector_requires_bolt_6" do
+      assert_raise Bolty.Error, fn ->
+        PackStream.pack!(Vector.new(:float32, [1.0, 2.0]), %Policy{vectors: false})
+      end
     end
   end
 end

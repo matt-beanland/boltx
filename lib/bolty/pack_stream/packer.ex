@@ -336,6 +336,12 @@ end
 defimpl Bolty.PackStream.Packer, for: Bolty.Types.Vector do
   use Bolty.PackStream.Markers
 
+  alias Bolty.Policy
+
+  def pack(%Bolty.Types.Vector{}, %Policy{vectors: false}) do
+    throw(Bolty.Error.wrap(__MODULE__, :vector_requires_bolt_6))
+  end
+
   def pack(%Bolty.Types.Vector{type: :float32, data: values}, _policy) do
     binary = for v <- values, into: <<>>, do: <<v::big-float-size(32)>>
 

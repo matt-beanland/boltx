@@ -39,11 +39,13 @@ defmodule Bolty.Policy do
   @type t :: %__MODULE__{
           datetime: datetime(),
           notifications_field: notifications_field(),
-          gql_errors: boolean()
+          gql_errors: boolean(),
+          vectors: boolean()
         }
 
   # defaults reflect the lowest supported Bolt version (5.0)
   defstruct datetime: :evolved,
             notifications_field: :notifications_disabled_categories,
-            gql_errors: false
+            gql_errors: false,
+            vectors: false
 end

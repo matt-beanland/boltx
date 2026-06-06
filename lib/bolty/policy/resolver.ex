@@ -29,8 +29,7 @@ defmodule Bolty.Policy.Resolver do
     |> put_datetime(bolt_version, server_version)
     |> put_notifications_field(bolt_version, server_version)
     |> put_gql_errors(bolt_version, server_version)
-
-    # |> put_vectors(bolt_version, server_version)  # issue #13
+    |> put_vectors(bolt_version, server_version)
   end
 
   # Bolt 5.x uses evolved DateTime struct tags (0x49/0x69).
@@ -59,4 +58,12 @@ defmodule Bolty.Policy.Resolver do
   end
 
   defp put_gql_errors(policy, _bolt_version, _server_version), do: policy
+
+  # Bolt 6.0 introduced the Vector PackStream struct (signature 0x56).
+  defp put_vectors(policy, bolt_version, _server_version)
+       when is_float(bolt_version) and bolt_version >= 6.0 do
+    %{policy | vectors: true}
+  end
+
+  defp put_vectors(policy, _bolt_version, _server_version), do: policy
 end
