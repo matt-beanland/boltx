@@ -16,11 +16,6 @@ defmodule Bolty.BoltProtocol.Message.PullMessage do
     MessageEncoder.encode(@signature, message)
   end
 
-  def encode(bolt_version, _extra_parameters)
-      when is_float(bolt_version) and bolt_version <= 3.0 do
-    MessageEncoder.encode(@signature, [])
-  end
-
   def encode(_, _) do
     {:error,
      Bolty.Error.wrap(__MODULE__, %{
