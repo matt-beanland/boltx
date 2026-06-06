@@ -137,6 +137,12 @@ defmodule Bolty.Client do
                 Versions.latest_versions()
 
               env_versions ->
+                require Logger
+
+                Logger.warning(
+                  "BOLT_VERSIONS env var is deprecated — set :versions in your connection config instead"
+                )
+
                 env_versions
                 |> String.split(",")
                 |> Enum.map(&Converters.to_float/1)

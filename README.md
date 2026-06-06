@@ -13,8 +13,8 @@ SPDX-License-Identifier: Apache-2.0
 
 `Bolty` is a reluctant fork of the the 'Boltx' Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
 
-- Supports Neo4j versions: 3.0.x/3.1.x/3.2.x/3.4.x/3.5.x/4.x/5.9 -5.13.0
-- Supports Bolt version: 1.0/2.0/3.0/4.x/5.0/5.1/5.2/5.3/5.4
+- Supports Neo4j 5.26.26 LTS and compatible servers (Memgraph 2.13+)
+- Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
 
@@ -53,6 +53,12 @@ opts = [
     max_overflow: 3,
     prefix: :default
 ]
+
+# Pin to a specific Bolt version:
+opts = [versions: [5.4]] ++ opts
+
+# Offer multiple versions as ranges (handshake has 4 slots — ranges cover more):
+opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
 
 iex> {:ok, conn} = Bolty.start_link(opts)
 {:ok, #PID<0.237.0>}
@@ -166,7 +172,7 @@ As certain versions of Bolt may be compatible with specific functionalities whil
 
 By default, all tags are disabled except the `:core` tag. To enable the tags, it is necessary to configure the following environment variables:
 
-- `BOLT_VERSIONS`: This variable is used for Bolt version configuration but is also useful for testing. You can specify a version, for example, BOLT_VERSIONS="1.0".
+- `BOLT_VERSIONS`: **Deprecated** — use the `:versions` connection option instead. Still supported as a testing escape hatch (e.g. `BOLT_VERSIONS=5.4 mix test`), but will emit a warning at runtime.
 - `BOLT_TCP_PORT`:  You can configure the port with the environment variable (BOLT_TCP_PORT=7688).
 
 #### Help script
