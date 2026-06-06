@@ -9,10 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. What bolty is
 
-`bolty` is an Elixir driver for [Neo4j](https://neo4j.com/) and other Bolt-speaking graph databases (notably Memgraph). It is a **reluctant fork** of [`boltx`](https://github.com/sagastume/boltx) — kept alive because specific fixes were needed (duration handling, maintenance), not because we wanted a new driver. Treat it as boltx-compatible in spirit; the upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
+`bolty` is an Elixir driver for [Neo4j](https://neo4j.com/), forked from [`boltx`](https://github.com/sagastume/boltx) and now developed independently — the codebases have diverged significantly over the past year. Upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
 - **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 5.26.26 LTS (Bolt 5.0–5.4, 5.6–5.8), Memgraph 2.13 (Bolt 5.0–5.2, advertised as Neo4j/5.2.0).
+- **Server compatibility**: Neo4j 5.26.26 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Use bolty when**:
 - You need direct Cypher/Bolt access from Elixir with `DBConnection` pooling.
-- You are speaking to Neo4j or a Bolt-compatible engine (Memgraph).
+- You are speaking to Neo4j.
 - You want to hand-write Cypher and deal in `Bolty.Types.*` structs.
 
 **Do not use bolty when**:
@@ -204,11 +204,11 @@ Local server matrix via `docker-compose.yml`:
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
 | `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
-| `memgraph-2.13.0` | `memgraph/memgraph:2.13.0` | `7691:7687` | 5.0–5.2 |
+| `neo4j-2026.05` | `neo4j:2026.05.0-community-ubi10` | `7689:7687` | 6.0 |
 
-All use credentials `neo4j / boltyPassword`.
+All use credentials `neo4j / password`.
 
-Test runner orchestrates this via `./scripts/test-runner.sh -c "mix test" -b "1.0,5.2" -d "neo4j,memgraph"`. Requires Docker, docker-compose, `jq`; `bats` for the script's own tests. See `scripts/README.md`.
+Use `mix test.matrix` to run the full version matrix. Requires Docker and docker-compose. See `scripts/README.md`.
 
 ## 13. Development loop
 
@@ -329,7 +329,6 @@ Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 | [#12](https://github.com/diffo-dev/bolty/issues/12) | reuse compliance | enhancement | Make bolty (and its deps handling) REUSE-compliant. |
 | [#13](https://github.com/diffo-dev/bolty/issues/13) | vector | enhancement | Investigate Neo4j vector / vector-search support. DozerDB caps at Neo4j 5.26.3 so the useful envelope is bounded; may need negotiated Bolt-version behaviour. |
 | [#16](https://github.com/diffo-dev/bolty/issues/16) | boltx-era inheritance cleanup | maintenance | Drop `patch_bolt` dead wiring from `Bolty.Connection`, modernise `config/test.exs` and `.iex.exs` against the current `Bolty.Client.Config.new/1` option names, rewrite `Bolty.Response`'s Spanish docstring in English. Active on branch `16-boltx-related-maintenance`. |
-| &mdash; | memgraph datetime calibration | maintenance | Separate follow-up: run the Europe/Berlin round-trip test against the `memgraph-2.13.0` docker-compose service when a Memgraph instance is available, then either add it as a regression test (if the resolver's default already works) or add a `server_version =~ "Memgraph"` branch in `Bolty.Policy.Resolver.put_datetime/3`. Deferred — no blocker for 0.0.10. |
 
 **Closed (for historical context)**
 
