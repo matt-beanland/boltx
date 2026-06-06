@@ -175,6 +175,31 @@ defmodule Bolty do
   @spec rollback(DBConnection.t(), any()) :: no_return()
   defdelegate rollback(conn, reason), to: DBConnection
 
+  @doc """
+  Returns metadata about the negotiated connection.
+
+  Can be called with the `conn` passed into a `transaction/3` callback or any
+  checked-out connection.
+
+  ## Example
+
+  ```elixir
+  Bolty.transaction(Bolt, fn conn ->
+    Bolty.connection_info(conn)
+    # => %{bolt_version: 5.8, server_version: "Neo4j/5.26.26", policy: %Bolty.Policy{...}}
+  end)
+  ```
+  """
+  @spec connection_info(conn()) :: %{
+          bolt_version: float(),
+          server_version: String.t(),
+          policy: Bolty.Policy.t()
+        }
+  def connection_info(conn) do
+    {:ok, _, info} = DBConnection.prepare_execute(conn, %Bolty.ConnectionInfo{}, %{})
+    info
+  end
+
   defp do_query(conn, query, params, options) do
     case DBConnection.prepare_execute(conn, query, params, options) do
       {:ok, _query, result} -> {:ok, result}

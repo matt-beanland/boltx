@@ -14,14 +14,14 @@ The script uses docker-compose.yml file to configure database services and their
 The labels that need to be set on each service are as follows:
 
 - boltVersions: A comma-separated list of Bolt versions (e.g., "1.0,5.2").
-- database: The name of the database that the service uses (e.g., "neo4j" or "memgraph"). Each service should have only one database.
+- database: The name of the database that the service uses (e.g., "neo4j"). Each service should have only one database.
 
 The versions in boltVersions should be floating-point numbers, such as "1.0" instead of "1". These versions match the tags in Elixir tests, for example, @tag bolt_version: "1.0".
 
 To run the script, you can use the following format:
 
 ```shell
-./scripts/test-runner.sh -c "mix test" -b "1.0,5.2" -d "neo4j,memgraph"
+./scripts/test-runner.sh -c "mix test" -b "5.0,5.8" -d "neo4j"
 ```
 
 or

@@ -17,12 +17,6 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
     MessageEncoder.encode(@signature, message, policy)
   end
 
-  def encode(bolt_version, query, parameters, _extra_parameters, policy)
-      when is_float(bolt_version) and bolt_version <= 2.0 do
-    message = [query, parameters]
-    MessageEncoder.encode(@signature, message, policy)
-  end
-
   def encode(_, _, _, _, _) do
     {:error,
      Bolty.Error.wrap(__MODULE__, %{
@@ -31,27 +25,20 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
      })}
   end
 
-  def prepare_messages(bolt_version, messages) do
+  def prepare_messages(_bolt_version, messages) do
     case hd(messages) do
       {:success, response} ->
-        case bolt_version <= 2.0 do
-          true ->
-            {:ok,
-             Map.merge(
-               %{"t_first" => response["result_available_after"]},
-               Map.delete(response, "result_available_after")
-             )}
-
-          false ->
-            {:ok, response}
-        end
+        {:ok, response}
 
       {:ignored, _} ->
         {:error, Bolty.Error.wrap(__MODULE__, :ignored)}
 
       {:failure, response} ->
         {:error,
-         Bolty.Error.wrap(__MODULE__, %{code: response["code"], message: response["message"]})}
+         Bolty.Error.wrap(__MODULE__, %{
+           code: response["neo4j_code"] || response["code"],
+           message: response["description"] || response["message"]
+         })}
     end
   end
 

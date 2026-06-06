@@ -29,6 +29,9 @@ defmodule Bolty.Types do
   For spatial types, you only need Point struct as it covers:
   - 2D point (cartesian or geographic)
   - 3D point (cartesian or geographic)
+
+  Bolt 6.0 (Neo4j 2026.05+) adds:
+  - Vector — a typed list of floating-point values used for embedding/similarity search
   """
 
   alias Bolty.TypesHelper
@@ -265,6 +268,44 @@ defmodule Bolty.Types do
 
     def format_param(param) do
       {:error, param}
+    end
+  end
+
+  defmodule Vector do
+    @moduledoc """
+    A typed vector of floating-point values, as introduced in Bolt 6.0 (Neo4j 2026.05+).
+
+    Requires a connection negotiated at Bolt 6.0 or later — packing a Vector over
+    an older connection raises `Bolty.Error` with code `:vector_requires_bolt_6`.
+
+    ## Fields
+    - `type` — element precision: `:float32` (IEEE-754 single) or `:float64` (IEEE-754 double)
+    - `data` — list of float values
+
+    ## Example
+
+        alias Bolty.Types.Vector
+
+        # Pass a vector as a query parameter (works on Community Edition):
+        embedding = Vector.new(:float32, [0.1, 0.2, 0.3])
+        [%{"v" => result}] = Bolty.query!(conn, "RETURN $v AS v", %{v: embedding})
+
+        # Storing vectors as node properties requires Neo4j Enterprise Edition:
+        Bolty.query!(conn, "CREATE (n:Item {embedding: $v})", %{v: embedding})
+    """
+
+    @type element_type :: :float32 | :float64
+
+    @type t :: %__MODULE__{
+            type: element_type(),
+            data: [float()]
+          }
+
+    defstruct [:type, :data]
+
+    @spec new(:float32 | :float64, [float()]) :: t()
+    def new(type, data) when type in [:float32, :float64] and is_list(data) do
+      %__MODULE__{type: type, data: data}
     end
   end
 

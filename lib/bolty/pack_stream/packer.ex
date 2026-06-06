@@ -198,19 +198,6 @@ defimpl Bolty.PackStream.Packer, for: DateTime do
     ]
   end
 
-  # Bolt <= 4 (legacy): body carries local-wall-clock seconds (naive diff from
-  # epoch, ignoring zone offset). Symmetric with the unpacker's legacy path
-  # which rebuilds via `NaiveDateTime.add` + `datetime_with_micro`.
-  def pack(%DateTime{} = dt, %Policy{datetime: :legacy} = policy) do
-    body = decompose_local(dt) ++ [dt.time_zone]
-
-    [
-      <<@tiny_struct_marker::4, @legacy_datetime_with_zone_id_struct_size::4,
-        @legacy_datetime_with_zone_id_signature>>,
-      Enum.map(body, &@protocol.pack(&1, policy))
-    ]
-  end
-
   @spec decompose_utc(DateTime.t()) :: [integer()]
   defp decompose_utc(%DateTime{} = dt) do
     total_us = DateTime.to_unix(dt, :microsecond)
@@ -219,14 +206,6 @@ defimpl Bolty.PackStream.Packer, for: DateTime do
     [seconds, nanoseconds]
   end
 
-  @spec decompose_local(DateTime.t()) :: [integer()]
-  defp decompose_local(%DateTime{} = dt) do
-    naive = DateTime.to_naive(dt)
-    total_us = NaiveDateTime.diff(naive, ~N[1970-01-01 00:00:00.000], :microsecond)
-    seconds = Integer.floor_div(total_us, 1_000_000)
-    nanoseconds = (total_us - seconds * 1_000_000) * 1_000
-    [seconds, nanoseconds]
-  end
 end
 
 defimpl Bolty.PackStream.Packer, for: NaiveDateTime do
@@ -297,22 +276,6 @@ defimpl Bolty.PackStream.Packer, for: Bolty.Types.DateTimeWithTZOffset do
     ]
   end
 
-  # Bolt <= 4 (legacy): body carries local-wall-clock seconds unchanged. The
-  # unpacker's legacy path rebuilds the naive directly without offset
-  # arithmetic, so no adjustment here.
-  def pack(
-        %Bolty.Types.DateTimeWithTZOffset{naive_datetime: ndt, timezone_offset: offset},
-        %Policy{datetime: :legacy} = policy
-      ) do
-    body = decompose_naive(ndt) ++ [offset]
-
-    [
-      <<@tiny_struct_marker::4, @legacy_datetime_with_zone_offset_struct_size::4,
-        @legacy_datetime_with_zone_offset_signature>>,
-      Enum.map(body, &@protocol.pack(&1, policy))
-    ]
-  end
-
   @spec decompose_naive(Calendar.naive_datetime()) :: [integer()]
   defp decompose_naive(%NaiveDateTime{} = datetime) do
     total_us = NaiveDateTime.diff(datetime, ~N[1970-01-01 00:00:00.000], :microsecond)
@@ -367,6 +330,46 @@ defimpl Bolty.PackStream.Packer, for: Bolty.Types.Point do
       )
 
     [<<@tiny_struct_marker::4, @point3d_struct_size::4, @point3d_signature>>, data]
+  end
+end
+
+defimpl Bolty.PackStream.Packer, for: Bolty.Types.Vector do
+  use Bolty.PackStream.Markers
+
+  alias Bolty.Policy
+
+  def pack(%Bolty.Types.Vector{}, %Policy{vectors: false}) do
+    throw(Bolty.Error.wrap(__MODULE__, :vector_requires_bolt_6))
+  end
+
+  def pack(%Bolty.Types.Vector{type: :float32, data: values}, _policy) do
+    binary = for v <- values, into: <<>>, do: <<v::big-float-size(32)>>
+
+    [
+      <<@tiny_struct_marker::4, @vector_struct_size::4, @vector_signature>>,
+      pack_bytes(<<@vector_float32_marker>>),
+      pack_bytes(binary)
+    ]
+  end
+
+  def pack(%Bolty.Types.Vector{type: :float64, data: values}, _policy) do
+    binary = for v <- values, into: <<>>, do: <<v::big-float-size(64)>>
+
+    [
+      <<@tiny_struct_marker::4, @vector_struct_size::4, @vector_signature>>,
+      pack_bytes(<<@vector_float64_marker>>),
+      pack_bytes(binary)
+    ]
+  end
+
+  defp pack_bytes(bin) do
+    size = byte_size(bin)
+
+    cond do
+      size <= 255 -> [<<@bytes8_marker, size>>, bin]
+      size <= 65_535 -> [<<@bytes16_marker, size::16>>, bin]
+      true -> [<<@bytes32_marker, size::32>>, bin]
+    end
   end
 end
 

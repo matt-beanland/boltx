@@ -4,45 +4,21 @@
 version: "3.0"
 
 services:
-  neo4j-3.4.0:
-    image: neo4j:3.4.0
+  neo4j-2026.05:
+    image: neo4j:2026.05.0-community-ubi10
     labels:
-        - "boltVersions=1.0,2.0"
-        - "database=neo4j"
-    ports:
-      - 7688:7687
-    environment:
-      - NEO4J_AUTH=neo4j/boltyPassword
-      - NEO4J_dbms_mode=CORE
-      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-      - NEO4J_dbms_connector_bolt_listen__address=:7687
-  neo4j-4.4:
-    image: neo4j:4.4.27-community
-    labels:
-        - "boltVersions=3.0,4.0,4.1,4.2,4.3,4.4"
+        - "boltVersions=6.0"
         - "database=neo4j"
     ports:
       - 7689:7687
     environment:
-      - NEO4J_AUTH=neo4j/boltyPassword
-  neo4j-5.26.22:
-    image: neo4j:5.26.22-community
+      - NEO4J_AUTH=neo4j/password
+  neo4j-5.26.26:
+    image: neo4j:5.26.26-community
     labels:
-        - "boltVersions=5.0,5.1,5.2,5.3,5.4"
+        - "boltVersions=5.0,5.1,5.2,5.3,5.4,5.6,5.7,5.8"
         - "database=neo4j"
     ports:
       - 7690:7687
     environment:
-      - NEO4J_AUTH=neo4j/boltyPassword
-  memgraph-2.13.0:
-    image: "memgraph/memgraph:2.13.0"
-    labels:
-        - "boltVersions=5.0,5.1,5.2"
-        - "database=memgraph"
-    ports:
-      - "7691:7687"
-    environment:
-      MEMGRAPH_USER: "neo4j"
-      MEMGRAPH_PASSWORD: "boltyPassword"
-    command: ["--also-log-to-stderr=true", "--bolt-server-name-for-init=Neo4j/5.2.0"]
-    entrypoint: ["/usr/lib/memgraph/memgraph", "--log-level=TRACE"]
+      - NEO4J_AUTH=neo4j/password

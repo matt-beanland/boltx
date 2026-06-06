@@ -24,11 +24,21 @@ defmodule Bolty.Connection do
   def connect(opts) do
     config = Client.Config.new(opts)
 
-    with {:ok, %Client{} = client} <- Client.connect(config),
-         {:ok, response_server_metadata} <- do_init(client, opts) do
-      policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
-      state = get_server_metadata_state(response_server_metadata)
-      {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+    with {:ok, %Client{} = client} <- Client.connect(config) do
+      # Resolve a preliminary policy from bolt_version alone so that HELLO
+      # message construction can use policy fields (e.g. notifications_field)
+      # rather than reading bolt_version directly. The final policy is resolved
+      # again below from the full HELLO response metadata; all current
+      # dimensions depend only on bolt_version so both calls produce the same
+      # result in practice.
+      preliminary_policy = Policy.Resolver.resolve(client.bolt_version, %{})
+      client_with_policy = %{client | policy: preliminary_policy}
+
+      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts) do
+        policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
+        state = get_server_metadata_state(response_server_metadata)
+        {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+      end
     end
   end
 
@@ -59,6 +69,16 @@ defmodule Bolty.Connection do
   end
 
   @impl true
+  def handle_execute(%Bolty.ConnectionInfo{} = query, _params, _opts, state) do
+    result = %{
+      bolt_version: state.client.bolt_version,
+      server_version: state.server_version,
+      policy: state.client.policy
+    }
+
+    {:ok, query, result, state}
+  end
+
   def handle_execute(query, params, opts, state) do
     case execute(query, params, opts, state) do
       {:ok, _} = result ->
@@ -71,10 +91,7 @@ defmodule Bolty.Connection do
 
   @impl true
   def disconnect(_reason, state) do
-    if state.client.bolt_version >= 3.0 do
-      Client.send_goodbye(state.client)
-    end
-
+    Client.send_goodbye(state.client)
     Client.disconnect(state.client)
   end
 
@@ -123,9 +140,7 @@ defmodule Bolty.Connection do
 
       {:error, %Bolty.Error{code: error_code} = error} ->
         if error_code in [:syntax_error, :semantic_error] and not state.in_transaction do
-          if client.bolt_version >= 3.0,
-            do: Client.send_reset(client),
-            else: Client.send_ack_failure(client)
+          Client.send_reset(client)
         end
 
         {:error, error, state}
@@ -166,12 +181,8 @@ defmodule Bolty.Connection do
     end
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version >= 3.0 do
+  defp do_init(bolt_version, client, opts) when is_float(bolt_version) do
     Client.send_hello(client, opts)
-  end
-
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version <= 2.0 do
-    Client.send_init(client, opts)
   end
 
   defp get_server_metadata_state(response_metadata) do

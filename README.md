@@ -11,10 +11,10 @@ SPDX-License-Identifier: Apache-2.0
 [![REUSE status](https://api.reuse.software/badge/github.com/diffo-dev/bolty)](https://api.reuse.software/info/github.com/diffo-dev/bolty)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/diffo-dev/bolty)
 
-`Bolty` is a reluctant fork of the the 'Boltx' Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol.
+`Bolty` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol, forked from `Boltx` and now developed independently.
 
-- Supports Neo4j versions: 3.0.x/3.1.x/3.2.x/3.4.x/3.5.x/4.x/5.9 -5.13.0
-- Supports Bolt version: 1.0/2.0/3.0/4.x/5.0/5.1/5.2/5.3/5.4
+- Supports Neo4j 5.26.26 LTS and Neo4j 2026.05
+- Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
 
@@ -36,7 +36,7 @@ Add :bolty to your dependencies:
 ```elixir
 def deps() do
   [
-    {:bolty, "~> 0.0.10"}
+    {:bolty, "~> 0.1.0"}
   ]
 end
 ```
@@ -53,6 +53,12 @@ opts = [
     max_overflow: 3,
     prefix: :default
 ]
+
+# Pin to a specific Bolt version:
+opts = [versions: [5.4]] ++ opts
+
+# Offer multiple versions as ranges (handshake has 4 slots — ranges cover more):
+opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
 
 iex> {:ok, conn} = Bolty.start_link(opts)
 {:ok, #PID<0.237.0>}
@@ -139,6 +145,78 @@ By default the scheme is `bolt+s`
 | bolt+s     | Secured with full certificate              | [verify: :verify_none]  |
 | bolt+ssc   | Secured with self-signed certificate       | [verify: :verify_peer]  |
 
+## Negotiated capabilities
+
+Bolty negotiates the highest mutually-supported Bolt version during connection. The outcome determines which protocol behaviours are active for the lifetime of that connection. Call `Bolty.connection_info/1` to inspect what was negotiated:
+
+```elixir
+iex> Bolty.connection_info(conn)
+%{
+  bolt_version: 5.8,
+  server_version: "Neo4j/5.26.26",
+  policy: %Bolty.Policy{
+    datetime: :evolved,
+    notifications_field: :notifications_disabled_classifications,
+    gql_errors: true,
+    vectors: false
+  }
+}
+```
+
+### Capability table
+
+| Capability | Bolt 5.0 – 5.5 | Bolt 5.6 | Bolt 5.7 – 5.8 | Bolt 6.0+ |
+|---|---|---|---|---|
+| DateTime encoding | evolved (UTC-aware) | evolved | evolved | evolved |
+| Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
+| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys | Yes |
+| Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON | LOGON |
+| Vector type | No | No | No | Yes |
+
+The `policy` struct is the single source of truth for version-driven behaviour inside the driver. User code should not need to branch on `bolt_version` directly — check `connection_info/1` if you need to gate application-level features on negotiated capabilities.
+
+### Restricting the negotiated version
+
+By default Bolty offers all supported Bolt versions to the server and the highest common version wins. Use the `:versions` option to constrain the offer if your application requires specific capabilities:
+
+```elixir
+# Require GQL-compliant errors (Bolt 5.7+)
+opts = [versions: [{5, 7..8}]] ++ opts
+
+# Require the renamed notification field (Bolt 5.6+)
+opts = [versions: [{5, 6..8}]] ++ opts
+
+# Target a single known version
+opts = [versions: [5.4]] ++ opts
+
+# Offer two disjoint ranges when you want broad compatibility but must skip 5.5
+opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
+```
+
+The handshake has four slots; range tuples let you cover a span of minor versions in a single slot. If the server cannot satisfy the offered range(s) the connection will fail with a version-negotiation error rather than silently falling back to an unsupported version.
+
+## Vector embeddings (Bolt 6.0+)
+
+`Bolty.Types.Vector` represents a typed list of floating-point values for embedding and similarity search. It is available on connections negotiated at Bolt 6.0 (Neo4j 2026.05+). Attempting to send a `Vector` over an older connection raises `Bolty.Error` with code `:vector_requires_bolt_6`.
+
+```elixir
+alias Bolty.Types.Vector
+
+# Ensure a Bolt 6.0 connection
+{:ok, conn} = Bolty.start_link([versions: [6.0]] ++ opts)
+
+embedding = Vector.new(:float32, [0.1, 0.2, 0.3])
+
+# Pass as a parameter — round-trips the value over the wire:
+[%{"v" => result}] = Bolty.query!(conn, "RETURN $v AS v", %{v: embedding})
+
+# Storing vectors as node properties requires Neo4j Enterprise Edition.
+```
+
+Supported element types:
+- `:float32` — IEEE-754 single precision (4 bytes per element)
+- `:float64` — IEEE-754 double precision (8 bytes per element)
+
 ## Contributing
 
 ### Getting Started
@@ -166,7 +244,7 @@ As certain versions of Bolt may be compatible with specific functionalities whil
 
 By default, all tags are disabled except the `:core` tag. To enable the tags, it is necessary to configure the following environment variables:
 
-- `BOLT_VERSIONS`: This variable is used for Bolt version configuration but is also useful for testing. You can specify a version, for example, BOLT_VERSIONS="1.0".
+- `BOLT_VERSIONS`: **Deprecated** — use the `:versions` connection option instead. Still supported as a testing escape hatch (e.g. `BOLT_VERSIONS=5.4 mix test`), but will emit a warning at runtime.
 - `BOLT_TCP_PORT`:  You can configure the port with the environment variable (BOLT_TCP_PORT=7688).
 
 #### Help script
@@ -174,4 +252,4 @@ To simplify test execution, the test-runner.sh script is available. You can find
 
 ## Acknowledgments
 
-Thanks to [Florin Patrascu](https://github.com/florinpatrascu) for [bolt_sips](https://github.com/florinpatrascu/bolt_sips) and[Luis Sagastume](https://github.com/sagastume) for [boltx](https://github.com/sagastume/boltx).
+Thanks to [Florin Patrascu](https://github.com/florinpatrascu) for [bolt_sips](https://github.com/florinpatrascu/bolt_sips) and [Luis Sagastume](https://github.com/sagastume) for [boltx](https://github.com/sagastume/boltx).

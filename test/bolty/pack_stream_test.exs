@@ -10,8 +10,8 @@ defmodule Bolty.PackStreamTest do
   alias Bolty.TypesHelper
   alias Bolty.TestDerivationStruct
 
-  @legacy %Policy{datetime: :legacy}
   @evolved %Policy{datetime: :evolved}
+  @bolt_6 %Policy{datetime: :evolved, vectors: true}
 
   defmodule TestStruct do
     defstruct foo: "bar"
@@ -157,13 +157,6 @@ defmodule Bolty.PackStreamTest do
                PackStream.pack!(ttz)
     end
 
-    test "datetime with timezone offset — :legacy emits 0x46" do
-      dt = DateTimeWithTZOffset.create(~N[2016-05-24 13:26:08.654321], 7200)
-
-      assert <<0xB3, 0x46, 0xCA, 0x57, 0x44, 0x56, 0x70, 0xCA, 0x27, 0x0, 0x25, 0x68, 0xC9, 0x1C,
-               0x20>> == PackStream.pack!(dt, @legacy)
-    end
-
     test "datetime with timezone offset — :evolved emits 0x49 with UTC-shifted seconds" do
       # Bolt 5's UTC-aware encoding: body carries UTC-instant seconds, so the
       # seconds field is local_seconds - offset (1_464_096_368 - 7200 =
@@ -174,29 +167,6 @@ defmodule Bolty.PackStreamTest do
 
       assert <<0xB3, 0x49, 0xCA, 0x57, 0x44, 0x3A, 0x50, 0xCA, 0x27, 0x0, 0x25, 0x68, 0xC9, 0x1C,
                0x20>> == PackStream.pack!(dt, @evolved)
-    end
-
-    test "datetime with timezone offset — evolved seconds == legacy seconds - offset" do
-      # Explicit body-divergence check: the only difference between the two
-      # encodings is the seconds field (shifted by the zone offset). The fix
-      # for issue #10 hinges on this distinction.
-      dt = DateTimeWithTZOffset.create(~N[2016-05-24 13:26:08.654321], 7200)
-
-      <<0xB3, 0x46, _int_marker, legacy_seconds::signed-32, _rest_legacy::binary>> =
-        :erlang.iolist_to_binary(PackStream.pack!(dt, @legacy))
-
-      <<0xB3, 0x49, _int_marker2, evolved_seconds::signed-32, _rest_evolved::binary>> =
-        :erlang.iolist_to_binary(PackStream.pack!(dt, @evolved))
-
-      assert evolved_seconds == legacy_seconds - 7200
-    end
-
-    test "datetime with timezone id — :legacy emits 0x66" do
-      dt = TypesHelper.datetime_with_micro(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
-
-      assert <<0xB3, 0x66, 0xCA, 0x57, 0x44, 0x56, 0x70, 0xCA, 0x27, 0x0, 0x25, 0x68, 0x8D, 0x45,
-               0x75, 0x72, 0x6F, 0x70, 0x65, 0x2F, 0x42, 0x65, 0x72, 0x6C, 0x69, 0x6E>> ==
-               PackStream.pack!(dt, @legacy)
     end
 
     test "datetime with timezone id — :evolved emits 0x69 with UTC-shifted seconds" do
@@ -210,29 +180,6 @@ defmodule Bolty.PackStreamTest do
                PackStream.pack!(dt, @evolved)
     end
 
-    test "datetime with timezone id — evolved Berlin seconds == legacy seconds - CEST offset" do
-      # Body-divergence check for the zone-id variant. Confirms the split is
-      # not just a tag rename — it genuinely reshapes the seconds field by the
-      # effective UTC offset of the zone at that instant (CEST = 7200s).
-      dt = TypesHelper.datetime_with_micro(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
-
-      <<0xB3, 0x66, _int_marker, legacy_seconds::signed-32, _rest_legacy::binary>> =
-        :erlang.iolist_to_binary(PackStream.pack!(dt, @legacy))
-
-      <<0xB3, 0x69, _int_marker2, evolved_seconds::signed-32, _rest_evolved::binary>> =
-        :erlang.iolist_to_binary(PackStream.pack!(dt, @evolved))
-
-      assert evolved_seconds == legacy_seconds - 7200
-    end
-
-    test "datetime with timezone id from elixir DateTime — :legacy emits 0x66" do
-      datetime = ~U[2025-05-11 07:45:41.429903Z]
-
-      assert <<0xB3, 0x66, 0xCA, 0x68, 0x20, 0x55, 0xA5, 0xCA, 0x19, 0x9F, 0xCC, 0x98, 0x87, 0x45,
-               0x74, 0x63, 0x2F, 0x55, 0x54, 0x43>> ==
-               PackStream.pack!(datetime, @legacy)
-    end
-
     test "datetime with timezone id from elixir DateTime — :evolved emits 0x69" do
       datetime = ~U[2025-05-11 07:45:41.429903Z]
 
@@ -241,10 +188,10 @@ defmodule Bolty.PackStreamTest do
                PackStream.pack!(datetime, @evolved)
     end
 
-    test "default policy is :legacy (DateTime falls back to 0x66)" do
+    test "default policy is :evolved (DateTime uses 0x69)" do
       datetime = ~U[2025-05-11 07:45:41.429903Z]
       <<0xB3, tag, _rest::binary>> = PackStream.pack!(datetime)
-      assert tag == 0x66
+      assert tag == 0x69
     end
 
     test "duration with all values" do
@@ -620,27 +567,18 @@ defmodule Bolty.PackStreamTest do
                )
     end
 
-    test "Datetime zone-id/zone-offset — legacy and evolved round-trip to the same value" do
-      # End-to-end sanity: pack under each policy, unpack the bytes, and
-      # assert the values match. Catches any body-semantics mismatch between
-      # packer and unpacker on either branch.
+    test "Datetime zone-id/zone-offset — evolved round-trip" do
       dt_zone_id =
         Bolty.TypesHelper.datetime_with_micro(
           ~N[2016-05-24 13:26:08.654321],
           "Europe/Berlin"
         )
 
-      legacy_bytes = :erlang.iolist_to_binary(PackStream.pack!(dt_zone_id, @legacy))
       evolved_bytes = :erlang.iolist_to_binary(PackStream.pack!(dt_zone_id, @evolved))
-
-      assert [dt_zone_id] == PackStream.unpack!(legacy_bytes)
       assert [dt_zone_id] == PackStream.unpack!(evolved_bytes)
 
       dt_offset = DateTimeWithTZOffset.create(~N[2016-05-24 13:26:08.654321], 7200)
-      legacy_offset_bytes = :erlang.iolist_to_binary(PackStream.pack!(dt_offset, @legacy))
       evolved_offset_bytes = :erlang.iolist_to_binary(PackStream.pack!(dt_offset, @evolved))
-
-      assert [dt_offset] == PackStream.unpack!(legacy_offset_bytes)
       assert [dt_offset] == PackStream.unpack!(evolved_offset_bytes)
     end
 
@@ -825,6 +763,78 @@ defmodule Bolty.PackStreamTest do
                    0xC1, 0x40, 0x46, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0xC1, 0x40, 0x62, 0xC0, 0x0,
                    0x0, 0x0, 0x0, 0x0>>
                )
+    end
+  end
+
+  describe "Vector (Bolt 6.0+):" do
+    @describetag :core
+
+    alias Bolty.Types.Vector
+
+    test "pack float32 vector" do
+      packed = PackStream.pack!(Vector.new(:float32, [1.0, 2.0, 3.0]), @bolt_6)
+
+      assert <<
+               # tiny struct, 2 fields, sig 0x56
+               0xB2, 0x56,
+               # type_marker: bytes(1) = 0xC6
+               0xCC, 0x01, 0xC6,
+               # data: bytes(12) — three float32 big-endian values
+               0xCC, 0x0C,
+               0x3F, 0x80, 0x00, 0x00,
+               0x40, 0x00, 0x00, 0x00,
+               0x40, 0x40, 0x00, 0x00
+             >> = packed
+    end
+
+    test "pack float64 vector" do
+      packed = PackStream.pack!(Vector.new(:float64, [1.0, 2.0]), @bolt_6)
+
+      assert <<
+               # tiny struct, 2 fields, sig 0x56
+               0xB2, 0x56,
+               # type_marker: bytes(1) = 0xC1
+               0xCC, 0x01, 0xC1,
+               # data: bytes(16) — two float64 big-endian values
+               0xCC, 0x10,
+               0x3F, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+               0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+             >> = packed
+    end
+
+    test "float32 round-trip" do
+      vector = Vector.new(:float32, [0.0, 1.0, -1.0, 100.0])
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
+
+      assert result.type == :float32
+      assert length(result.data) == 4
+      # float32 has ~7 decimal digits of precision; these values are exact
+      assert result.data == [0.0, 1.0, -1.0, 100.0]
+    end
+
+    test "float64 round-trip" do
+      vector = Vector.new(:float64, [0.0, 1.0, -1.0, 1.0e100])
+      [result] = PackStream.pack!(vector, @bolt_6) |> PackStream.unpack!()
+
+      assert result.type == :float64
+      assert result.data == [0.0, 1.0, -1.0, 1.0e100]
+    end
+
+    test "unpack from raw bytes (struct tuple form)" do
+      # type_marker bytes: <<0xC6>> (float32)
+      # data bytes: 1.0f32, 2.0f32
+      assert [%Vector{type: :float32, data: [1.0, 2.0]}] ==
+               PackStream.unpack!(
+                 {0x56,
+                  <<0xCC, 0x01, 0xC6, 0xCC, 0x08, 0x3F, 0x80, 0x00, 0x00, 0x40, 0x00, 0x00,
+                    0x00>>, 2}
+               )
+    end
+
+    test "packing Vector on a pre-6.0 connection raises :vector_requires_bolt_6" do
+      assert_raise Bolty.Error, fn ->
+        PackStream.pack!(Vector.new(:float32, [1.0, 2.0]), %Policy{vectors: false})
+      end
     end
   end
 end

@@ -5,7 +5,7 @@ defmodule BoltyTest do
   use ExUnit.Case, async: true
 
   alias Bolty.Response
-  alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset}
+  alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset, Vector}
 
   alias Bolty.TypesHelper
 
@@ -102,9 +102,6 @@ defmodule BoltyTest do
              "missing 'The Name Kote' database, or data incomplete"
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "a query to get a Node with temporal functions", c do
       uuid = "6152f30e-076a-4479-b575-764bf6ab5e38"
@@ -542,8 +539,6 @@ defmodule BoltyTest do
              } = Bolty.query!(c.conn, cypher)
     end
 
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "Cypher with plan result", c do
       assert %Response{plan: plan} = Bolty.query!(c.conn, "EXPLAIN RETURN 1")
@@ -551,8 +546,6 @@ defmodule BoltyTest do
       assert Regex.match?(~r/[3|4|5]/iu, plan["args"]["planner-version"])
     end
 
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "EXPLAIN MATCH (n), (m) RETURN n, m", c do
       assert %Response{notifications: notifications, plan: plan} =
@@ -576,9 +569,6 @@ defmodule BoltyTest do
       end
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "Cypher point() constructor accepts a Map parameter", c do
       # Cypher's `point()` function requires a Map argument — it does not
@@ -611,9 +601,6 @@ defmodule BoltyTest do
     # server as a native PackStream Point, not as a Map. Until the fix lands,
     # these all fail with a Neo4j TypeError because Neo4j refuses Maps as
     # property values.
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store Point as node property — wgs-84 2D", c do
       point = Point.create(:wgs_84, 151.2093, -33.8688)
@@ -623,9 +610,6 @@ defmodule BoltyTest do
                Bolty.query(c.conn, query, %{p: point})
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store Point as node property — wgs-84 3D", c do
       point = Point.create(:wgs_84, 151.2093, -33.8688, 42.0)
@@ -635,9 +619,6 @@ defmodule BoltyTest do
                Bolty.query(c.conn, query, %{p: point})
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store Point as node property — cartesian 2D", c do
       point = Point.create(:cartesian, 10.0, 20.0)
@@ -647,9 +628,6 @@ defmodule BoltyTest do
                Bolty.query(c.conn, query, %{p: point})
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store Point as node property — cartesian 3D", c do
       point = Point.create(:cartesian, 10.0, 20.0, 30.0)
@@ -659,9 +637,6 @@ defmodule BoltyTest do
                Bolty.query(c.conn, query, %{p: point})
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store array of Points as node property", c do
       points = [
@@ -676,9 +651,6 @@ defmodule BoltyTest do
                Bolty.query(c.conn, query, %{ps: points})
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "store Point with integer coordinate inputs as node property", c do
       # Point.create/3 normalises integers to floats; the round-tripped value
@@ -692,9 +664,6 @@ defmodule BoltyTest do
       assert %Point{x: 10.0, y: 20.0} = point
     end
 
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "nil parameter where a Point would otherwise sit", c do
       # `nil` should pass through untouched — Neo4j treats a null property
@@ -706,9 +675,6 @@ defmodule BoltyTest do
     end
 
     @tag :core
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "Duration as Cypher input: datetime + duration → datetime", c do
       # Exercises DURATION-as-input. Cypher's `+` operator between a datetime
@@ -737,9 +703,6 @@ defmodule BoltyTest do
     end
 
     @tag :core
-    @tag :bolt_2_x
-    @tag :bolt_3_x
-    @tag :bolt_4_x
     @tag :bolt_5_x
     test "Duration as Cypher output: duration.inSeconds(t1, t2) → duration", c do
       # Exercises DURATION-as-output. The server computes the duration from
@@ -774,6 +737,36 @@ defmodule BoltyTest do
 
       assert {:ok, %Response{results: [%{"d" => ^expected}]}} =
                Bolty.query(c.conn, query, params)
+    end
+  end
+
+  describe "vector (Bolt 6.0+)" do
+    setup [:connect]
+
+    @tag :bolt_6_x
+    test "float32 vector round-trips over the wire", c do
+      embedding = Vector.new(:float32, [0.1, 0.2, 0.3, 0.4])
+
+      assert {:ok, %Response{results: [%{"v" => result}]}} =
+               Bolty.query(c.conn, "RETURN $v AS v", %{v: embedding})
+
+      assert %Vector{type: :float32} = result
+      assert length(result.data) == 4
+      # float32 has ~7 decimal digits of precision; assert within single-precision epsilon
+      Enum.zip(embedding.data, result.data)
+      |> Enum.each(fn {expected, actual} ->
+        assert_in_delta expected, actual, 1.0e-6
+      end)
+    end
+
+    @tag :bolt_6_x
+    test "float64 vector round-trips over the wire", c do
+      embedding = Vector.new(:float64, [1.0, 2.0, 3.0, 4.0])
+
+      assert {:ok, %Response{results: [%{"v" => result}]}} =
+               Bolty.query(c.conn, "RETURN $v AS v", %{v: embedding})
+
+      assert %Vector{type: :float64, data: [1.0, 2.0, 3.0, 4.0]} = result
     end
   end
 

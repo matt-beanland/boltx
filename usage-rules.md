@@ -9,10 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. What bolty is
 
-`bolty` is an Elixir driver for [Neo4j](https://neo4j.com/) and other Bolt-speaking graph databases (notably Memgraph). It is a **reluctant fork** of [`boltx`](https://github.com/sagastume/boltx) — kept alive because specific fixes were needed (duration handling, maintenance), not because we wanted a new driver. Treat it as boltx-compatible in spirit; the upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
+`bolty` is an Elixir driver for [Neo4j](https://neo4j.com/), forked from [`boltx`](https://github.com/sagastume/boltx) and now developed independently — the codebases have diverged significantly over the past year. Upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
-- **Protocol**: Bolt 1.0 → 5.4, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 3.0.x → 5.13, Memgraph 2.13 (Bolt 5.0–5.2, advertised as Neo4j/5.2.0).
+- **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
+- **Server compatibility**: Neo4j 5.26.26 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Use bolty when**:
 - You need direct Cypher/Bolt access from Elixir with `DBConnection` pooling.
-- You are speaking to Neo4j or a Bolt-compatible engine (Memgraph).
+- You are speaking to Neo4j.
 - You want to hand-write Cypher and deal in `Bolty.Types.*` structs.
 
 **Do not use bolty when**:
@@ -90,10 +90,11 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:port` | Port | `BOLT_TCP_PORT` env → `7687` |
 | `:scheme` | One of the schemes below | `"bolt+s"` |
 | `:auth` | `[username: ..., password: ...]` | required |
-| `:versions` | Bolt versions to negotiate (e.g. `[4.4]` to prevent Bolt 5) | server-driven negotiation |
+| `:versions` | Bolt versions to negotiate. Accepts floats (`[5.4]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`). Range tuples are preferred — the handshake has only 4 slots and ranges cover more versions per slot. Omit to use `Versions.latest_versions()` (all supported versions, auto-rangeified). `BOLT_VERSIONS` env var is **deprecated** in favour of this option. | `Versions.latest_versions()` |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
 | `:notifications_minimum_severity` | Bolt 5.2+ | `nil` |
-| `:notifications_disabled_categories` | Bolt 5.2+ | `nil` |
+| `:notifications_disabled_categories` | Bolt 5.2–5.5 | `nil` |
+| `:notifications_disabled_classifications` | Bolt 5.6+ (renamed field; also accepts old key) | `nil` |
 | `:connect_timeout` | ms | `15_000` |
 | `:ssl_opts` | `:ssl.tls_client_option()` list | merged with scheme-implied defaults |
 | `:socket_options` | `:gen_tcp.connect_option()` list | `[mode: :binary, packet: :raw, active: false]` |
@@ -202,14 +203,12 @@ Local server matrix via `docker-compose.yml`:
 
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
-| `neo4j-3.4.0` | `neo4j:3.4.0` | `7688:7687` | 1.0, 2.0 |
-| `neo4j-4.4` | `neo4j:4.4.27-community` | `7689:7687` | 3.0, 4.0–4.4 |
-| `neo4j-5.26.22` | `neo4j:5.26.22-community` | `7690:7687` | 5.0–5.4 |
-| `memgraph-2.13.0` | `memgraph/memgraph:2.13.0` | `7691:7687` | 5.0–5.2 |
+| `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
+| `neo4j-2026.05` | `neo4j:2026.05.0-community-ubi10` | `7689:7687` | 6.0 |
 
-All use credentials `neo4j / boltyPassword`.
+All use credentials `neo4j / password`.
 
-Test runner orchestrates this via `./scripts/test-runner.sh -c "mix test" -b "1.0,5.2" -d "neo4j,memgraph"`. Requires Docker, docker-compose, `jq`; `bats` for the script's own tests. See `scripts/README.md`.
+Use `mix test.matrix` to run the full version matrix. Requires Docker and docker-compose. See `scripts/README.md`.
 
 ## 13. Development loop
 
@@ -219,7 +218,9 @@ Test runner orchestrates this via `./scripts/test-runner.sh -c "mix test" -b "1.
 - `mix dialyzer` — PLT adds `:jason`, `:poison`, `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
 - `mix docs` — ex_doc; README.md is the main page.
 - `mix test --cover` / `mix coveralls` — 70% threshold gate.
+- `mix test.matrix` — runs the full test suite once per supported Bolt version against a local Neo4j instance and prints a pass/fail summary. Respects `BOLT_TCP_PORT` (default 7687).
 - `mix bench` (if present as an alias) — uses `benchee`, outputs via `benchee_html`; benchees live in `benchees/`.
+- `mix changelog` — regenerates `CHANGELOG.md` from conventional commits using git-cliff (`brew install git-cliff`). Pass `--tag vX.Y.Z` when cutting a release to name the unreleased section. Pass `--unreleased` to preview without writing.
 
 ## 14. Implementation notes (for maintainers)
 
@@ -239,8 +240,7 @@ Bolty                      (top-level API; format_param dispatch, transaction wr
 
 Init dispatch in `Bolty.Connection.do_init/3`:
 
-- Bolt ≤ 2.0 → `INIT`.
-- Bolt 3.0–5.0 → `HELLO`.
+- Bolt 5.0 → `HELLO`.
 - Bolt ≥ 5.1 → `HELLO` then `LOGON` (auth split out of HELLO).
 
 `handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`, `handle_close`, `handle_declare`, `handle_fetch`, `handle_deallocate` are all trivial; `handle_status` is hardcoded to `:idle`. Revisit if true streaming lands.
@@ -267,7 +267,58 @@ Authoritative design (including calibration history and non-goals): [`.agent-not
 - `format_param/1` at the top level only rewrites `Point`. Temporal-with-offset structs pass through as-is; call their own `format_param/1` if you need Cypher-ready strings.
 - Env-var-overrides-opts precedence for `:auth` (BOLT_USER / BOLT_PWD) — as noted in §5.
 
-## 16. Issues (GitHub)
+## 16. Commit format and changelog
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). The type determines which section of the changelog the change appears under:
+
+| Type | Changelog section |
+| --- | --- |
+| `feat` | Features |
+| `fix` | Bug Fixes |
+| `perf` | Performance |
+| `refactor` | Refactoring |
+| `chore` | Chores |
+| `docs` | Documentation |
+| `test` | Testing |
+| `ci` | CI/CD |
+| `style` | Style |
+| `revert` | Reverts |
+
+Append `!` or include `BREAKING CHANGE:` in the footer for breaking changes — these are bolded in the changelog.
+
+**Examples:**
+
+```
+feat: add Bolt 6.0 handshake support
+fix: prevent timeout on idle connections under heavy load
+chore: drop support for Neo4j 3.x and 4.x (Bolt 1.0–4.4)
+```
+
+**Changelog workflow:**
+
+```sh
+# Preview unreleased changes
+mix changelog --unreleased
+
+# Generate CHANGELOG.md tagged as the next release (explicit tag)
+mix changelog --tag v0.1.0
+
+# Or let git-cliff calculate the next version from commit types (requires
+# at least one conventional commit since the last tag)
+mix changelog --bump
+
+# Commit and tag
+git add CHANGELOG.md && git commit -m "chore: release v0.1.0"
+git tag v0.1.0
+```
+
+**Pre-1.0 bump rules** (`cliff.toml` `[bump]` section): a breaking change bumps the minor (`0.0.x → 0.1.0`), not the major. Features and fixes bump the patch. Flip `breaking_always_bump_major` back to `true` when the project reaches 1.0.
+
+**Bootstrapping note:** `--bump` requires at least one conventional commit since the last tag to infer a version. For the first release using this system, use `--tag vX.Y.Z` explicitly. Make the release commit itself a conventional commit so it appears in the changelog entry — e.g. `chore!: drop support for Neo4j 3.x and 4.x` with `BREAKING CHANGE:` in the footer.
+
+`git-cliff` reads `cliff.toml` at the repo root. Requires `brew install git-cliff`.
+
+## 17. Issues (GitHub)
 
 Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 
@@ -278,7 +329,6 @@ Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 | [#12](https://github.com/diffo-dev/bolty/issues/12) | reuse compliance | enhancement | Make bolty (and its deps handling) REUSE-compliant. |
 | [#13](https://github.com/diffo-dev/bolty/issues/13) | vector | enhancement | Investigate Neo4j vector / vector-search support. DozerDB caps at Neo4j 5.26.3 so the useful envelope is bounded; may need negotiated Bolt-version behaviour. |
 | [#16](https://github.com/diffo-dev/bolty/issues/16) | boltx-era inheritance cleanup | maintenance | Drop `patch_bolt` dead wiring from `Bolty.Connection`, modernise `config/test.exs` and `.iex.exs` against the current `Bolty.Client.Config.new/1` option names, rewrite `Bolty.Response`'s Spanish docstring in English. Active on branch `16-boltx-related-maintenance`. |
-| &mdash; | memgraph datetime calibration | maintenance | Separate follow-up: run the Europe/Berlin round-trip test against the `memgraph-2.13.0` docker-compose service when a Memgraph instance is available, then either add it as a regression test (if the resolver's default already works) or add a `server_version =~ "Memgraph"` branch in `Bolty.Policy.Resolver.put_datetime/3`. Deferred — no blocker for 0.0.10. |
 
 **Closed (for historical context)**
 
@@ -289,7 +339,7 @@ Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
 | [#8](https://github.com/diffo-dev/bolty/issues/8) | duration stored as string | 0.0.9 | Further fix — `Duration` outside of a map/struct wrapper was still being stored as a string. |
 | [#10](https://github.com/diffo-dev/bolty/issues/10) | dateTime param illegal | 0.0.10 | `%DateTime{}` was packed with the evolved 0x69 tag unconditionally and broke against Neo4j 5.x when `:versions` was constrained to Bolt 4.x. Fixed by policy-driven packstream: `%Bolty.Policy{datetime: :legacy \| :evolved}` resolved at HELLO, dispatched in the packer. See `.agent-notes/policy-design.md`. |
 
-## 17. Licensing and REUSE
+## 18. Licensing and REUSE
 
 bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. The compliance scheme — decided together with the maintainers and documented here so future contributors don't need to re-derive it:
 
@@ -314,7 +364,7 @@ bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. T
 
 `bolty contributors` is a collective attribution label; the authoritative list of contributors is `git shortlog -sn --no-merges`.
 
-## 18. Evolving this document
+## 19. Evolving this document
 
 - Keep it agent-first: dense, scannable, honest about gaps.
 - When bolty gains a capability, update §11 and add a usage snippet in §3 if there is a new ergonomic.

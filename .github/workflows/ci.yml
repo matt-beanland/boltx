@@ -25,15 +25,15 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '26.1'
-          elixir-version: '1.15.6'
+          otp-version: '29.0.1'
+          elixir-version: '1.20.0'
 
       - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-'1.15.6'-'26.1'-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
 
       - run: mix deps.get
       - run: mix deps.compile
@@ -47,59 +47,39 @@ jobs:
       fail-fast: false
       matrix:
         boltVersion:
-          - '1.0'
-          - '2.0'
-          - '3.0'
-          - '4.0'
-          - '4.1'
-          - '4.2'
-          - '4.3'
-          - '4.4'
           - '5.0'
           - '5.1'
           - '5.2'
           - '5.3'
           - '5.4'
+          - '5.6'
+          - '5.7'
+          - '5.8'
         include:
-          - boltVersion: '1.0'
-            db: neo4j:3.4.0
-            mixTestPartition: 1
-          - boltVersion: '2.0'
-            db: neo4j:3.4.0
-            mixTestPartition: 2
-          - boltVersion: '3.0'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 3
-          - boltVersion: '4.0'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 4
-          - boltVersion: '4.1'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 5
-          - boltVersion: '4.2'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 6
-          - boltVersion: '4.3'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 7
-          - boltVersion: '4.4'
-            db: neo4j:4.4.27-community
-            mixTestPartition: 8
           - boltVersion: '5.0'
-            db: neo4j:5.13.0-community
-            mixTestPartition: 9
+            db: neo4j:5.26.26-community
+            mixTestPartition: 1
           - boltVersion: '5.1'
-            db: neo4j:5.13.0-community
-            mixTestPartition: 10
+            db: neo4j:5.26.26-community
+            mixTestPartition: 2
           - boltVersion: '5.2'
-            db: neo4j:5.13.0-community
-            mixTestPartition: 11
+            db: neo4j:5.26.26-community
+            mixTestPartition: 3
           - boltVersion: '5.3'
-            db: neo4j:5.13.0-community
-            mixTestPartition: 12
+            db: neo4j:5.26.26-community
+            mixTestPartition: 4
           - boltVersion: '5.4'
-            db: neo4j:5.13.0-community
-            mixTestPartition: 13
+            db: neo4j:5.26.26-community
+            mixTestPartition: 5
+          - boltVersion: '5.6'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 6
+          - boltVersion: '5.7'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 7
+          - boltVersion: '5.8'
+            db: neo4j:5.26.26-community
+            mixTestPartition: 8
     env:
       MIX_ENV: test
       BOLT_VERSIONS: ${{matrix.boltVersion}}
@@ -114,16 +94,16 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '26.1'
-          elixir-version: '1.15.6'
-      
+          otp-version: '29.0.1'
+          elixir-version: '1.20.0'
+
       - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-1.15.6'-'26.1'-${{ hashFiles('**/mix.lock') }}
-      
+          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
+
       - run: mix deps.get
       - run: mix deps.compile
       - name: Run Test Script
@@ -142,22 +122,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - uses: erlef/setup-beam@v1
         with:
-            otp-version: '26.1'
-            elixir-version: '1.15.6'
-        
+            otp-version: '29.0.1'
+            elixir-version: '1.20.0'
+
       - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-1.15.6'-'26.1'-${{ hashFiles('**/mix.lock') }}
-        
+          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
+
       - uses: actions/download-artifact@v4
         with:
           path: cover
           pattern: coverdata-${{ github.run_id }}-*
-          merge-multiple: true 
+          merge-multiple: true
       - run: mix test.coverage

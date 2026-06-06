@@ -52,7 +52,7 @@ defmodule Bolty.Queries do
             extra: %{}
 end
 
-defimpl DBConnection.Query, for: [Bolty.Query, Bolty.Queries] do
+defimpl DBConnection.Query, for: [Bolty.Query, Bolty.Queries, Bolty.ConnectionInfo] do
   def describe(query, _), do: query
 
   def parse(query, _), do: query

@@ -107,6 +107,18 @@ defmodule Bolty.PackStream.Markers do
       # Point 3D
       @point3d_signature 0x59
       @point3d_struct_size 4
+
+      # Bytes
+      @bytes8_marker 0xCC
+      @bytes16_marker 0xCD
+      @bytes32_marker 0xCE
+
+      # Vector (Bolt 6.0+)
+      @vector_signature 0x56
+      @vector_struct_size 2
+      @vector_float32_marker 0xC6
+      # float64 shares the PackStream float marker value (0xC1)
+      @vector_float64_marker 0xC1
     end
   end
 end
