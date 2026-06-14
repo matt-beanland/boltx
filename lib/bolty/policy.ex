@@ -33,16 +33,37 @@ defmodule Bolty.Policy do
   @type notifications_field ::
           :notifications_disabled_categories | :notifications_disabled_classifications
 
+  # Server-side Cypher language capabilities. Unlike the wire-level dimensions
+  # above, these are derived from the HELLO `server` string (e.g.
+  # "Neo4j/5.26.26", "Neo4j/2025.06.0") rather than the negotiated Bolt version,
+  # so they are only meaningful in the *final* policy resolved after HELLO.
+  #
+  #   * cypher_5 — server speaks the `CYPHER 5` language (Neo4j >= 5.0). True for
+  #     every currently supported server; lets consumers prefix `CYPHER 5`
+  #     explicitly now that newer servers default to Cypher 25.
+  #   * cypher_25 — server supports the `CYPHER 25` language selector
+  #     (Neo4j >= 2025.06).
+  #   * dynamic_labels — server supports dynamic node labels/types
+  #     (`MATCH (n:$(expr))`), which landed in Cypher 5.26 and every calendar
+  #     release after. A strict superset of cypher_25: runs under plain
+  #     `CYPHER 5`, so a 5.26.x server has dynamic_labels: true but
+  #     cypher_25: false.
   @type t :: %__MODULE__{
           datetime: datetime(),
           notifications_field: notifications_field(),
           gql_errors: boolean(),
-          vectors: boolean()
+          vectors: boolean(),
+          cypher_5: boolean(),
+          cypher_25: boolean(),
+          dynamic_labels: boolean()
         }
 
   # defaults reflect the lowest supported Bolt version (5.0)
   defstruct datetime: :evolved,
             notifications_field: :notifications_disabled_categories,
             gql_errors: false,
-            vectors: false
+            vectors: false,
+            cypher_5: false,
+            cypher_25: false,
+            dynamic_labels: false
 end

@@ -87,4 +87,67 @@ defmodule Bolty.Policy.ResolverTest do
       assert %Policy{vectors: true} = Resolver.resolve(6.0, %{})
     end
   end
+
+  describe "resolve/2 cypher_5 dimension" do
+    @describetag :core
+
+    test "Bolt 5.0 has cypher_5: true" do
+      assert %Policy{cypher_5: true} = Resolver.resolve(5.0, %{"server" => "Neo4j/5.26.26"})
+    end
+
+    test "Bolt 6.0 has cypher_5: true" do
+      assert %Policy{cypher_5: true} = Resolver.resolve(6.0, %{"server" => "Neo4j/2026.05.0"})
+    end
+
+    test "nil bolt_version falls through to cypher_5: false" do
+      assert %Policy{cypher_5: false} = Resolver.resolve(nil, %{"server" => "Neo4j/5.26.26"})
+    end
+  end
+
+  describe "resolve/2 cypher_25 dimension" do
+    @describetag :core
+
+    test "calendar server >= 2025.06 has cypher_25: true" do
+      assert %Policy{cypher_25: true} = Resolver.resolve(5.8, %{"server" => "Neo4j/2025.06.0"})
+    end
+
+    test "calendar server < 2025.06 has cypher_25: false" do
+      assert %Policy{cypher_25: false} = Resolver.resolve(5.8, %{"server" => "Neo4j/2025.05.0"})
+    end
+
+    test "semver 5.26.x server has cypher_25: false" do
+      assert %Policy{cypher_25: false} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
+    end
+
+    test "missing server metadata has cypher_25: false" do
+      assert %Policy{cypher_25: false} = Resolver.resolve(5.8, %{})
+    end
+  end
+
+  describe "resolve/2 dynamic_labels dimension" do
+    @describetag :core
+
+    test "semver 5.26.x server has dynamic_labels: true, cypher_25: false" do
+      assert %Policy{dynamic_labels: true, cypher_25: false} =
+               Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
+    end
+
+    test "calendar server >= 2025.06 has dynamic_labels and cypher_25: true" do
+      assert %Policy{dynamic_labels: true, cypher_25: true} =
+               Resolver.resolve(5.8, %{"server" => "Neo4j/2025.06.0"})
+    end
+
+    test "calendar server < 2025.06 still has dynamic_labels: true, cypher_25: false" do
+      assert %Policy{dynamic_labels: true, cypher_25: false} =
+               Resolver.resolve(5.8, %{"server" => "Neo4j/2025.05.0"})
+    end
+
+    test "pre-5.26 semver server has dynamic_labels: false" do
+      assert %Policy{dynamic_labels: false} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.25.1"})
+    end
+
+    test "missing server metadata has dynamic_labels: false" do
+      assert %Policy{dynamic_labels: false} = Resolver.resolve(5.8, %{})
+    end
+  end
 end
