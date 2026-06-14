@@ -6,7 +6,8 @@ name: CI
 on:
   pull_request:
     branches:
-      - master
+      - dev
+      - main
 
 jobs:
   reuse:
@@ -33,12 +34,17 @@ jobs:
           path: |
             deps
             _build
+            priv/plts
           key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
 
       - run: mix deps.get
       - run: mix deps.compile
       - name: Check Code Formatting
         run: mix format --check-formatted
+      - name: Compile (warnings as errors)
+        run: mix compile --force --warnings-as-errors
+      - name: Dialyzer
+        run: mix dialyzer --format github
   test:
     name: BoltVersion ${{ matrix.boltVersion }}, DB ${{matrix.db}}
     runs-on: ubuntu-latest

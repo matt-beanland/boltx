@@ -21,7 +21,12 @@ defmodule Bolty.Mixfile do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       docs: docs(),
-      dialyzer: [plt_add_apps: [:jason, :poison, :mix], ignore_warnings: ".dialyzer_ignore.exs"],
+      dialyzer: [
+        plt_add_apps: [:jason, :poison, :mix],
+        plt_local_path: "priv/plts",
+        plt_core_path: "priv/plts",
+        ignore_warnings: ".dialyzer_ignore.exs"
+      ],
       test_coverage: [
         tool: ExCoveralls,
         summary: [
