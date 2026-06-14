@@ -165,7 +165,7 @@ defmodule Bolty do
     end
   end
 
-  @spec transaction(conn, (DBConnection.t() -> result), [DBConnection.option()], option) ::
+  @spec transaction(conn, (DBConnection.t() -> result), [DBConnection.option()], map()) ::
           {:ok, result} | {:error, any}
         when result: var
   def transaction(conn, fun, opts \\ [], extra_parameters \\ %{}) do
