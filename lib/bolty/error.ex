@@ -12,7 +12,7 @@ defmodule Bolty.Error do
   @type t() :: %__MODULE__{
           module: module(),
           code: atom(),
-          bolt: %{code: binary(), message: binary() | nil} | nil,
+          bolt: %{code: atom() | binary(), message: binary() | nil} | nil,
           packstream: %{bits: any() | nil} | nil
         }
 
@@ -49,7 +49,8 @@ defmodule Bolty.Error do
       is_map(bolt) and is_binary(bolt[:message]) ->
         bolt[:message]
 
-      is_atom(module) and Code.ensure_loaded?(module) and function_exported?(module, :format_error, 1) ->
+      is_atom(module) and Code.ensure_loaded?(module) and
+          function_exported?(module, :format_error, 1) ->
         module.format_error(code)
 
       true ->
@@ -59,9 +60,16 @@ defmodule Bolty.Error do
 
   @doc """
   Gets the corresponding atom based on the error code.
+
+  An atom code is already resolved and passes through unchanged; this lets
+  callers build an error map with a known atom `code` (e.g.
+  `%{code: :unsupported_message_version, message: ...}`) without it being
+  collapsed to `:unknown` by the string lookup.
   """
-  @spec to_atom(String.t()) :: atom()
-  def to_atom(error_message) do
+  @spec to_atom(String.t() | atom()) :: atom()
+  def to_atom(code) when is_atom(code), do: code
+
+  def to_atom(error_message) when is_binary(error_message) do
     Map.get(@error_map, error_message, :unknown)
   end
 end
