@@ -41,7 +41,9 @@ defmodule Bolty.ErrorTest do
     @tag :core
     test "formats :unsupported_message_version" do
       alias Bolty.BoltProtocol.Message.PullMessage
-      assert PullMessage.format_error(:unsupported_message_version) == "PULL message version not supported"
+
+      assert PullMessage.format_error(:unsupported_message_version) ==
+               "PULL message version not supported"
     end
 
     @tag :core

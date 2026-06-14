@@ -205,7 +205,6 @@ defimpl Bolty.PackStream.Packer, for: DateTime do
     nanoseconds = (total_us - seconds * 1_000_000) * 1_000
     [seconds, nanoseconds]
   end
-
 end
 
 defimpl Bolty.PackStream.Packer, for: NaiveDateTime do

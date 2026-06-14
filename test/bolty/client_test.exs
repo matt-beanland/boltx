@@ -161,7 +161,6 @@ defmodule Bolty.ClientTest do
       opts = [versions: [50]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
-
   end
 
   describe "recv_packets" do
