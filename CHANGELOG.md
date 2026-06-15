@@ -10,6 +10,39 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.0](https://github.com/diffo-dev/bolty/compare/v0.1.0...v0.2.0) (2026-06-15)
+
+
+
+
+### Chores:
+
+* align test DB compose with ash_neo4j and retire bats test-runner by Matt Beanland
+
+* reference Neo4j 5.26.27 in compose, docs and fixtures by Matt Beanland
+
+* replace git-cliff with git_ops for releases by Matt Beanland
+
+### CI/CD:
+
+* run on dev/main and add dialyzer + warnings-as-errors gate by Matt Beanland
+
+### Features:
+
+* policy: add cypher_5, cypher_25 and dynamic_labels flags by Matt Beanland
+
+### Bug Fixes:
+
+* ci: correct Neo4j test auth password and bump matrix image to 5.26.27 by Matt Beanland
+
+* bolty: type transaction/4 extra_parameters as map by Matt Beanland
+
+* error: preserve atom error codes in Error.wrap/2 by Matt Beanland
+
+### Style:
+
+* apply mix format to files with format drift by Matt Beanland
+
 ## v0.1.0 — 2026-06-06
 
 ### Bug Fixes
