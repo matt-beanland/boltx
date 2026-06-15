@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 `bolty` is an Elixir driver for [Neo4j](https://neo4j.com/), forked from [`boltx`](https://github.com/sagastume/boltx) and now developed independently — the codebases have diverged significantly over the past year. Upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
 - **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 5.26.26 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
+- **Server compatibility**: Neo4j 5.26.27 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -203,7 +203,7 @@ Local server matrix via `docker-compose.yml`:
 
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
-| `neo4j-5.26.26` | `neo4j:5.26.26-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
+| `neo4j-5.26.27` | `neo4j:5.26.27-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
 | `neo4j-2026.05` | `neo4j:2026.05.0-community-ubi10` | `7689:7687` | 6.0 |
 
 All use credentials `neo4j / password`.

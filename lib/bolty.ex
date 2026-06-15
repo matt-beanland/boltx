@@ -186,7 +186,7 @@ defmodule Bolty do
   ```elixir
   Bolty.transaction(Bolt, fn conn ->
     Bolty.connection_info(conn)
-    # => %{bolt_version: 5.8, server_version: "Neo4j/5.26.26", policy: %Bolty.Policy{...}}
+    # => %{bolt_version: 5.8, server_version: "Neo4j/5.26.27", policy: %Bolty.Policy{...}}
   end)
   ```
   """

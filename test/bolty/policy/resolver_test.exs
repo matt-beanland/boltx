@@ -11,15 +11,15 @@ defmodule Bolty.Policy.ResolverTest do
     @describetag :core
 
     test "Bolt 5.0 resolves to :evolved" do
-      assert %Policy{datetime: :evolved} = Resolver.resolve(5.0, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{datetime: :evolved} = Resolver.resolve(5.0, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "Bolt 5.4 resolves to :evolved" do
-      assert %Policy{datetime: :evolved} = Resolver.resolve(5.4, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{datetime: :evolved} = Resolver.resolve(5.4, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "Bolt 5.8 resolves to :evolved" do
-      assert %Policy{datetime: :evolved} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{datetime: :evolved} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "missing server metadata does not crash; still decides from bolt_version" do
@@ -28,7 +28,7 @@ defmodule Bolty.Policy.ResolverTest do
 
     test "nil bolt_version falls through to Policy defaults" do
       # Defensive — connect-time call should always pass a negotiated version.
-      assert %Policy{datetime: :evolved} = Resolver.resolve(nil, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{datetime: :evolved} = Resolver.resolve(nil, %{"server" => "Neo4j/5.26.27"})
     end
   end
 
@@ -92,7 +92,7 @@ defmodule Bolty.Policy.ResolverTest do
     @describetag :core
 
     test "Bolt 5.0 has cypher_5: true" do
-      assert %Policy{cypher_5: true} = Resolver.resolve(5.0, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{cypher_5: true} = Resolver.resolve(5.0, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "Bolt 6.0 has cypher_5: true" do
@@ -100,7 +100,7 @@ defmodule Bolty.Policy.ResolverTest do
     end
 
     test "nil bolt_version falls through to cypher_5: false" do
-      assert %Policy{cypher_5: false} = Resolver.resolve(nil, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{cypher_5: false} = Resolver.resolve(nil, %{"server" => "Neo4j/5.26.27"})
     end
   end
 
@@ -116,7 +116,7 @@ defmodule Bolty.Policy.ResolverTest do
     end
 
     test "semver 5.26.x server has cypher_25: false" do
-      assert %Policy{cypher_25: false} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
+      assert %Policy{cypher_25: false} = Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "missing server metadata has cypher_25: false" do
@@ -129,7 +129,7 @@ defmodule Bolty.Policy.ResolverTest do
 
     test "semver 5.26.x server has dynamic_labels: true, cypher_25: false" do
       assert %Policy{dynamic_labels: true, cypher_25: false} =
-               Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.26"})
+               Resolver.resolve(5.8, %{"server" => "Neo4j/5.26.27"})
     end
 
     test "calendar server >= 2025.06 has dynamic_labels and cypher_25: true" do

@@ -35,7 +35,7 @@ defmodule Bolty.Policy do
 
   # Server-side Cypher language capabilities. Unlike the wire-level dimensions
   # above, these are derived from the HELLO `server` string (e.g.
-  # "Neo4j/5.26.26", "Neo4j/2025.06.0") rather than the negotiated Bolt version,
+  # "Neo4j/5.26.27", "Neo4j/2025.06.0") rather than the negotiated Bolt version,
   # so they are only meaningful in the *final* policy resolved after HELLO.
   #
   #   * cypher_5 — server speaks the `CYPHER 5` language (Neo4j >= 5.0). True for

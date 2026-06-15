@@ -13,8 +13,8 @@ services:
       - 7689:7687
     environment:
       - NEO4J_AUTH=neo4j/password
-  neo4j-5.26.26:
-    image: neo4j:5.26.26-community
+  neo4j-5.26.27:
+    image: neo4j:5.26.27-community
     labels:
         - "boltVersions=5.0,5.1,5.2,5.3,5.4,5.6,5.7,5.8"
         - "database=neo4j"

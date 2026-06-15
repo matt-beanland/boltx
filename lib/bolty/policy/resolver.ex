@@ -83,7 +83,7 @@ defmodule Bolty.Policy.Resolver do
   defp put_cypher_5(policy, _bolt_version, _server_version), do: policy
 
   # CYPHER 25 language selector arrived with Neo4j 2025.06 (a calendar-versioned
-  # 5.x server). server_version is e.g. "Neo4j/2025.06.0" or "Neo4j/5.26.26".
+  # 5.x server). server_version is e.g. "Neo4j/2025.06.0" or "Neo4j/5.26.27".
   defp put_cypher_25(policy, _bolt_version, server_version) do
     cypher_25? =
       case server_version && Regex.run(~r/^Neo4j\/(\d{4})\.(\d{2})\./, server_version) do
@@ -99,7 +99,7 @@ defmodule Bolty.Policy.Resolver do
 
   # Dynamic labels/types landed in Cypher 5.26 and every calendar release after,
   # under plain CYPHER 5 (a strict superset of cypher_25). server_version is e.g.
-  # "Neo4j/5.26.26" or "Neo4j/2025.06.0".
+  # "Neo4j/5.26.27" or "Neo4j/2025.06.0".
   defp put_dynamic_labels(policy, _bolt_version, server_version) do
     dynamic? =
       case server_version do
