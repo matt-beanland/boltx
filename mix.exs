@@ -119,6 +119,9 @@ defmodule Bolty.Mixfile do
       {:credo, "~> 1.7.3", only: [:dev]},
       {:dialyxir, "~> 1.4.3", only: [:dev], runtime: false},
 
+      # Release dependencies (conventional-commit changelog + version bump)
+      {:git_ops, "~> 2.7", only: [:dev], runtime: false},
+
       # Documentation dependencies
       # Run me like this: `mix docs`
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}

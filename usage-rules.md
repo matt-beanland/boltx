@@ -220,7 +220,7 @@ Use `mix test.matrix` to run the full version matrix. Requires Docker and docker
 - `mix test --cover` / `mix coveralls` — 70% threshold gate.
 - `mix test.matrix` — runs the full test suite once per supported Bolt version against a local Neo4j instance and prints a pass/fail summary. Respects `BOLT_TCP_PORT` (default 7687).
 - `mix bench` (if present as an alias) — uses `benchee`, outputs via `benchee_html`; benchees live in `benchees/`.
-- `mix changelog` — regenerates `CHANGELOG.md` from conventional commits using git-cliff (`brew install git-cliff`). Pass `--tag vX.Y.Z` when cutting a release to name the unreleased section. Pass `--unreleased` to preview without writing.
+- `mix git_ops.release` — bumps the version, prepends a `CHANGELOG.md` section from the conventional commits since the last tag, and creates the release commit + tag. Pass `--dry-run` to preview without writing. See §16.
 
 ## 14. Implementation notes (for maintainers)
 
@@ -296,27 +296,32 @@ chore: drop support for Neo4j 3.x and 4.x (Bolt 1.0–4.4)
 
 **Changelog workflow:**
 
+Releases are cut with [`git_ops`](https://hex.pm/packages/git_ops) (configured in
+`config/dev.exs`), consistent with the other diffo-dev repos. It derives the next
+version from the conventional commits since the last `v`-prefixed tag, writes the
+`CHANGELOG.md` section, bumps `@version` in `mix.exs` and the dep snippet in
+`README.md`, then commits and tags.
+
 ```sh
-# Preview unreleased changes
-mix changelog --unreleased
+# Preview the next version + changelog without writing anything
+mix git_ops.release --dry-run
 
-# Generate CHANGELOG.md tagged as the next release (explicit tag)
-mix changelog --tag v0.1.0
+# Cut the release: bump version, update CHANGELOG.md + README, commit, tag
+mix git_ops.release
 
-# Or let git-cliff calculate the next version from commit types (requires
-# at least one conventional commit since the last tag)
-mix changelog --bump
-
-# Commit and tag
-git add CHANGELOG.md && git commit -m "chore: release v0.1.0"
-git tag v0.1.0
+# Push the release commit and tag
+git push && git push --tags
 ```
 
-**Pre-1.0 bump rules** (`cliff.toml` `[bump]` section): a breaking change bumps the minor (`0.0.x → 0.1.0`), not the major. Features and fixes bump the patch. Flip `breaking_always_bump_major` back to `true` when the project reaches 1.0.
+**Bump rules:** `git_ops` follows semver — `feat` bumps the minor, `fix`/`perf`/etc.
+bump the patch, and a breaking change (`!` or `BREAKING CHANGE:`) bumps the major.
+Pre-1.0 this still applies (e.g. a feature takes `0.1.0 → 0.2.0`). The release inserts
+its section after the `<!-- changelog -->` marker in `CHANGELOG.md`; everything below
+the marker is preserved history.
 
-**Bootstrapping note:** `--bump` requires at least one conventional commit since the last tag to infer a version. For the first release using this system, use `--tag vX.Y.Z` explicitly. Make the release commit itself a conventional commit so it appears in the changelog entry — e.g. `chore!: drop support for Neo4j 3.x and 4.x` with `BREAKING CHANGE:` in the footer.
-
-`git-cliff` reads `cliff.toml` at the repo root. Requires `brew install git-cliff`.
+**Bootstrapping note:** for the very first `git_ops` release on a fresh project, run
+`mix git_ops.release --initial` to establish the baseline tag. bolty already has tags
+(`v0.1.0`), so a plain `mix git_ops.release` computes from there.
 
 ## 17. Issues (GitHub)
 
