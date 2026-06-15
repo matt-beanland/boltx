@@ -115,6 +115,8 @@ atlassian-ide-plugin.xml
 ### Erlang template
 .eunit
 *.plt
+*.plt.hash
+/priv/plts/
 ebin
 rel/example_project
 .concrete/DEV_MODE

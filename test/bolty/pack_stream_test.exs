@@ -776,14 +776,27 @@ defmodule Bolty.PackStreamTest do
 
       assert <<
                # tiny struct, 2 fields, sig 0x56
-               0xB2, 0x56,
+               0xB2,
+               0x56,
                # type_marker: bytes(1) = 0xC6
-               0xCC, 0x01, 0xC6,
+               0xCC,
+               0x01,
+               0xC6,
                # data: bytes(12) — three float32 big-endian values
-               0xCC, 0x0C,
-               0x3F, 0x80, 0x00, 0x00,
-               0x40, 0x00, 0x00, 0x00,
-               0x40, 0x40, 0x00, 0x00
+               0xCC,
+               0x0C,
+               0x3F,
+               0x80,
+               0x00,
+               0x00,
+               0x40,
+               0x00,
+               0x00,
+               0x00,
+               0x40,
+               0x40,
+               0x00,
+               0x00
              >> = packed
     end
 
@@ -792,13 +805,31 @@ defmodule Bolty.PackStreamTest do
 
       assert <<
                # tiny struct, 2 fields, sig 0x56
-               0xB2, 0x56,
+               0xB2,
+               0x56,
                # type_marker: bytes(1) = 0xC1
-               0xCC, 0x01, 0xC1,
+               0xCC,
+               0x01,
+               0xC1,
                # data: bytes(16) — two float64 big-endian values
-               0xCC, 0x10,
-               0x3F, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-               0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+               0xCC,
+               0x10,
+               0x3F,
+               0xF0,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x40,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x00,
+               0x00
              >> = packed
     end
 

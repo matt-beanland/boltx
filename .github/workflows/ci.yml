@@ -6,7 +6,8 @@ name: CI
 on:
   pull_request:
     branches:
-      - master
+      - dev
+      - main
 
 jobs:
   reuse:
@@ -33,12 +34,17 @@ jobs:
           path: |
             deps
             _build
+            priv/plts
           key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
 
       - run: mix deps.get
       - run: mix deps.compile
       - name: Check Code Formatting
         run: mix format --check-formatted
+      - name: Compile (warnings as errors)
+        run: mix compile --force --warnings-as-errors
+      - name: Dialyzer
+        run: mix dialyzer --format github
   test:
     name: BoltVersion ${{ matrix.boltVersion }}, DB ${{matrix.db}}
     runs-on: ubuntu-latest
@@ -57,28 +63,28 @@ jobs:
           - '5.8'
         include:
           - boltVersion: '5.0'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 1
           - boltVersion: '5.1'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 2
           - boltVersion: '5.2'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 3
           - boltVersion: '5.3'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 4
           - boltVersion: '5.4'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 5
           - boltVersion: '5.6'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 6
           - boltVersion: '5.7'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 7
           - boltVersion: '5.8'
-            db: neo4j:5.26.26-community
+            db: neo4j:5.26.27-community
             mixTestPartition: 8
     env:
       MIX_ENV: test
@@ -88,7 +94,7 @@ jobs:
       TEST_PARTITION_NUMBER: ${{ matrix.mixTestPartition }}
       RUN_ID: ${{github.run_id}}
     steps:
-      - run: docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/boltyPassword -e NEO4J_dbms_connector_bolt_listen__address=:7687 --detach ${{matrix.db}}
+      - run: docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/password -e NEO4J_dbms_connector_bolt_listen__address=:7687 --detach ${{matrix.db}}
       - name: Checkout code
         uses: actions/checkout@v4
 

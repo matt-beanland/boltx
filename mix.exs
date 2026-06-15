@@ -21,7 +21,12 @@ defmodule Bolty.Mixfile do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       docs: docs(),
-      dialyzer: [plt_add_apps: [:jason, :poison, :mix], ignore_warnings: ".dialyzer_ignore.exs"],
+      dialyzer: [
+        plt_add_apps: [:jason, :poison, :mix],
+        plt_local_path: "priv/plts",
+        plt_core_path: "priv/plts",
+        ignore_warnings: ".dialyzer_ignore.exs"
+      ],
       test_coverage: [
         tool: ExCoveralls,
         summary: [
@@ -113,6 +118,9 @@ defmodule Bolty.Mixfile do
       # Linting dependencies
       {:credo, "~> 1.7.3", only: [:dev]},
       {:dialyxir, "~> 1.4.3", only: [:dev], runtime: false},
+
+      # Release dependencies (conventional-commit changelog + version bump)
+      {:git_ops, "~> 2.7", only: [:dev], runtime: false},
 
       # Documentation dependencies
       # Run me like this: `mix docs`
