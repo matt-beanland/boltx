@@ -158,7 +158,10 @@ iex> Bolty.connection_info(conn)
     datetime: :evolved,
     notifications_field: :notifications_disabled_classifications,
     gql_errors: true,
-    vectors: false
+    vectors: false,
+    cypher_5: true,
+    cypher_25: false,
+    dynamic_labels: true
   }
 }
 ```
@@ -174,6 +177,18 @@ iex> Bolty.connection_info(conn)
 | Vector type | No | No | No | Yes |
 
 The `policy` struct is the single source of truth for version-driven behaviour inside the driver. User code should not need to branch on `bolt_version` directly — check `connection_info/1` if you need to gate application-level features on negotiated capabilities.
+
+### Server capability flags
+
+`cypher_5`, `cypher_25` and `dynamic_labels` are derived from the **server** version reported at HELLO (not the negotiated Bolt version), so they capture Cypher-language capabilities that vary by Neo4j release rather than by wire protocol:
+
+| Flag | `true` when | Example feature |
+|---|---|---|
+| `cypher_5` | server speaks `CYPHER 5` (Neo4j ≥ 5.0) — every currently supported server | prefix queries with `CYPHER 5` |
+| `cypher_25` | server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06) | `CYPHER 25` syntax |
+| `dynamic_labels` | dynamic node labels/types (Neo4j ≥ 5.26) — a strict superset of `cypher_25` | `MATCH (n:$($label))` |
+
+So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.05` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
 
 ### Restricting the negotiated version
 

@@ -186,9 +186,11 @@ Everything else becomes `:unknown`, with the raw map still available in `error.b
 | Encoding/decoding of graph, temporal, spatial types | ✅ |
 | TLS variants (full / self-signed / off) | ✅ |
 | Notifications opt-out (Bolt 5.2+) | ✅ |
+| Vector type pack/unpack (Bolt 6.0) | ✅ — issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
+| Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels` + wire-level dims (see §14) |
 | Streaming result sets | ❌ |
 | Cluster routing (`neo4j://` autodiscovery) | ❌ |
-| Vector / vector search (indexes, similarity ops) | ❌ — under investigation, issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
+| Vector search (indexes, similarity ops) | ❌ — bolty exposes the type; search belongs to the query layer |
 
 If an agent needs routing or streaming today, that is not bolty's job — surface the gap to Matt rather than working around it silently.
 
@@ -253,13 +255,22 @@ Compliance goals: bolty aims for [REUSE](https://reuse.software/) compliance (li
 
 Version-aware encoding lives in `%Bolty.Policy{}` — an internal struct resolved once at HELLO completion from `(bolt_version, server_version)` via `Bolty.Policy.Resolver`, stashed on both `Bolty.Connection` and `Bolty.Client` state, and threaded through every `pack/2` call as a second argument. Codecs pattern-match on policy fields and never read a version number directly; that is the acceptance criterion for any future dimension.
 
-Policy is **not** user-facing — it's the driver's own distillation of negotiated facts about how Bolt and the server have evolved. Dimensions today:
+Policy is the driver's own distillation of negotiated facts about how Bolt and the server have evolved. It is internal, but surfaced read-only via `Bolty.connection_info/1` so consumers can gate behaviour on a flag instead of parsing version strings. Dimensions today:
 
-- `:datetime` — `:legacy` on Bolt ≤ 4.x (tags 0x46/0x66, body carries local-wall-clock seconds) or `:evolved` on Bolt ≥ 5.0 (tags 0x49/0x69, body carries UTC-instant seconds). Implemented in 0.0.10 to resolve issue [#10](https://github.com/diffo-dev/bolty/issues/10).
+**Wire-level** — derived from the negotiated Bolt version:
 
-When vectors (issue [#13](https://github.com/diffo-dev/bolty/issues/13)) land, add a new dimension to `Bolty.Policy`, extend `Bolty.Policy.Resolver` with a pure `put_vectors/3` clause, and dispatch the relevant codec on it — do **not** bypass the boundary.
+- `:datetime` — `:legacy` on Bolt ≤ 4.x (tags 0x46/0x66, local-wall-clock seconds) or `:evolved` on Bolt ≥ 5.0 (tags 0x49/0x69, UTC-instant seconds). Issue [#10](https://github.com/diffo-dev/bolty/issues/10).
+- `:notifications_field` — HELLO field for disabled notification categories: `:notifications_disabled_categories` (Bolt ≤ 5.5) or `:notifications_disabled_classifications` (Bolt 5.6+).
+- `:gql_errors` — `true` on Bolt 5.7+ (GQL-compliant FAILURE: `neo4j_code`/`description` instead of `code`/`message`).
+- `:vectors` — `true` on Bolt 6.0+ (Vector PackStream struct, issue [#13](https://github.com/diffo-dev/bolty/issues/13)).
 
-Authoritative design (including calibration history and non-goals): [`.agent-notes/policy-design.md`](./.agent-notes/policy-design.md).
+**Server-capability** — derived from the HELLO `server` string, only meaningful in the post-HELLO policy (default `false` beforehand):
+
+- `:cypher_5` — server speaks `CYPHER 5` (Neo4j ≥ 5.0).
+- `:cypher_25` — server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06).
+- `:dynamic_labels` — dynamic node labels/types (Neo4j ≥ 5.26); a strict superset of `:cypher_25`.
+
+To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolver` with a pure `put_*/3` clause, and dispatch the relevant codec/behaviour on it — do **not** bypass the boundary by reading a version number directly. Remember to update the docs too: the README "Negotiated capabilities" section and §11/§14 here.
 
 ## 15. Sharp edges / known quirks
 
@@ -325,24 +336,9 @@ the marker is preserved history.
 
 ## 17. Issues (GitHub)
 
-Snapshot from `.agent-notes/issues.json` — re-dump to refresh.
+Tracked live on GitHub — see [open issues](https://github.com/diffo-dev/bolty/issues) rather than a snapshot here (which only goes stale). No open issues at the time of writing.
 
-**Open**
-
-| # | Title | Label | Summary |
-| --- | --- | --- | --- |
-| [#12](https://github.com/diffo-dev/bolty/issues/12) | reuse compliance | enhancement | Make bolty (and its deps handling) REUSE-compliant. |
-| [#13](https://github.com/diffo-dev/bolty/issues/13) | vector | enhancement | Investigate Neo4j vector / vector-search support. DozerDB caps at Neo4j 5.26.3 so the useful envelope is bounded; may need negotiated Bolt-version behaviour. |
-| [#16](https://github.com/diffo-dev/bolty/issues/16) | boltx-era inheritance cleanup | maintenance | Drop `patch_bolt` dead wiring from `Bolty.Connection`, modernise `config/test.exs` and `.iex.exs` against the current `Bolty.Client.Config.new/1` option names, rewrite `Bolty.Response`'s Spanish docstring in English. Active on branch `16-boltx-related-maintenance`. |
-
-**Closed (for historical context)**
-
-| # | Title | Resolved in | Notes |
-| --- | --- | --- | --- |
-| [#5](https://github.com/diffo-dev/bolty/issues/5) | hex publish | 0.0.7 | Initial fork from `boltx` and Hex publication under the `bolty` name to avoid namespace collisions. |
-| [#6](https://github.com/diffo-dev/bolty/issues/6) | duration microseconds | 0.0.8 | Elixir `Duration` was being serialised to ISO8601 string rather than native Neo4j duration struct. |
-| [#8](https://github.com/diffo-dev/bolty/issues/8) | duration stored as string | 0.0.9 | Further fix — `Duration` outside of a map/struct wrapper was still being stored as a string. |
-| [#10](https://github.com/diffo-dev/bolty/issues/10) | dateTime param illegal | 0.0.10 | `%DateTime{}` was packed with the evolved 0x69 tag unconditionally and broke against Neo4j 5.x when `:versions` was constrained to Bolt 4.x. Fixed by policy-driven packstream: `%Bolty.Policy{datetime: :legacy \| :evolved}` resolved at HELLO, dispatched in the packer. See `.agent-notes/policy-design.md`. |
+Recent work shipped in **v0.2.0**: the `cypher_5`/`cypher_25`/`dynamic_labels` policy flags (#47–#49) and the type-hygiene / dialyzer + warnings-as-errors CI gate (#50). For closed history and rationale, browse the tracker or the [`CHANGELOG`](./CHANGELOG.md).
 
 ## 18. Licensing and REUSE
 
