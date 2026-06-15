@@ -247,8 +247,8 @@ By default, all tags are disabled except the `:core` tag. To enable the tags, it
 - `BOLT_VERSIONS`: **Deprecated** — use the `:versions` connection option instead. Still supported as a testing escape hatch (e.g. `BOLT_VERSIONS=5.4 mix test`), but will emit a warning at runtime.
 - `BOLT_TCP_PORT`:  You can configure the port with the environment variable (BOLT_TCP_PORT=7688).
 
-#### Help script
-To simplify test execution, the test-runner.sh script is available. You can find the corresponding documentation here: [Help script](scripts/README.md)
+#### Version matrix
+To run the suite against every supported Bolt version, use `mix test.matrix` (see `mix help test.matrix`). It reads `BOLT_TCP_PORT` for Bolt 5.x servers and `BOLT_6_TCP_PORT` for Bolt 6.x.
 
 ## Acknowledgments
 

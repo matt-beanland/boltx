@@ -1,24 +1,31 @@
 # SPDX-FileCopyrightText: 2024 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
-version: "3.0"
-
 services:
-  neo4j-2026.05:
-    image: neo4j:2026.05.0-community-ubi10
-    labels:
-        - "boltVersions=6.0"
-        - "database=neo4j"
+  neo4j-bolt5:
+    image: neo4j:5.26.27
+    container_name: neo4j-ash-bolt5
     ports:
-      - 7689:7687
+      - "7687:7687"
+      - "7474:7474"
     environment:
-      - NEO4J_AUTH=neo4j/password
-  neo4j-5.26.27:
-    image: neo4j:5.26.27-community
-    labels:
-        - "boltVersions=5.0,5.1,5.2,5.3,5.4,5.6,5.7,5.8"
-        - "database=neo4j"
+      NEO4J_AUTH: neo4j/password
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  neo4j-bolt6:
+    image: neo4j:2026.05
+    container_name: neo4j-ash-bolt6
     ports:
-      - 7690:7687
+      - "7689:7687"
+      - "7475:7474"
     environment:
-      - NEO4J_AUTH=neo4j/password
+      NEO4J_AUTH: neo4j/password
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

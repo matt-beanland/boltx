@@ -196,19 +196,19 @@ If an agent needs routing or streaming today, that is not bolty's job — surfac
 
 Tests are version-tagged. Defaults run only `:core`; everything else is disabled unless you opt in with env vars and tags.
 
-- Env vars: `BOLT_VERSIONS` (e.g. `"5.2"`), `BOLT_TCP_PORT` (e.g. `7690`), `BOLT_USER`, `BOLT_PWD`, `BOLT_HOST`.
+- Env vars: `BOLT_VERSIONS` (e.g. `"5.2"`), `BOLT_TCP_PORT` (e.g. `7687`), `BOLT_USER`, `BOLT_PWD`, `BOLT_HOST`.
 - Tags: `:core`, `:bolt_version_X_Y` (e.g. `:bolt_version_5_2`), `:bolt_X_x` (e.g. `:bolt_5_x`), `:last_version`.
 
 Local server matrix via `docker-compose.yml`:
 
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
-| `neo4j-5.26.27` | `neo4j:5.26.27-community` | `7690:7687` | 5.0–5.4, 5.6–5.8 |
-| `neo4j-2026.05` | `neo4j:2026.05.0-community-ubi10` | `7689:7687` | 6.0 |
+| `neo4j-bolt5` | `neo4j:5.26.27` | `7687:7687`, `7474:7474` | 5.0–5.4, 5.6–5.8 |
+| `neo4j-bolt6` | `neo4j:2026.05` | `7689:7687`, `7475:7474` | 6.0 |
 
-All use credentials `neo4j / password`.
+Ports and credentials (`neo4j / password`) match ash_neo4j's `docker-compose.yml`, so the two repos can share the same containers.
 
-Use `mix test.matrix` to run the full version matrix. Requires Docker and docker-compose. See `scripts/README.md`.
+Use `mix test.matrix` to run the full version matrix. Requires Docker and docker-compose. Bolt 6.x runs on a separate port — point `BOLT_6_TCP_PORT` at the `neo4j-bolt6` service (`7689`).
 
 ## 13. Development loop
 

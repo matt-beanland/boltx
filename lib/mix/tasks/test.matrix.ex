@@ -21,9 +21,9 @@ defmodule Mix.Tasks.Test.Matrix do
   - `BOLT_TCP_PORT` — port for Bolt 5.x servers (defaults to 7687)
   - `BOLT_6_TCP_PORT` — port for Bolt 6.x servers (defaults to `BOLT_TCP_PORT`)
 
-  Example with separate Docker instances:
+  Example with the docker-compose services (Bolt 5.x on 7687, Bolt 6.x on 7689):
 
-      BOLT_TCP_PORT=7690 BOLT_6_TCP_PORT=7689 mix test.matrix
+      BOLT_6_TCP_PORT=7689 mix test.matrix
   """
 
   @requirements ["compile"]
