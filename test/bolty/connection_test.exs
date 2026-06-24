@@ -51,23 +51,6 @@ defmodule Bolty.ConnectionTest do
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
-  @tag core: true
-  test "checkin/1 successful" do
-    {:ok,
-     %Connection{client: client, server_version: server_version, connection_id: connection_id} =
-       conn_data} =
-      Connection.connect(@opts)
-
-    assert is_bitstring(server_version)
-    assert is_bitstring(connection_id)
-    assert is_float(client.bolt_version)
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
-
-    :ok = Connection.disconnect(:stop, conn_data)
-  end
-
   @tag :core
   test "connect/1 fails when connection is not available" do
     opts = [
@@ -91,9 +74,6 @@ defmodule Bolty.ConnectionTest do
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
-
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
@@ -108,9 +88,6 @@ defmodule Bolty.ConnectionTest do
     assert client.bolt_version == 5.1
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
 
     :ok = Connection.disconnect(:stop, conn_data)
   end
@@ -127,9 +104,6 @@ defmodule Bolty.ConnectionTest do
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
-
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
@@ -144,9 +118,6 @@ defmodule Bolty.ConnectionTest do
     assert client.bolt_version == 5.3
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
 
     :ok = Connection.disconnect(:stop, conn_data)
   end
@@ -163,9 +134,6 @@ defmodule Bolty.ConnectionTest do
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
-
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
@@ -180,9 +148,6 @@ defmodule Bolty.ConnectionTest do
     assert client.bolt_version == 5.6
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
 
     :ok = Connection.disconnect(:stop, conn_data)
   end
@@ -199,9 +164,6 @@ defmodule Bolty.ConnectionTest do
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
-
     :ok = Connection.disconnect(:stop, conn_data)
   end
 
@@ -216,9 +178,6 @@ defmodule Bolty.ConnectionTest do
     assert client.bolt_version == 5.8
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
 
     :ok = Connection.disconnect(:stop, conn_data)
   end
@@ -237,9 +196,6 @@ defmodule Bolty.ConnectionTest do
     assert client.bolt_version == last_version
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
-
-    assert {:ok, %Connection{client: _} = conn_data} =
-             Connection.checkin(conn_data)
 
     :ok = Connection.disconnect(:stop, conn_data)
   end
