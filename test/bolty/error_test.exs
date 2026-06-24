@@ -37,6 +37,44 @@ defmodule Bolty.ErrorTest do
     end
   end
 
+  describe "Error.to_atom/1 status-code mapping (#54)" do
+    @tag :core
+    test "maps the curated Neo4j status codes to stable atoms" do
+      assert Error.to_atom("Neo.ClientError.Security.Unauthorized") == :unauthorized
+      assert Error.to_atom("Neo.ClientError.Request.Invalid") == :request_invalid
+      assert Error.to_atom("Neo.ClientError.Statement.SyntaxError") == :syntax_error
+      assert Error.to_atom("Neo.ClientError.Statement.SemanticError") == :semantic_error
+      assert Error.to_atom("Neo.ClientError.Statement.ArithmeticError") == :arithmetic_error
+      assert Error.to_atom("Neo.ClientError.Statement.ParameterMissing") == :parameter_missing
+
+      assert Error.to_atom("Neo.ClientError.Schema.ConstraintValidationFailed") ==
+               :constraint_validation_failed
+
+      assert Error.to_atom("Neo.TransientError.Transaction.DeadlockDetected") ==
+               :deadlock_detected
+    end
+
+    @tag :core
+    test "unmapped codes resolve to :unknown but keep the raw status on bolt.code" do
+      assert Error.to_atom("Neo.ClientError.Statement.NotInMap") == :unknown
+
+      error =
+        Error.wrap(Bolty.Client, %{
+          code: "Neo.ClientError.Statement.NotInMap",
+          message: "boom"
+        })
+
+      assert error.code == :unknown
+      assert error.bolt.code == "Neo.ClientError.Statement.NotInMap"
+    end
+
+    @tag :core
+    test "an already-resolved atom passes through unchanged" do
+      assert Error.to_atom(:constraint_validation_failed) == :constraint_validation_failed
+      assert Error.to_atom(:unknown) == :unknown
+    end
+  end
+
   describe "PullMessage.format_error/1" do
     @tag :core
     test "formats :unsupported_message_version" do

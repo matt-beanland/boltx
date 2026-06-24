@@ -2,11 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Error do
+  # Maps Neo4j status codes (https://neo4j.com/docs/status-codes/) to stable
+  # atoms. Anything not listed resolves to :unknown; the original Bolt status
+  # string is always preserved on `bolt.code`, so an unmapped code is never lost.
+  # Curated to the codes bolty callers actually branch on — notably
+  # ConstraintValidationFailed (identity uniqueness in ash_neo4j) and the
+  # retryable DeadlockDetected — verified against Neo4j 5.26.x and 2026.x.
   @error_map %{
+    # Security / request
     "Neo.ClientError.Security.Unauthorized" => :unauthorized,
     "Neo.ClientError.Request.Invalid" => :request_invalid,
+    # Statement
+    "Neo.ClientError.Statement.SyntaxError" => :syntax_error,
     "Neo.ClientError.Statement.SemanticError" => :semantic_error,
-    "Neo.ClientError.Statement.SyntaxError" => :syntax_error
+    "Neo.ClientError.Statement.ArithmeticError" => :arithmetic_error,
+    "Neo.ClientError.Statement.ParameterMissing" => :parameter_missing,
+    # Schema — the production-common constraint violation
+    "Neo.ClientError.Schema.ConstraintValidationFailed" => :constraint_validation_failed,
+    # Transient — safe to retry
+    "Neo.TransientError.Transaction.DeadlockDetected" => :deadlock_detected
   }
 
   @type t() :: %__MODULE__{
