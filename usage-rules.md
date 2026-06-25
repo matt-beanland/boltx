@@ -268,7 +268,7 @@ Policy is the driver's own distillation of negotiated facts about how Bolt and t
 
 - `:cypher_5` — server speaks `CYPHER 5` (Neo4j ≥ 5.0).
 - `:cypher_25` — server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06).
-- `:dynamic_labels` — dynamic node labels/types (Neo4j ≥ 5.26); a strict superset of `:cypher_25`.
+- `:dynamic_labels` — dynamic labels/types in **pattern position** (`MATCH (n:$(expr))`, `CREATE`/`MERGE`, relationship types); a Cypher 5 feature (Neo4j ≥ 5.26), a strict superset of `:cypher_25`. Covers the pattern form only — the `WHERE n:$(expr)` label-**predicate** form is a separate **Cypher 25** feature, gated on `:cypher_25` (errors under `CYPHER 5` even where Cypher 25 is supported; unsupported on `5.26.x`).
 
 To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolver` with a pure `put_*/3` clause, and dispatch the relevant codec/behaviour on it — do **not** bypass the boundary by reading a version number directly. Remember to update the docs too: the README "Negotiated capabilities" section and §11/§14 here.
 
