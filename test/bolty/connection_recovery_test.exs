@@ -110,16 +110,22 @@ defmodule Bolty.ConnectionRecoveryTest do
       pool = pool()
       label = "Recovery#{System.unique_integer([:positive])}"
 
+      # {:ok, :ok} is the regression guard: a clean transaction must run the commit
+      # path (handle_commit -> :committed) and not the aborted-status guard added in
+      # #54 — DBConnection turns that guard into {:error, :rollback}, not {:ok, :ok}.
+      # Visibility is asserted *inside* the transaction; a follow-up read on a later
+      # query can race the suite's async global truncate (MATCH (n) DETACH DELETE n
+      # in bolty_test) deleting the committed node, which flakes (observed on CI).
       assert {:ok, :ok} =
                Bolty.transaction(pool, fn conn ->
                  assert {:ok, _} = Bolty.query(conn, "CREATE (:#{label} {k: 1})")
+
+                 assert {:ok, response} =
+                          Bolty.query(conn, "MATCH (n:#{label}) RETURN count(n) AS c")
+
+                 assert [%{"c" => 1}] = response.results
                  :ok
                end)
-
-      assert {:ok, response} = Bolty.query(pool, "MATCH (n:#{label}) RETURN count(n) AS c")
-      assert [%{"c" => 1}] = response.results
-
-      Bolty.query(pool, "MATCH (n:#{label}) DETACH DELETE n")
     end
   end
 end

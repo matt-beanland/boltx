@@ -171,12 +171,16 @@ defmodule Bolty.Connection do
   # After a successful RESET there is no server-side transaction left, so clear
   # in_transaction; handle_rollback/handle_commit rely on that to avoid sending a
   # ROLLBACK/COMMIT that the now-recovered connection would reject. If RESET itself
-  # fails the connection is genuinely unusable, so disconnect.
+  # fails — returning an error or raising — the connection is genuinely unusable,
+  # so disconnect. Crucially we disconnect with the *original* query `error`: a
+  # failed RESET must never mask what the caller was actually told went wrong.
   defp recover_from_failure(client, error, state) do
     case Client.send_reset(client) do
       {:ok, _} -> {:error, error, %{state | in_transaction: false}}
       {:error, _reset_error} -> {:disconnect, error, state}
     end
+  rescue
+    _ -> {:disconnect, error, state}
   end
 
   defp result(
