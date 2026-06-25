@@ -5,6 +5,7 @@ defmodule Bolty.TypesTest do
   use ExUnit.Case, async: true
 
   alias Bolty.Types.{DateTimeWithTZOffset, TimeWithTZOffset, Point}
+  alias Bolty.Types.{Node, Path, Relationship, UnboundRelationship}
 
   describe "TimeWithTZOffset struct:" do
     test "create/2" do
@@ -143,6 +144,52 @@ defmodule Bolty.TypesTest do
       }
 
       assert {:error, ^point} = Point.format_param(point)
+    end
+  end
+
+  describe "Path.graph/1 (#55)" do
+    test "returns bound Relationship structs that carry their start/end endpoints" do
+      nodes = [
+        %Node{id: 100, labels: ["A"], properties: %{}},
+        %Node{id: 200, labels: ["B"], properties: %{}},
+        %Node{id: 300, labels: ["C"], properties: %{}}
+      ]
+
+      rels = [
+        %UnboundRelationship{id: 10, type: "KNOWS", properties: %{}},
+        %UnboundRelationship{id: 20, type: "KNOWS", properties: %{}}
+      ]
+
+      # A -> B -> C, both relationships traversed forward.
+      path = %Path{nodes: nodes, relationships: rels, sequence: [1, 1, 2, 2]}
+
+      assert [
+               %Node{id: 100},
+               %Relationship{id: 10, type: "KNOWS", start: 100, end: 200},
+               %Node{id: 200},
+               %Relationship{id: 20, type: "KNOWS", start: 200, end: 300},
+               %Node{id: 300}
+             ] = Path.graph(path)
+    end
+
+    test "encodes relationship direction independently of traversal (reverse edge)" do
+      nodes = [
+        %Node{id: 100, labels: ["A"], properties: %{}},
+        %Node{id: 200, labels: ["B"], properties: %{}}
+      ]
+
+      rels = [%UnboundRelationship{id: 10, type: "KNOWS", properties: %{}}]
+
+      # Walk A -> B across a relationship pointing B -> A; Neo4j encodes the
+      # reverse step as -1, surfaced as 255 by the unpacker. The relationship's
+      # own direction (start 200, end 100) is preserved, opposite the walk.
+      path = %Path{nodes: nodes, relationships: rels, sequence: [255, 1]}
+
+      assert [
+               %Node{id: 100},
+               %Relationship{id: 10, start: 200, end: 100},
+               %Node{id: 200}
+             ] = Path.graph(path)
     end
   end
 end

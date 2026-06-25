@@ -164,32 +164,38 @@ defmodule Bolty.Types do
     defp draw_path(n, r, s, i, [h | t] = _rel_index, acc, ln, _nn) do
       next_node = Enum.at(n, Enum.at(s, 2 * i + 1))
 
-      urel =
+      # graph/1 binds each relationship to its endpoints in the walk, so the result
+      # is a %Relationship{} (which carries :start/:end) rather than the endpoint-less
+      # wire %UnboundRelationship{}. struct/2 silently drops unknown keys, so building
+      # an UnboundRelationship here would lose the computed :start/:end (issue #55).
+      relationship =
         if h > 0 && h < 255 do
-          # rel: rels[rel_index - 1], start/end: (ln.id, next_node.id)
+          # forward traversal: start = last node, end = next node
           rel = Enum.at(r, h - 1)
 
-          unbound_relationship =
-            [:id, :type, :properties, :start, :end]
-            |> Enum.zip([rel.id, rel.type, rel.properties, ln.id, next_node.id])
+          fields =
+            Enum.zip(
+              [:id, :type, :properties, :start, :end],
+              [rel.id, rel.type, rel.properties, ln.id, next_node.id]
+            )
 
-          struct(UnboundRelationship, unbound_relationship)
+          struct(Relationship, fields)
         else
-          # rel: rels[-rel_index - 1], start/end: (next_node.id, ln.id)
-          # Neo4j sends: -1, and Bolty.Internals. returns 255 instead? Investigating,
-          # meanwhile ugly path:
-          # oh dear ...
-          haha = if h == 255, do: -1, else: h
-          rel = Enum.at(r, -haha - 1)
+          # reverse traversal: start = next node, end = last node. Neo4j encodes the
+          # reverse index as a negative; the unpacker surfaces -1 as 255, so map it back.
+          rel_index = if h == 255, do: -1, else: h
+          rel = Enum.at(r, -rel_index - 1)
 
-          unbound_relationship =
-            [:id, :type, :properties, :start, :end]
-            |> Enum.zip([rel.id, rel.type, rel.properties, next_node.id, ln.id])
+          fields =
+            Enum.zip(
+              [:id, :type, :properties, :start, :end],
+              [rel.id, rel.type, rel.properties, next_node.id, ln.id]
+            )
 
-          struct(UnboundRelationship, unbound_relationship)
+          struct(Relationship, fields)
         end
 
-      draw_path(n, r, s, i + 1, t, (acc ++ [urel]) ++ [next_node], next_node, ln)
+      draw_path(n, r, s, i + 1, t, (acc ++ [relationship]) ++ [next_node], next_node, ln)
     end
   end
 
