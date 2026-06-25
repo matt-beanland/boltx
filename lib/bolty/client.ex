@@ -514,13 +514,4 @@ defmodule Bolty.Client do
     sock_mod.close(sock)
     :ok
   end
-
-  def checkin(client) do
-    {sock_mod, sock} = client.sock
-
-    case sock_mod.setopts(sock, active: :once) do
-      :ok -> :ok
-      other -> other
-    end
-  end
 end

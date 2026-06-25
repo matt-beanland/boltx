@@ -53,6 +53,16 @@ defmodule Bolty.Connection do
   end
 
   @impl true
+  def handle_commit(_, %__MODULE__{in_transaction: false} = state) do
+    # A FAILURE earlier in this transaction already aborted it server-side and the
+    # connection was RESET back to a usable state (see execute/4). There is no
+    # server-side transaction left to commit, and sending COMMIT now would be
+    # rejected (Request.Invalid) and needlessly disconnect a healthy connection.
+    # Report the aborted-transaction status (:error) so the caller learns the
+    # commit did not happen, without tearing the connection down.
+    {:error, state}
+  end
+
   def handle_commit(_, %__MODULE__{client: client} = state) do
     case Client.send_commit(client) do
       {:ok, _} -> {:ok, :committed, %{state | in_transaction: false}}
@@ -61,6 +71,14 @@ defmodule Bolty.Connection do
   end
 
   @impl true
+  def handle_rollback(_, %__MODULE__{in_transaction: false} = state) do
+    # The transaction was already aborted by an earlier FAILURE and the connection
+    # RESET back to a usable state (see execute/4); there is nothing left to roll
+    # back. Sending ROLLBACK now would be rejected (Request.Invalid) and disconnect
+    # a healthy connection, so just report a successful rollback.
+    {:ok, :rolledback, state}
+  end
+
   def handle_rollback(_, %__MODULE__{client: client} = state) do
     case Client.send_rollback(client) do
       {:ok, _} -> {:ok, :rolledback, %{state | in_transaction: false}}
@@ -111,12 +129,6 @@ defmodule Bolty.Connection do
     end
   end
 
-  def checkin(state) do
-    case Client.disconnect(state.client) do
-      :ok -> {:ok, state}
-    end
-  end
-
   @impl true
   def handle_prepare(query, _opts, state), do: {:ok, query, state}
   @impl true
@@ -138,16 +150,33 @@ defmodule Bolty.Connection do
       {:ok, statement_result} ->
         {:ok, statement_result}
 
-      {:error, %Bolty.Error{code: error_code} = error} ->
-        if error_code in [:syntax_error, :semantic_error] and not state.in_transaction do
-          Client.send_reset(client)
-        end
-
-        {:error, error, state}
+      {:error, %Bolty.Error{} = error} ->
+        recover_from_failure(client, error, state)
     end
   rescue
     e ->
       {:error, e, state}
+  end
+
+  # A statement FAILURE leaves the Bolt connection in the protocol's FAILED state.
+  # Per the Bolt protocol the only way out is RESET — a ROLLBACK/COMMIT, or any
+  # further statement, is IGNORED. We therefore RESET after *any* FAILURE, for *any*
+  # error code, whether or not we are in a transaction. This recovers both:
+  #
+  #   * the in-transaction path — otherwise the trailing ROLLBACK is IGNORED and the
+  #     connection is force-disconnected (noisy `:ignored` error), and
+  #   * the bare-query path — otherwise the FAILED connection is returned to the pool
+  #     and poisons every later checkout with `:ignored` until it churns.
+  #
+  # After a successful RESET there is no server-side transaction left, so clear
+  # in_transaction; handle_rollback/handle_commit rely on that to avoid sending a
+  # ROLLBACK/COMMIT that the now-recovered connection would reject. If RESET itself
+  # fails the connection is genuinely unusable, so disconnect.
+  defp recover_from_failure(client, error, state) do
+    case Client.send_reset(client) do
+      {:ok, _} -> {:error, error, %{state | in_transaction: false}}
+      {:error, _reset_error} -> {:disconnect, error, state}
+    end
   end
 
   defp result(
