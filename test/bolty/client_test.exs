@@ -11,6 +11,13 @@ defmodule Bolty.ClientTest do
   @opts Bolty.TestHelper.opts()
   @noop_chunk <<0x00, 0x00>>
 
+  # Frame a message body the way Bolt does on the wire: one or more
+  # [uint16 length][payload] chunks terminated by a zero-length (0x0000) chunk.
+  # `framed/1` emits a single-chunk message; `body/1` strips the trailing 0x0000
+  # the older fixtures baked into their payloads, leaving the true message body.
+  defp framed(payload), do: [<<byte_size(payload)::16>>, payload, @noop_chunk]
+  defp body(full), do: binary_part(full, 0, byte_size(full) - 2)
+
   defp handle_handshake(client, opts) do
     case client.bolt_version do
       version when version >= 5.1 ->
@@ -174,7 +181,7 @@ defmodule Bolty.ClientTest do
           101, 111, 117, 116, 95, 115, 101, 99, 111, 110, 100, 115, 120, 208, 17, 116, 101, 108,
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
-      pid = Bolty.Mocks.SockMock.start_link([<<0, byte_size(chunk)>>, chunk])
+      pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk)))
       client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 1.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
@@ -203,14 +210,7 @@ defmodule Bolty.ClientTest do
           101, 111, 117, 116, 95, 115, 101, 99, 111, 110, 100, 115, 120, 208, 17, 116, 101, 108,
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
-      pid =
-        Bolty.Mocks.SockMock.start_link([
-          <<0, byte_size(chunk1)>>,
-          chunk1,
-          @noop_chunk,
-          <<0, byte_size(chunk2)>>,
-          chunk2
-        ])
+      pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk1)) ++ framed(body(chunk2)))
 
       client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 3.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
@@ -242,14 +242,9 @@ defmodule Bolty.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid =
-        Bolty.Mocks.SockMock.start_link([
-          @noop_chunk,
-          <<0, byte_size(chunk1)>>,
-          chunk1,
-          @noop_chunk,
-          <<0, byte_size(chunk2)>>,
-          chunk2
-        ])
+        Bolty.Mocks.SockMock.start_link(
+          [@noop_chunk] ++ framed(body(chunk1)) ++ [@noop_chunk] ++ framed(body(chunk2))
+        )
 
       client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
@@ -266,6 +261,27 @@ defmodule Bolty.ClientTest do
                 }},
                {:record, [1024, 2048]}
              ]
+    end
+
+    @tag :core
+    test "reassembles a single message split across multiple chunks (#57)" do
+      # One RECORD body split across two data chunks with no terminator between
+      # them, followed by an empty SUCCESS summary. The old reader assumed one
+      # chunk per message and desynced on the second chunk's size header.
+      record = <<177, 113, 146, 201, 4, 0, 201, 8, 0>>
+      head = binary_part(record, 0, 5)
+      tail = binary_part(record, 5, byte_size(record) - 5)
+      success = <<177, 112, 160>>
+
+      frames =
+        [<<byte_size(head)::16>>, head, <<byte_size(tail)::16>>, tail, @noop_chunk] ++
+          framed(success)
+
+      pid = Bolty.Mocks.SockMock.start_link(frames)
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
+
+      assert message == [{:success, %{}}, {:record, [1024, 2048]}]
     end
   end
 

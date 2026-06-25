@@ -5,7 +5,6 @@ defmodule Bolty.Client do
   @moduledoc false
 
   @handshake_bytes_identifier <<0x60, 0x60, 0xB0, 0x17>>
-  @noop_chunk <<0x00, 0x00>>
   @summary ~w(success ignored failure)a
 
   import Bolty.BoltProtocol.ServerResponse
@@ -449,22 +448,39 @@ defmodule Bolty.Client do
       {:ok, message_record} ->
         recv_packets(client, prepare_messages, timeout, [message_record | messages])
 
-      :remaining_chunks ->
-        recv_packets(client, prepare_messages, timeout, messages)
-
       {:error, _} = error ->
         error
     end
   end
 
   defp get_next_message(client, timeout) do
-    with {:ok, chunk_size} <- get_chunk_size(client, timeout),
-         {:ok, <<message_binary::binary>>} <- get_chunk(client, timeout, chunk_size),
+    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>),
          {:ok, message} <- decode_message(message_binary) do
       {:ok, message}
-    else
-      :remaining_chunks ->
-        :remaining_chunks
+    end
+  end
+
+  # A Bolt message is transmitted as one or more chunks, each prefixed with a
+  # uint16 length, and terminated by a zero-length (0x0000) chunk. Accumulate the
+  # chunk payloads until that end-marker, then return the concatenated message
+  # body. This correctly reassembles a message the server splits across several
+  # chunks — which the protocol permits for any message, not only those larger
+  # than 65_535 bytes — rather than assuming one chunk per message.
+  #
+  # A 0x0000 read with nothing accumulated is a standalone NOOP / keep-alive
+  # boundary, so it is skipped rather than decoded as an empty message.
+  defp read_chunks(client, timeout, acc) do
+    case get_chunk_size(client, timeout) do
+      {:ok, 0} when acc == <<>> ->
+        read_chunks(client, timeout, acc)
+
+      {:ok, 0} ->
+        {:ok, acc}
+
+      {:ok, chunk_size} ->
+        with {:ok, chunk} <- get_chunk(client, timeout, chunk_size) do
+          read_chunks(client, timeout, <<acc::binary, chunk::binary>>)
+        end
 
       {:error, _} = error ->
         error
@@ -473,17 +489,11 @@ defmodule Bolty.Client do
 
   defp get_chunk_size(client, timeout) do
     case recv_data(client, timeout, 2) do
-      {:ok, @noop_chunk} ->
-        :remaining_chunks
-
       {:ok, <<chunk_size::16>>} ->
-        {:ok, chunk_size + byte_size(@noop_chunk)}
+        {:ok, chunk_size}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      {:error, _} = error ->
-        error
+      {:error, reason} ->
+        {:error, Bolty.Error.wrap(__MODULE__, reason)}
     end
   end
 
@@ -492,11 +502,8 @@ defmodule Bolty.Client do
       {:ok, <<chunk::binary>>} ->
         {:ok, chunk}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      {:error, _} = error ->
-        error
+      {:error, reason} ->
+        {:error, Bolty.Error.wrap(__MODULE__, reason)}
     end
   end
 
