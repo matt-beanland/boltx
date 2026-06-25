@@ -186,9 +186,11 @@ The `policy` struct is the single source of truth for version-driven behaviour i
 |---|---|---|
 | `cypher_5` | server speaks `CYPHER 5` (Neo4j ≥ 5.0) — every currently supported server | prefix queries with `CYPHER 5` |
 | `cypher_25` | server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06) | `CYPHER 25` syntax |
-| `dynamic_labels` | dynamic node labels/types (Neo4j ≥ 5.26) — a strict superset of `cypher_25` | `MATCH (n:$($label))` |
+| `dynamic_labels` | dynamic labels/types in **pattern position** (Neo4j ≥ 5.26) — a Cypher 5 feature; superset of `cypher_25` | `MATCH (n:$($label))`, `CREATE (n:$($label))` |
 
 So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.05` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
+
+> **Scope of `dynamic_labels`:** it covers the **pattern-position** form only — node labels and relationship types in `MATCH`/`CREATE`/`MERGE`. The `WHERE n:$(expr)` label-**predicate** form is a separate **Cypher 25** feature: gate it on `cypher_25`, not `dynamic_labels`. (It errors under `CYPHER 5` even on a `2026.x` server, and is unsupported on `5.26.x`.)
 
 ### Restricting the negotiated version
 
