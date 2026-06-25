@@ -60,31 +60,40 @@ defmodule Bolty.ConnectionRecoveryTest do
       pool = pool()
       label = "RecoveryUniq#{System.unique_integer([:positive])}"
 
-      # Uniquely-named constraint is the only shared state; both conflicting creates
-      # live inside the transaction (and are rolled back), so a concurrent global
-      # node-wipe in another async test cannot interfere with this test.
-      Bolty.query!(pool, "CREATE CONSTRAINT FOR (n:#{label}) REQUIRE n.k IS UNIQUE")
+      # The named constraint is the only cross-test shared state; both conflicting
+      # creates live inside the (rolled-back) transaction, so a concurrent global
+      # node-wipe can't interfere. CREATE ... IF NOT EXISTS plus a DROP-by-name in an
+      # `after` (runs even on failure; the pool is still alive, unlike on_exit) keep
+      # it idempotent: System.unique_integer resets per VM, and the old schema-style
+      # DROP errored on 5.x (silently, via non-bang query), so on a shared/persistent
+      # DB constraints leaked and collided across runs (EquivalentSchemaRuleAlreadyExists).
+      Bolty.query!(
+        pool,
+        "CREATE CONSTRAINT #{label} IF NOT EXISTS FOR (n:#{label}) REQUIRE n.k IS UNIQUE"
+      )
 
-      log =
-        capture_log(fn ->
-          Bolty.transaction(pool, fn conn ->
-            assert {:ok, _} = Bolty.query(conn, "CREATE (:#{label} {k: 'x'})")
+      try do
+        log =
+          capture_log(fn ->
+            Bolty.transaction(pool, fn conn ->
+              assert {:ok, _} = Bolty.query(conn, "CREATE (:#{label} {k: 'x'})")
 
-            assert {:error, %Bolty.Error{code: :constraint_validation_failed} = error} =
-                     Bolty.query(conn, "CREATE (:#{label} {k: 'x'})")
+              assert {:error, %Bolty.Error{code: :constraint_validation_failed} = error} =
+                       Bolty.query(conn, "CREATE (:#{label} {k: 'x'})")
 
-            assert error.bolt.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
-            Bolty.rollback(conn, :done)
+              assert error.bolt.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
+              Bolty.rollback(conn, :done)
+            end)
           end)
-        end)
 
-      refute log =~ ":ignored"
-      refute log =~ "disconnected"
+        refute log =~ ":ignored"
+        refute log =~ "disconnected"
 
-      # connection still usable
-      assert {:ok, _} = Bolty.query(pool, "RETURN 1 AS n")
-
-      Bolty.query(pool, "DROP CONSTRAINT FOR (n:#{label}) REQUIRE n.k IS UNIQUE")
+        # connection still usable
+        assert {:ok, _} = Bolty.query(pool, "RETURN 1 AS n")
+      after
+        Bolty.query(pool, "DROP CONSTRAINT #{label} IF EXISTS")
+      end
     end
   end
 
