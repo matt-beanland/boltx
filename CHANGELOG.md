@@ -10,6 +10,41 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.1](https://github.com/diffo-dev/bolty/compare/v0.2.0...v0.2.1) (2026-06-26)
+
+
+
+
+### Chores:
+
+* remove dead Bolty.Client.checkin/1 (#54) by Matt Beanland
+
+### CI/CD:
+
+* cover Bolt 6.0 (2026.05) and Bolt 5.x fallback (#65) by Matt Beanland
+
+### Documentation:
+
+* scope dynamic_labels to pattern position only (#53) by Matt Beanland
+
+### Bug Fixes:
+
+* return bound Relationship structs from Path.graph/1 (#55) by Matt Beanland
+
+* disconnect with the original error if a recovery RESET raises (#58) by Matt Beanland
+
+* reassemble multi-chunk Bolt messages on the receive path (#57) by Matt Beanland
+
+* classify common Neo4j status codes in Bolty.Error (#54) by Matt Beanland
+
+* reset connection after any FAILURE to recover FAILED state (#54) by Matt Beanland
+
+### Testing:
+
+* stop the #54 constraint recovery test leaking its constraint by Matt Beanland
+
+* stabilize the #54 happy-path commit test against async truncate by Matt Beanland
+
 ## [v0.2.0](https://github.com/diffo-dev/bolty/compare/v0.1.0...v0.2.0) (2026-06-15)
 
 
