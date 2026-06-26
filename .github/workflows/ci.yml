@@ -52,16 +52,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        boltVersion:
-          - '5.0'
-          - '5.1'
-          - '5.2'
-          - '5.3'
-          - '5.4'
-          - '5.6'
-          - '5.7'
-          - '5.8'
+        # Pure include-list: each entry is one job, so the same Bolt version can run
+        # against two servers (e.g. 5.8 vs the LTS and vs the Bolt-6 server) without
+        # the matrix key colliding. mixTestPartition just uniquely names each job's
+        # coverage artifact.
         include:
+          # Bolt 5.x against the Neo4j 5.26.27 LTS.
           - boltVersion: '5.0'
             db: neo4j:5.26.27-community
             mixTestPartition: 1
@@ -86,6 +82,19 @@ jobs:
           - boltVersion: '5.8'
             db: neo4j:5.26.27-community
             mixTestPartition: 8
+          # Bolt 6.0 against Neo4j 2026.05.
+          - boltVersion: '6.0'
+            db: neo4j:2026.05-community
+            mixTestPartition: 9
+          # Bolt 5.x fallback against the Bolt-6 server (2026.05): a 5.x-constrained
+          # client must still negotiate and run against a newer server. Cover the
+          # negotiation floor (5.0) and ceiling (5.8).
+          - boltVersion: '5.8'
+            db: neo4j:2026.05-community
+            mixTestPartition: 10
+          - boltVersion: '5.0'
+            db: neo4j:2026.05-community
+            mixTestPartition: 11
     env:
       MIX_ENV: test
       BOLT_VERSIONS: ${{matrix.boltVersion}}
