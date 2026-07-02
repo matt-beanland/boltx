@@ -45,6 +45,24 @@ jobs:
         run: mix compile --force --warnings-as-errors
       - name: Dialyzer
         run: mix dialyzer --format github
+
+  floor:
+    # Exercise the advertised Elixir floor (mix.exs `elixir: "~> 1.17"`) so the
+    # package can't claim a version it won't compile on — e.g. Duration is 1.17+.
+    name: Compile on the Elixir floor (1.17)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.2'
+          elixir-version: '1.17.3'
+
+      - run: mix deps.get
+      - name: Compile on the floor
+        run: mix compile
   test:
     name: BoltVersion ${{ matrix.boltVersion }}, DB ${{matrix.db}}
     runs-on: ubuntu-latest
