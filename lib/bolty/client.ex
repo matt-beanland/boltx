@@ -44,13 +44,14 @@ defmodule Bolty.Client do
       :socket_options,
       :versions,
       :ssl?,
+      :tls_verify,
       :ssl_opts
     ]
 
     def new(opts) do
       {hostname, port} = get_hostname_and_port(opts)
       {username, password} = get_user_and_pass(opts)
-      {scheme, ssl?, ssl_opts} = get_scheme_and_ssl_opts(opts)
+      {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
       versions = get_versions(opts)
 
       %__MODULE__{
@@ -64,26 +65,39 @@ defmodule Bolty.Client do
           Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
         versions: versions,
         ssl?: ssl?,
+        tls_verify: tls_verify,
         ssl_opts: ssl_opts
       }
     end
 
+    # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
+    # the strict defaults (incl. SNI, which needs the hostname) are built at
+    # connect time in Client.maybe_connect_to_ssl/2. Per Neo4j scheme semantics
+    # (matching the official drivers):
+    #
+    #   * bolt / neo4j        -> no TLS
+    #   * bolt+s / neo4j+s    -> full verification (verify_peer against system CAs)
+    #   * bolt+ssc / neo4j+ssc -> self-signed / trust-all (encrypt only, no verify)
+    #
+    # User-supplied :ssl_opts are returned raw and merged *over* the strict
+    # defaults at connect time, so an explicit `verify:`/`cacertfile:` always wins.
     defp get_scheme_and_ssl_opts(opts) do
       scheme = get_schema(opts)
       ssl_opts = Keyword.get(opts, :ssl_opts, [])
 
-      {ssl, ssl_config} =
+      {ssl?, tls_verify} =
         case scheme do
-          "bolt" -> {false, ssl_opts}
-          "neo4j" -> {false, ssl_opts}
-          "neo4j+s" -> {true, Keyword.merge(ssl_opts, verify: :verify_none)}
-          "bolt+s" -> {true, Keyword.merge(ssl_opts, verify: :verify_none)}
-          "neo4j+ssc" -> {true, Keyword.merge(ssl_opts, verify: :verify_peer)}
-          "bolt+ssc" -> {true, Keyword.merge(ssl_opts, verify: :verify_peer)}
-          _ -> {true, ssl_opts}
+          "bolt" -> {false, :none}
+          "neo4j" -> {false, :none}
+          "bolt+s" -> {true, :verify}
+          "neo4j+s" -> {true, :verify}
+          "bolt+ssc" -> {true, :self_signed}
+          "neo4j+ssc" -> {true, :self_signed}
+          # Unknown scheme: secure by default.
+          _ -> {true, :verify}
         end
 
-      {scheme, ssl, ssl_config}
+      {scheme, ssl?, tls_verify, ssl_opts}
     end
 
     defp get_user_and_pass(opts) do
@@ -203,10 +217,11 @@ defmodule Bolty.Client do
       port: port,
       socket_options: socket_options,
       connect_timeout: connect_timeout,
+      tls_verify: tls_verify,
       ssl_opts: ssl_opts
     } = config
 
-    opts = Keyword.merge(ssl_opts, socket_options)
+    opts = build_tls_opts(tls_verify, hostname, ssl_opts, socket_options)
 
     case :ssl.connect(String.to_charlist(hostname), port, opts, connect_timeout) do
       {:ok, ssl_sock} ->
@@ -218,6 +233,59 @@ defmodule Bolty.Client do
       other ->
         other
     end
+  end
+
+  # Assembles the final :ssl.connect options. Layering (last wins): strict TLS
+  # defaults < user :ssl_opts < transport socket options. User opts override
+  # verification/CA config so an explicit `verify:`/`cacertfile:` always takes
+  # effect; transport options (mode/packet/active) are structural and stay
+  # authoritative. Public (within this @moduledoc false module) so the
+  # precedence can be unit-tested without a live TLS server.
+  def build_tls_opts(tls_verify, hostname, ssl_opts, socket_options) do
+    tls_verify
+    |> tls_default_opts(hostname)
+    |> Keyword.merge(ssl_opts)
+    |> put_default_cacerts()
+    |> Keyword.merge(socket_options)
+  end
+
+  # Supply the OS trust store as the default CA source for verify_peer — but only
+  # when the user hasn't provided their own. :cacerts and :cacertfile are
+  # mutually exclusive in :ssl (if both are present :cacerts wins and :cacertfile
+  # is ignored), so injecting a default :cacerts unconditionally would silently
+  # override a user's `ssl_opts: [cacertfile: ...]`. Applied after the user merge
+  # so their CA choice, and any `verify: :verify_none` override, take effect.
+  defp put_default_cacerts(opts) do
+    cond do
+      opts[:verify] != :verify_peer -> opts
+      Keyword.has_key?(opts, :cacertfile) -> opts
+      Keyword.has_key?(opts, :cacerts) -> opts
+      true -> Keyword.put(opts, :cacerts, :public_key.cacerts_get())
+    end
+  end
+
+  # Strict, secure-by-default TLS options per scheme intent. Built here (not at
+  # scheme-mapping time) because server_name_indication needs the resolved
+  # hostname. `+s` gets full CA verification + hostname check; `+ssc` is the
+  # documented self-signed / trust-all opt-out (encrypt only). Callers can still
+  # override any of these via :ssl_opts, which are merged on top. The CA source
+  # for :verify is added separately by put_default_cacerts/1.
+  defp tls_default_opts(:verify, hostname) do
+    [
+      verify: :verify_peer,
+      depth: 3,
+      server_name_indication: String.to_charlist(hostname),
+      customize_hostname_check: [
+        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+      ]
+    ]
+  end
+
+  defp tls_default_opts(:self_signed, hostname) do
+    [
+      verify: :verify_none,
+      server_name_indication: String.to_charlist(hostname)
+    ]
   end
 
   defp handshake(client, config) do
