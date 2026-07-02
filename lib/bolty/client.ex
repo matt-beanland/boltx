@@ -203,11 +203,8 @@ defmodule Bolty.Client do
       {:ok, sock} ->
         {:ok, %{client | sock: {:gen_tcp, sock}}}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      other ->
-        other
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
   end
 
@@ -227,12 +224,25 @@ defmodule Bolty.Client do
       {:ok, ssl_sock} ->
         {:ok, %{client | sock: {:ssl, ssl_sock}}}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      other ->
-        other
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
+  end
+
+  # Normalise a raw :gen_tcp/:ssl connect error into a %Bolty.Error{}. Reasons are
+  # posix atoms (:econnrefused, :nxdomain, :timeout, …) or, for TLS, a
+  # {:tls_alert, {alert, description}} tuple — keep the alert legible so a
+  # verification failure is diagnosable. Anything else is preserved via inspect.
+  defp wrap_connect_error(reason) when is_atom(reason) do
+    Bolty.Error.wrap(__MODULE__, reason)
+  end
+
+  defp wrap_connect_error({:tls_alert, {alert, description}}) do
+    Bolty.Error.wrap(__MODULE__, %{code: :tls_alert, message: "#{alert}: #{description}"})
+  end
+
+  defp wrap_connect_error(reason) do
+    Bolty.Error.wrap(__MODULE__, %{code: :connect_error, message: inspect(reason)})
   end
 
   # Assembles the final :ssl.connect options. Layering (last wins): strict TLS
@@ -314,7 +324,7 @@ defmodule Bolty.Client do
       end
     else
       _ ->
-        {:error, "Could not negotiate the version"}
+        {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
     end
   end
 

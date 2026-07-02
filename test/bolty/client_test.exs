@@ -245,6 +245,16 @@ defmodule Bolty.ClientTest do
       opts = [versions: [50]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
+
+    @tag core: true
+    test "a refused connection returns a wrapped %Bolty.Error{}, not a raw posix tuple" do
+      # Nothing listens on this port, so :gen_tcp.connect returns {:error, :econnrefused};
+      # #70 requires it surface as a %Bolty.Error{} rather than the bare atom.
+      opts = [port: 65_533] ++ @opts
+
+      assert {:error, %Bolty.Error{module: Bolty.Client, code: code}} = Client.connect(opts)
+      assert is_atom(code)
+    end
   end
 
   describe "recv_packets" do

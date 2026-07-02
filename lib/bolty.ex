@@ -103,6 +103,12 @@ defmodule Bolty do
   @doc """
   Executes a single query and returns the result.
 
+  Returns `{:ok, %Bolty.Response{}}` on success. On failure it returns
+  `{:error, %Bolty.Error{}}` — every driver-side failure (connection, TLS,
+  version negotiation, and Neo4j server errors) is surfaced as a `Bolty.Error`,
+  so callers can match a single error shape. Pool checkout/timeout failures may
+  additionally surface as `DBConnection.ConnectionError`.
+
   ## Examples
 
   ```elixir
