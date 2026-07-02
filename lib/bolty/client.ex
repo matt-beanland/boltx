@@ -10,7 +10,6 @@ defmodule Bolty.Client do
   import Bolty.BoltProtocol.ServerResponse
 
   alias Bolty.BoltProtocol.Versions
-  alias Bolty.Utils.Converters
   alias Bolty.BoltProtocol.MessageDecoder
 
   alias Bolty.BoltProtocol.Message.{
@@ -33,7 +32,11 @@ defmodule Bolty.Client do
     @moduledoc false
 
     @default_timeout 15_000
+    @default_port 7687
 
+    # Redact the password so a failed-connect crash report (DBConnection includes
+    # state/opts) can't leak it to logs.
+    @derive {Inspect, except: [:password]}
     defstruct [
       :hostname,
       :port,
@@ -48,26 +51,45 @@ defmodule Bolty.Client do
       :ssl_opts
     ]
 
+    @doc """
+    Builds a `%Config{}` from connection options.
+
+    Returns `{:ok, config}`, or `{:error, %Bolty.Error{}}` when a required field
+    (currently `:username`) is missing — the caller surfaces that cleanly rather
+    than raising inside DBConnection's connect callback.
+    """
     def new(opts) do
       {hostname, port} = get_hostname_and_port(opts)
       {username, password} = get_user_and_pass(opts)
       {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
       versions = get_versions(opts)
 
-      %__MODULE__{
-        hostname: hostname,
-        port: port,
-        scheme: scheme,
-        username: username,
-        password: password,
-        connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
-        socket_options:
-          Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
-        versions: versions,
-        ssl?: ssl?,
-        tls_verify: tls_verify,
-        ssl_opts: ssl_opts
-      }
+      if is_nil(username) do
+        {:error,
+         Bolty.Error.wrap(Bolty.Client, %{
+           code: :missing_username,
+           message: ":username is missing — set auth: [username: ...] in your connection config"
+         })}
+      else
+        {:ok,
+         %__MODULE__{
+           hostname: hostname,
+           port: port,
+           scheme: scheme,
+           username: username,
+           password: password,
+           connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
+           socket_options:
+             Keyword.merge(
+               [mode: :binary, packet: :raw, active: false],
+               opts[:socket_options] || []
+             ),
+           versions: versions,
+           ssl?: ssl?,
+           tls_verify: tls_verify,
+           ssl_opts: ssl_opts
+         }}
+      end
     end
 
     # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
@@ -102,69 +124,28 @@ defmodule Bolty.Client do
 
     defp get_user_and_pass(opts) do
       basic_auth = Keyword.get(opts, :auth, [])
-
-      username =
-        System.get_env("BOLT_USER") || Keyword.get(basic_auth, :username, nil) ||
-          raise(":username is missing")
-
-      password = System.get_env("BOLT_PWD") || Keyword.get(basic_auth, :password)
-
-      {username, password}
+      {Keyword.get(basic_auth, :username), Keyword.get(basic_auth, :password)}
     end
 
+    # Precedence, uniform across host/port/scheme: explicit opts > URI components
+    # > default. (No env vars — those were removed in 0.3.0.)
     defp get_hostname_and_port(opts) do
-      uri = Keyword.get(opts, :uri, nil)
-
-      parsed_uri =
-        uri
-        |> to_string
-        |> URI.parse()
-
-      port_default = String.to_integer(System.get_env("BOLT_TCP_PORT") || "7687")
-
-      hostname =
-        parsed_uri.host || Keyword.get(opts, :hostname, nil) || System.get_env("BOLT_HOST") ||
-          "localhost"
-
-      port = parsed_uri.port || Keyword.get(opts, :port, port_default)
+      parsed_uri = parse_uri(opts)
+      hostname = Keyword.get(opts, :hostname) || parsed_uri.host || "localhost"
+      port = Keyword.get(opts, :port) || parsed_uri.port || @default_port
       {hostname, port}
     end
 
     defp get_schema(opts) do
-      uri = Keyword.get(opts, :uri, nil)
+      Keyword.get(opts, :scheme) || parse_uri(opts).scheme || "bolt+s"
+    end
 
-      parsed_uri =
-        uri
-        |> to_string
-        |> URI.parse()
-
-      parsed_uri.scheme || Keyword.get(opts, :scheme, nil) || "bolt+s"
+    defp parse_uri(opts) do
+      opts |> Keyword.get(:uri) |> to_string() |> URI.parse()
     end
 
     def get_versions(opts) do
-      versions =
-        case Keyword.get(opts, :versions) do
-          nil ->
-            case System.get_env("BOLT_VERSIONS") do
-              nil ->
-                Versions.latest_versions()
-
-              env_versions ->
-                require Logger
-
-                Logger.warning(
-                  "BOLT_VERSIONS env var is deprecated — set :versions in your connection config instead"
-                )
-
-                env_versions
-                |> String.split(",")
-                |> Enum.map(&Converters.to_float/1)
-            end
-
-          ops_versions ->
-            ops_versions
-        end
-
+      versions = Keyword.get(opts, :versions) || Versions.latest_versions()
       ((versions |> Enum.into([])) ++ [0, 0, 0]) |> Enum.take(4) |> Enum.sort(&>=/2)
     end
   end
@@ -176,7 +157,9 @@ defmodule Bolty.Client do
   end
 
   def connect(opts) when is_list(opts) do
-    connect(Config.new(opts))
+    with {:ok, config} <- Config.new(opts) do
+      connect(config)
+    end
   end
 
   def do_connect(config) do

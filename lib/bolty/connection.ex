@@ -22,9 +22,8 @@ defmodule Bolty.Connection do
 
   @impl true
   def connect(opts) do
-    config = Client.Config.new(opts)
-
-    with {:ok, %Client{} = client} <- Client.connect(config) do
+    with {:ok, config} <- Client.Config.new(opts),
+         {:ok, %Client{} = client} <- Client.connect(config) do
       # Resolve a preliminary policy from bolt_version alone so that HELLO
       # message construction can use policy fields (e.g. notifications_field)
       # rather than reading bolt_version directly. The final policy is resolved

@@ -63,6 +63,7 @@ defmodule Bolty.TestHelper do
       scheme: "bolt",
       ssl: false
     ]
+    |> with_env_overrides()
   end
 
   def opts_without_auth() do
@@ -76,6 +77,31 @@ defmodule Bolty.TestHelper do
       scheme: "bolt",
       ssl: false
     ]
+    |> with_env_overrides()
+  end
+
+  # The driver no longer reads BOLT_VERSIONS / BOLT_TCP_PORT (removed in 0.3.0);
+  # the test matrix (mix test.matrix / CI) still uses them to pick the Bolt
+  # version and server port, so bridge them into explicit :versions / :port opts.
+  defp with_env_overrides(opts) do
+    opts
+    |> maybe_put_env_port()
+    |> maybe_put_env_versions()
+  end
+
+  defp maybe_put_env_port(opts) do
+    case System.get_env("BOLT_TCP_PORT") do
+      nil -> opts
+      "" -> opts
+      port -> Keyword.put(opts, :port, String.to_integer(port))
+    end
+  end
+
+  defp maybe_put_env_versions(opts) do
+    case System.get_env("BOLT_VERSIONS", "") |> String.split(",") |> Enum.reject(&(&1 == "")) do
+      [] -> opts
+      versions -> Keyword.put(opts, :versions, Enum.map(versions, &Converters.to_float/1))
+    end
   end
 
   defp ssl_opts() do

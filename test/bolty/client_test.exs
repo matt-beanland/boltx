@@ -39,7 +39,7 @@ defmodule Bolty.ClientTest do
         auth: [username: "usertest"]
       ]
 
-      config = Client.Config.new(opts)
+      assert {:ok, config} = Client.Config.new(opts)
 
       assert config.hostname == "hobby-happyHoHoHo.dbs.graphenedb.com"
       assert config.scheme == "bolt"
@@ -52,9 +52,10 @@ defmodule Bolty.ClientTest do
         auth: [username: "usertest"]
       ]
 
-      config = Client.Config.new(opts)
+      assert {:ok, config} = Client.Config.new(opts)
 
       assert config.hostname == "localhost"
+      assert config.port == 7687
       assert config.scheme == "bolt+s"
       assert config.username == "usertest"
     end
@@ -67,7 +68,7 @@ defmodule Bolty.ClientTest do
         auth: [username: "usertests"]
       ]
 
-      config = Client.Config.new(opts)
+      assert {:ok, config} = Client.Config.new(opts)
 
       assert config.hostname == "hobby-happyHoHoHo.dbs.com"
       assert config.scheme == "bolt+s"
@@ -75,21 +76,32 @@ defmodule Bolty.ClientTest do
       assert config.username == "usertests"
     end
 
-    test "passing port, scheme and host along with uri" do
+    test "explicit :hostname/:port/:scheme opts take priority over URI components" do
       opts = [
         uri: "bolt://hobby-happyHoHoHo.dbs.graphenedb.com:24786",
         hostname: "happy.com",
-        scheme: "bolts",
+        scheme: "neo4j",
         port: 7689,
         auth: [username: "usertests"]
       ]
 
-      config = Client.Config.new(opts)
+      assert {:ok, config} = Client.Config.new(opts)
 
-      assert config.hostname == "hobby-happyHoHoHo.dbs.graphenedb.com"
-      assert config.scheme == "bolt"
-      assert config.port == 24786
+      # 0.3.0: explicit opts win over URI (the previous behaviour was the reverse).
+      assert config.hostname == "happy.com"
+      assert config.scheme == "neo4j"
+      assert config.port == 7689
       assert config.username == "usertests"
+    end
+
+    test "missing :username returns a %Bolty.Error{}, does not raise" do
+      assert {:error, %Bolty.Error{module: Bolty.Client, code: :missing_username}} =
+               Client.Config.new(hostname: "localhost")
+    end
+
+    test "the password is redacted when the config is inspected" do
+      {:ok, config} = Client.Config.new(auth: [username: "u", password: "s3cret"])
+      refute inspect(config) =~ "s3cret"
     end
 
     test "maps schemes to the correct TLS verification intent" do
@@ -99,34 +111,34 @@ defmodule Bolty.ClientTest do
 
       opts1 = base_opts ++ [scheme: "bolt"]
 
-      assert %Client.Config{scheme: "bolt", ssl?: false, tls_verify: :none} =
+      assert {:ok, %Client.Config{scheme: "bolt", ssl?: false, tls_verify: :none}} =
                Client.Config.new(opts1)
 
       # +s -> full verification (previously, and incorrectly, :verify_none)
       opts2 = base_opts ++ [scheme: "bolt+s"]
 
-      assert %Client.Config{scheme: "bolt+s", ssl?: true, tls_verify: :verify} =
+      assert {:ok, %Client.Config{scheme: "bolt+s", ssl?: true, tls_verify: :verify}} =
                Client.Config.new(opts2)
 
       # +ssc -> self-signed / trust-all (previously, and incorrectly, :verify_peer)
       opts3 = base_opts ++ [scheme: "bolt+ssc"]
 
-      assert %Client.Config{scheme: "bolt+ssc", ssl?: true, tls_verify: :self_signed} =
+      assert {:ok, %Client.Config{scheme: "bolt+ssc", ssl?: true, tls_verify: :self_signed}} =
                Client.Config.new(opts3)
 
       opts4 = base_opts ++ [scheme: "neo4j"]
 
-      assert %Client.Config{scheme: "neo4j", ssl?: false, tls_verify: :none} =
+      assert {:ok, %Client.Config{scheme: "neo4j", ssl?: false, tls_verify: :none}} =
                Client.Config.new(opts4)
 
       opts5 = base_opts ++ [scheme: "neo4j+s"]
 
-      assert %Client.Config{scheme: "neo4j+s", ssl?: true, tls_verify: :verify} =
+      assert {:ok, %Client.Config{scheme: "neo4j+s", ssl?: true, tls_verify: :verify}} =
                Client.Config.new(opts5)
 
       opts6 = base_opts ++ [scheme: "neo4j+ssc"]
 
-      assert %Client.Config{scheme: "neo4j+ssc", ssl?: true, tls_verify: :self_signed} =
+      assert {:ok, %Client.Config{scheme: "neo4j+ssc", ssl?: true, tls_verify: :self_signed}} =
                Client.Config.new(opts6)
     end
 
@@ -139,10 +151,11 @@ defmodule Bolty.ClientTest do
 
       # The strict defaults are materialised at connect time; Config keeps the
       # user's opts raw so they can be merged *over* the defaults (user wins).
-      assert %Client.Config{
-               tls_verify: :verify,
-               ssl_opts: [verify: :verify_peer, cacertfile: "/etc/ssl/my_ca.pem"]
-             } = Client.Config.new(opts)
+      assert {:ok,
+              %Client.Config{
+                tls_verify: :verify,
+                ssl_opts: [verify: :verify_peer, cacertfile: "/etc/ssl/my_ca.pem"]
+              }} = Client.Config.new(opts)
     end
   end
 
