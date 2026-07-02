@@ -154,8 +154,14 @@ defmodule Bolty.Connection do
         recover_from_failure(client, error, state)
     end
   rescue
+    # An exception mid-execute (e.g. raised during recv after RUN was sent) can
+    # leave unread RECORD/SUCCESS bytes on the socket that would poison the next
+    # query on this pooled connection. Disconnect rather than return it to the
+    # pool, and surface a %Bolty.Error{} instead of the raw exception.
     e ->
-      {:error, e, state}
+      {:disconnect,
+       Bolty.Error.wrap(__MODULE__, %{code: :execute_exception, message: Exception.message(e)}),
+       state}
   end
 
   # A statement FAILURE leaves the Bolt connection in the protocol's FAILED state.

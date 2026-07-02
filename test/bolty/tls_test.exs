@@ -46,16 +46,22 @@ defmodule Bolty.TLSTest do
       # actually enforces verification rather than silently accepting any cert.
       opts = [scheme: "bolt+s"] ++ base_opts()
 
-      assert {:error, _reason} = Client.connect(opts)
+      # A TLS handshake rejection surfaces as a unified %Bolty.Error{} (#70).
+      assert {:error, %Bolty.Error{code: :tls_alert}} = Client.connect(opts)
     end
 
-    test "fails when the presented hostname does not match the certificate" do
-      # Cert SANs are localhost / 127.0.0.1; connect by an unmatched name.
+    test "fails when the certificate does not match the requested hostname" do
+      # Connect to the resolvable loopback but present an SNI that isn't in the
+      # cert SANs (localhost / 127.0.0.1), so the CA validates but verify_peer's
+      # hostname check rejects it — a tls_alert, not a DNS/connect error.
       opts =
-        [scheme: "bolt+s", hostname: "not-in-cert.example", ssl_opts: [cacertfile: @ca_path]] ++
-          Keyword.delete(base_opts(), :hostname)
+        [
+          scheme: "bolt+s",
+          hostname: "127.0.0.1",
+          ssl_opts: [cacertfile: @ca_path, server_name_indication: ~c"wrong.example"]
+        ] ++ Keyword.delete(base_opts(), :hostname)
 
-      assert {:error, _reason} = Client.connect(opts)
+      assert {:error, %Bolty.Error{code: :tls_alert}} = Client.connect(opts)
     end
   end
 
