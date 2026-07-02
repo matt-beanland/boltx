@@ -155,9 +155,11 @@ defmodule Bolty.ClientTest do
 
       assert opts[:verify] == :verify_peer
       assert opts[:server_name_indication] == ~c"graph.example.com"
+
       assert opts[:customize_hostname_check] == [
                match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
              ]
+
       # CA trust anchors sourced from the OS store, not an empty/absent list.
       assert is_list(opts[:cacerts]) and opts[:cacerts] != []
     end
