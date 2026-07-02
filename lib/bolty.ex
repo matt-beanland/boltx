@@ -11,9 +11,9 @@ defmodule Bolty do
   @typedoc """
   The basic authentication scheme relies on traditional username and password
 
-  * `:username` - Username (default: `BOLT_USER` env variable)
+  * `:username` - Username (required)
 
-  * `:password` - Password (default: `BOLT_PWD` env variable, then `nil`)
+  * `:password` - Password (default: `nil`)
   """
   @type basic_auth() ::
           {:username, String.t()}
@@ -47,12 +47,13 @@ defmodule Bolty do
 
   ## Options
 
-  * `:uri` - Connection URI. The uri configuration takes priority over the hostname, port, and scheme options.
-   URI has the form: `<SCHEME>://<HOST>[:<PORT>[?policy=<POLICY-NAME>]]`
+  * `:uri` - Connection URI, of the form `<SCHEME>://<HOST>[:<PORT>[?policy=<POLICY-NAME>]]`.
+   Explicit `:hostname`, `:port` and `:scheme` options take priority over the
+   corresponding URI components.
 
-  * `:hostname` - Server hostname (default: `BOLT_HOST` env variable, then `"localhost"`)
+  * `:hostname` - Server hostname (default: `"localhost"`)
 
-  * `:port` - Server port (default: `BOLT_TCP_PORT` env variable, then `7687`)
+  * `:port` - Server port (default: `7687`)
 
   * `:scheme` - Is one among neo4j, neo4j+s, neo4j+ssc, bolt, bolt+s, bolt+ssc (default: bolt+s).
 

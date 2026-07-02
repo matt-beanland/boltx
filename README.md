@@ -275,8 +275,8 @@ As certain versions of Bolt may be compatible with specific functionalities whil
 
 By default, all tags are disabled except the `:core` tag. To enable the tags, it is necessary to configure the following environment variables:
 
-- `BOLT_VERSIONS`: **Deprecated** — use the `:versions` connection option instead. Still supported as a testing escape hatch (e.g. `BOLT_VERSIONS=5.4 mix test`), but will emit a warning at runtime.
-- `BOLT_TCP_PORT`:  You can configure the port with the environment variable (BOLT_TCP_PORT=7688).
+- `BOLT_VERSIONS`: selects the Bolt version the **test suite** negotiates and which version tags run (e.g. `BOLT_VERSIONS=5.4 mix test`). This is a test-suite convenience only — configure the driver itself with the `:versions` connection option.
+- `BOLT_TCP_PORT`: the port the **test suite** connects to (default 7687). Configure the driver itself with the `:port` connection option.
 
 #### Version matrix
 To run the suite against every supported Bolt version, use `mix test.matrix` (see `mix help test.matrix`). It reads `BOLT_TCP_PORT` for Bolt 5.x servers and `BOLT_6_TCP_PORT` for Bolt 6.x.

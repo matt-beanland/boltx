@@ -85,12 +85,12 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `:uri` | `<scheme>://<host>[:<port>]` — wins over host/port/scheme | `nil` |
-| `:hostname` | Host | `BOLT_HOST` env → `"localhost"` |
-| `:port` | Port | `BOLT_TCP_PORT` env → `7687` |
+| `:uri` | `<scheme>://<host>[:<port>]` — explicit `:hostname`/`:port`/`:scheme` win over the URI's components | `nil` |
+| `:hostname` | Host | `"localhost"` |
+| `:port` | Port | `7687` |
 | `:scheme` | One of the schemes below | `"bolt+s"` |
-| `:auth` | `[username: ..., password: ...]` | required |
-| `:versions` | Bolt versions to negotiate. Accepts floats (`[5.4]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`). Range tuples are preferred — the handshake has only 4 slots and ranges cover more versions per slot. Omit to use `Versions.latest_versions()` (all supported versions, auto-rangeified). `BOLT_VERSIONS` env var is **deprecated** in favour of this option. | `Versions.latest_versions()` |
+| `:auth` | `[username: ..., password: ...]` (`:username` required) | required |
+| `:versions` | Bolt versions to negotiate. Accepts floats (`[5.4]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`). Range tuples are preferred — the handshake has only 4 slots and ranges cover more versions per slot. Omit to use `Versions.latest_versions()` (all supported versions, auto-rangeified). | `Versions.latest_versions()` |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
 | `:notifications_minimum_severity` | Bolt 5.2+ | `nil` |
 | `:notifications_disabled_categories` | Bolt 5.2–5.5 | `nil` |
@@ -100,7 +100,7 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:socket_options` | `:gen_tcp.connect_option()` list | `[mode: :binary, packet: :raw, active: false]` |
 | DBConnection opts (`:name`, `:pool_size`, `:max_overflow`, `:after_connect`, ...) | flow through | |
 
-**Env-var precedence for auth is a sharp edge**: `BOLT_USER` and `BOLT_PWD` override the values you pass in `:auth`. Unset them explicitly if you don't want that.
+**Precedence is uniform**: explicit opts (`:hostname`/`:port`/`:scheme`) win over the corresponding `:uri` components. The driver reads no environment variables for connection config (the old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` were removed in 0.3.0 — pass `:auth`, `:hostname`, `:port`, `:versions` instead).
 
 ### URI schemes / TLS
 
@@ -198,7 +198,7 @@ If an agent needs routing or streaming today, that is not bolty's job — surfac
 
 Tests are version-tagged. Defaults run only `:core`; everything else is disabled unless you opt in with env vars and tags.
 
-- Env vars: `BOLT_VERSIONS` (e.g. `"5.2"`), `BOLT_TCP_PORT` (e.g. `7687`), `BOLT_USER`, `BOLT_PWD`, `BOLT_HOST`.
+- Env vars (test suite only — the driver reads none of these): `BOLT_VERSIONS` (e.g. `"5.2"`) selects the negotiated version and version tags; `BOLT_TCP_PORT` (e.g. `7687`) sets the server port. The test helper bridges them into the `:versions` / `:port` connection options.
 - Tags: `:core`, `:bolt_version_X_Y` (e.g. `:bolt_version_5_2`), `:bolt_X_x` (e.g. `:bolt_5_x`), `:last_version`.
 
 Local server matrix via `docker-compose.yml`:
@@ -276,7 +276,7 @@ To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolv
 
 - `@error_map` only covers four Neo bolt errors; everything else collapses to `:unknown`. Extend when you need finer-grained handling.
 - `format_param/1` at the top level only rewrites `Point`. Temporal-with-offset structs pass through as-is; call their own `format_param/1` if you need Cypher-ready strings.
-- Env-var-overrides-opts precedence for `:auth` (BOLT_USER / BOLT_PWD) — as noted in §5.
+- A missing `:username` returns `{:error, %Bolty.Error{code: :missing_username}}` from the connect path (it no longer raises). (The old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` env-var config was removed in 0.3.0 — pass explicit options.)
 
 ## 16. Commit format and changelog
 
