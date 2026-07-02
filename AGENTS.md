@@ -41,15 +41,16 @@ Run `mix setup` once per clone to enable the shared **pre-push hook**
 lint failures locally instead of in CI. Bypass in a pinch with
 `SKIP_HOOKS=1 git push`.
 
-## Local Neo4j — shared, handle with care
+## Local Neo4j
 
-The test databases are **shared across diffo-dev repos** (bolty and ash_neo4j run the same containers). `docker-compose.yml` is aligned with ash_neo4j:
+bolty runs its **own** test containers via `docker-compose.yml` (other diffo-dev repos start their own). Ports and creds still match ash_neo4j (`neo4j` / `password` on 7687 / 7689) so shared tooling lines up:
 
-- `neo4j-bolt5` — `neo4j:5.26.27` on **7687** (Bolt 5.x)
-- `neo4j-bolt6` — `neo4j:2026.05` on **7689** (Bolt 6.0)
-- auth `neo4j` / `password`
+- `neo4j-bolt5` — **builds** `test/tls/Dockerfile` = `neo4j:5.26.28` with **bolt TLS** (SSL policy baked into the image; `tls_level: OPTIONAL` so plaintext still works) on **7687** (Bolt 5.x). Requires `./test/tls/gen_certs.sh` first (throwaway CA + server cert, git-ignored), then `docker compose up -d --build neo4j-bolt5`.
+- `neo4j-bolt6` — `neo4j:2026.05` on **7689** (Bolt 6.0).
 
-Do **not** `docker rm` / `docker compose up --remove-orphans` against these — you may break another repo's session. Connect to what's already running. Note the suite's setup runs `MATCH (n) DETACH DELETE n`, so don't point it at a database you care about. Run the version matrix with `mix test.matrix` (`BOLT_6_TCP_PORT=7689` for the Bolt 6 server).
+Because 7687 now serves TLS, `bolt+s` / `bolt+ssc` are testable locally: `mix test --include tls` runs the `:tls` suite (`test/bolty/tls_test.exs`) against it (needs the container up + certs generated). The `:tls` tag is excluded by default.
+
+Scope docker commands to the **named service** (e.g. `docker compose up -d neo4j-bolt5`) — avoid a bare `docker compose up` / `--remove-orphans` that could sweep unrelated containers. The suite's setup runs `MATCH (n) DETACH DELETE n`, so don't point it at a database you care about. Run the version matrix with `mix test.matrix` (`BOLT_6_TCP_PORT=7689` for the Bolt 6 server).
 
 ## Policy is the source of truth — and keep its docs in sync
 
