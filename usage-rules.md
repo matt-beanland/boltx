@@ -214,7 +214,7 @@ Use `mix test.matrix` to run the full version matrix. Requires Docker and docker
 
 ## 13. Development loop
 
-- Elixir `~> 1.14`. `.tool-versions` pins the expected runtime.
+- Elixir `~> 1.17` (the `Duration` type is 1.17+). `.tool-versions` pins the expected runtime.
 - `mix format` — `.formatter.exs` configured.
 - `mix credo` — `.credo.exs` tuned; keep warnings at 0.
 - `mix dialyzer` — PLT adds `:jason`, `:poison`, `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
