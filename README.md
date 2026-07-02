@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 
 `Bolty` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol, forked from `Boltx` and now developed independently.
 
-- Supports Neo4j 5.26.27 LTS and Neo4j 2026.05
+- Supports Neo4j 5.26.28 LTS and Neo4j 2026.05
 - Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
@@ -167,7 +167,7 @@ Bolty negotiates the highest mutually-supported Bolt version during connection. 
 iex> Bolty.connection_info(conn)
 %{
   bolt_version: 5.8,
-  server_version: "Neo4j/5.26.27",
+  server_version: "Neo4j/5.26.28",
   policy: %Bolty.Policy{
     datetime: :evolved,
     notifications_field: :notifications_disabled_classifications,
