@@ -9,7 +9,10 @@ exclude = [
   :skip,
   :bench,
   :apoc,
-  :legacy
+  :legacy,
+  # TLS integration tests need the TLS-enabled neo4j-bolt5 service (port 7687)
+  # and generated certs; run explicitly with `mix test --include tls`.
+  :tls
 ]
 
 include = [:core]

@@ -92,36 +92,113 @@ defmodule Bolty.ClientTest do
       assert config.username == "usertests"
     end
 
-    test "returns correct values for different schemes" do
+    test "maps schemes to the correct TLS verification intent" do
       base_opts = [
         auth: [username: "usertests"]
       ]
 
       opts1 = base_opts ++ [scheme: "bolt"]
-      assert %Client.Config{scheme: "bolt", ssl?: false, ssl_opts: []} = Client.Config.new(opts1)
 
+      assert %Client.Config{scheme: "bolt", ssl?: false, tls_verify: :none} =
+               Client.Config.new(opts1)
+
+      # +s -> full verification (previously, and incorrectly, :verify_none)
       opts2 = base_opts ++ [scheme: "bolt+s"]
 
-      assert %Client.Config{scheme: "bolt+s", ssl?: true, ssl_opts: [verify: :verify_none]} =
+      assert %Client.Config{scheme: "bolt+s", ssl?: true, tls_verify: :verify} =
                Client.Config.new(opts2)
 
+      # +ssc -> self-signed / trust-all (previously, and incorrectly, :verify_peer)
       opts3 = base_opts ++ [scheme: "bolt+ssc"]
 
-      assert %Client.Config{scheme: "bolt+ssc", ssl?: true, ssl_opts: [verify: :verify_peer]} =
+      assert %Client.Config{scheme: "bolt+ssc", ssl?: true, tls_verify: :self_signed} =
                Client.Config.new(opts3)
 
       opts4 = base_opts ++ [scheme: "neo4j"]
-      assert %Client.Config{scheme: "neo4j", ssl?: false, ssl_opts: []} = Client.Config.new(opts4)
+
+      assert %Client.Config{scheme: "neo4j", ssl?: false, tls_verify: :none} =
+               Client.Config.new(opts4)
 
       opts5 = base_opts ++ [scheme: "neo4j+s"]
 
-      assert %Client.Config{scheme: "neo4j+s", ssl?: true, ssl_opts: [verify: :verify_none]} =
+      assert %Client.Config{scheme: "neo4j+s", ssl?: true, tls_verify: :verify} =
                Client.Config.new(opts5)
 
       opts6 = base_opts ++ [scheme: "neo4j+ssc"]
 
-      assert %Client.Config{scheme: "neo4j+ssc", ssl?: true, ssl_opts: [verify: :verify_peer]} =
+      assert %Client.Config{scheme: "neo4j+ssc", ssl?: true, tls_verify: :self_signed} =
                Client.Config.new(opts6)
+    end
+
+    test "preserves user-supplied :ssl_opts verbatim (no override at config time)" do
+      opts = [
+        auth: [username: "usertests"],
+        scheme: "bolt+s",
+        ssl_opts: [verify: :verify_peer, cacertfile: "/etc/ssl/my_ca.pem"]
+      ]
+
+      # The strict defaults are materialised at connect time; Config keeps the
+      # user's opts raw so they can be merged *over* the defaults (user wins).
+      assert %Client.Config{
+               tls_verify: :verify,
+               ssl_opts: [verify: :verify_peer, cacertfile: "/etc/ssl/my_ca.pem"]
+             } = Client.Config.new(opts)
+    end
+  end
+
+  describe "build_tls_opts/4" do
+    @describetag :core
+    @socket_opts [mode: :binary, packet: :raw, active: false]
+
+    test ":verify builds strict, secure-by-default TLS options" do
+      opts = Client.build_tls_opts(:verify, "graph.example.com", [], @socket_opts)
+
+      assert opts[:verify] == :verify_peer
+      assert opts[:server_name_indication] == ~c"graph.example.com"
+
+      assert opts[:customize_hostname_check] == [
+               match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+             ]
+
+      # CA trust anchors sourced from the OS store, not an empty/absent list.
+      assert is_list(opts[:cacerts]) and opts[:cacerts] != []
+    end
+
+    test ":self_signed encrypts without verification" do
+      opts = Client.build_tls_opts(:self_signed, "localhost", [], @socket_opts)
+
+      assert opts[:verify] == :verify_none
+      assert opts[:server_name_indication] == ~c"localhost"
+      refute Keyword.has_key?(opts, :cacerts)
+    end
+
+    test "user :ssl_opts override the strict defaults (user wins)" do
+      user = [verify: :verify_none, cacertfile: "/etc/ssl/my_ca.pem"]
+      opts = Client.build_tls_opts(:verify, "graph.example.com", user, @socket_opts)
+
+      # The security-critical guarantee: an explicit user override is honoured
+      # rather than being silently forced back to the default.
+      assert opts[:verify] == :verify_none
+      assert opts[:cacertfile] == "/etc/ssl/my_ca.pem"
+    end
+
+    test "a user :cacertfile is honoured, not clobbered by the default :cacerts" do
+      # :cacerts and :cacertfile are mutually exclusive in :ssl (:cacerts wins);
+      # injecting the default OS trust store unconditionally would silently
+      # ignore the user's CA file. verify stays :verify_peer here.
+      user = [cacertfile: "/etc/ssl/my_ca.pem"]
+      opts = Client.build_tls_opts(:verify, "graph.example.com", user, @socket_opts)
+
+      assert opts[:verify] == :verify_peer
+      assert opts[:cacertfile] == "/etc/ssl/my_ca.pem"
+      refute Keyword.has_key?(opts, :cacerts)
+    end
+
+    test "transport socket options stay authoritative over user :ssl_opts" do
+      user = [mode: :something_else]
+      opts = Client.build_tls_opts(:verify, "graph.example.com", user, @socket_opts)
+
+      assert opts[:mode] == :binary
     end
   end
 

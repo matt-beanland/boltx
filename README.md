@@ -134,16 +134,30 @@ iex> Bolty.query!(Bolt, "return 1 as n") |> Bolty.Response.first()
 
 ### URI schemes
 
-By default the scheme is `bolt+s`
+By default the scheme is `bolt+s`, which performs full certificate verification.
 
-| URI        | Description                                | TLSOptions              |
-|------------|--------------------------------------------|-------------------------|
-| neo4j      | Unsecured                                  | []                      |
-| neo4j+s    | Secured with full certificate              | [verify: :verify_none]  |
-| neo4j+ssc  | Secured with self-signed certificate       | [verify: :verify_peer]  |
-| bolt       | Unsecured                                  | []                      |
-| bolt+s     | Secured with full certificate              | [verify: :verify_none]  |
-| bolt+ssc   | Secured with self-signed certificate       | [verify: :verify_peer]  |
+| URI        | Description                            | Default TLS behaviour                                             |
+|------------|---------------------------------------|------------------------------------------------------------------|
+| neo4j      | Unsecured                             | no TLS                                                            |
+| neo4j+s    | Secured, full certificate verification | `verify: :verify_peer` against the system CA store, with SNI + hostname verification |
+| neo4j+ssc  | Secured, self-signed / trust-all      | `verify: :verify_none` (encryption only, no verification)        |
+| bolt       | Unsecured                             | no TLS                                                            |
+| bolt+s     | Secured, full certificate verification | `verify: :verify_peer` against the system CA store, with SNI + hostname verification |
+| bolt+ssc   | Secured, self-signed / trust-all      | `verify: :verify_none` (encryption only, no verification)        |
+
+The `+s` defaults use the OS trust store via `:public_key.cacerts_get/0`, which
+verifies Neo4j Aura and other public-CA certificates out of the box. In a minimal
+container without an OS trust store, add [`castore`](https://hex.pm/packages/castore)
+and pass `ssl_opts: [cacertfile: CAStore.file_path()]`.
+
+Any `:ssl_opts` you pass are merged **over** these defaults, so you can override
+verification (e.g. `ssl_opts: [verify: :verify_none]` for local development) or
+point at a private CA (`ssl_opts: [cacertfile: "..."]`).
+
+> **Changed in 0.3.0:** `+s`/`+ssc` verification was previously inverted, and
+> `+s` did no server authentication. `+s` now verifies by default, and explicit
+> `:ssl_opts` are no longer silently overridden. Pin `0.2.1` if you depend on the
+> old behaviour.
 
 ## Negotiated capabilities
 
