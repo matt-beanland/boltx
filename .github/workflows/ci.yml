@@ -57,30 +57,30 @@ jobs:
         # the matrix key colliding. mixTestPartition just uniquely names each job's
         # coverage artifact.
         include:
-          # Bolt 5.x against the Neo4j 5.26.27 LTS.
+          # Bolt 5.x against the Neo4j 5.26.28 LTS.
           - boltVersion: '5.0'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 1
           - boltVersion: '5.1'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 2
           - boltVersion: '5.2'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 3
           - boltVersion: '5.3'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 4
           - boltVersion: '5.4'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 5
           - boltVersion: '5.6'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 6
           - boltVersion: '5.7'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 7
           - boltVersion: '5.8'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 8
           # Bolt 6.0 against Neo4j 2026.05.
           - boltVersion: '6.0'
