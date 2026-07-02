@@ -58,10 +58,20 @@ defmodule Bolty.Mixfile do
 
   defp aliases do
     [
+      setup: ["deps.get", &enable_git_hooks/1],
       test: [
         "test"
       ]
     ]
+  end
+
+  # Point git at the repo's shared hooks (.githooks/pre-push runs the fast lint
+  # checks before a push). Idempotent; run via `mix setup`.
+  defp enable_git_hooks(_args) do
+    case System.cmd("git", ["config", "core.hooksPath", ".githooks"], stderr_to_stdout: true) do
+      {_, 0} -> Mix.shell().info("Git hooks enabled (core.hooksPath = .githooks)")
+      {out, _} -> Mix.shell().error("Could not enable git hooks: #{out}")
+    end
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]

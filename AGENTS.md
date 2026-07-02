@@ -35,6 +35,12 @@ Runs on PRs to `dev`/`main` (it once targeted a non-existent `master` and silent
 
 Every new source file needs an SPDX header (REUSE check), Apache-2.0.
 
+Run `mix setup` once per clone to enable the shared **pre-push hook**
+(`.githooks/pre-push`): it runs `mix format --check-formatted` and
+`mix compile --warnings-as-errors` before every push, catching the two cheapest
+lint failures locally instead of in CI. Bypass in a pinch with
+`SKIP_HOOKS=1 git push`.
+
 ## Local Neo4j — shared, handle with care
 
 The test databases are **shared across diffo-dev repos** (bolty and ash_neo4j run the same containers). `docker-compose.yml` is aligned with ash_neo4j:
