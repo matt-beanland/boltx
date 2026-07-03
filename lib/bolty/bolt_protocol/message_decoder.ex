@@ -46,6 +46,12 @@ defmodule Bolty.BoltProtocol.MessageDecoder do
 
         {:ok, response} ->
           response
+
+        # Corrupt/undecodable server payload (e.g. an unknown marker). Raise the
+        # %Bolty.Error{} so the connection tears down rather than proceeding with
+        # a partially decoded message.
+        {:error, %Bolty.Error{} = error} ->
+          raise error
       end
 
     Bolty.Utils.Logger.log_message(:server, message_type, response)
