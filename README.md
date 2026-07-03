@@ -248,6 +248,15 @@ Supported element types:
 - `:float32` — IEEE-754 single precision (4 bytes per element)
 - `:float64` — IEEE-754 double precision (8 bytes per element)
 
+## Telemetry
+
+Bolty emits [`:telemetry`](https://hexdocs.pm/telemetry) events for the query
+(`[:bolty, :query, :start | :stop | :exception]`) and connection
+(`[:bolty, :connect | :disconnect]`) lifecycle, so you can attach query latency,
+pool health, and error-rate metrics without wrapping every call site. See the
+[Telemetry guide](guides/telemetry.md) for the full event/measurement/metadata
+reference.
+
 ## Contributing
 
 ### Getting Started

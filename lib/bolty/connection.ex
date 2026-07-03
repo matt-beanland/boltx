@@ -22,6 +22,8 @@ defmodule Bolty.Connection do
 
   @impl true
   def connect(opts) do
+    start = System.monotonic_time()
+
     with {:ok, config} <- Client.Config.new(opts),
          {:ok, %Client{} = client} <- Client.connect(config) do
       # Resolve a preliminary policy from bolt_version alone so that HELLO
@@ -36,7 +38,20 @@ defmodule Bolty.Connection do
       with {:ok, response_server_metadata} <- do_init(client_with_policy, opts) do
         policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
         state = get_server_metadata_state(response_server_metadata)
-        {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+        new_state = %__MODULE__{state | client: %{client | policy: policy}, policy: policy}
+
+        :telemetry.execute(
+          [:bolty, :connect],
+          %{duration: System.monotonic_time() - start},
+          %{
+            db_system: "neo4j",
+            bolt_version: client.bolt_version,
+            server_version: new_state.server_version,
+            connection_id: new_state.connection_id
+          }
+        )
+
+        {:ok, new_state}
       end
     end
   end
@@ -108,6 +123,12 @@ defmodule Bolty.Connection do
 
   @impl true
   def disconnect(_reason, state) do
+    :telemetry.execute(
+      [:bolty, :disconnect],
+      %{system_time: System.system_time()},
+      %{db_system: "neo4j", connection_id: state.connection_id}
+    )
+
     Client.send_goodbye(state.client)
     Client.disconnect(state.client)
   end

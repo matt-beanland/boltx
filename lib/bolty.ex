@@ -207,12 +207,41 @@ defmodule Bolty do
     info
   end
 
+  # Wrap the round-trip in a `[:bolty, :query]` telemetry span so operators get
+  # `:start`/`:stop`/`:exception` events with duration, statement, and outcome
+  # without instrumenting every call site. See `guides/telemetry.md`.
+  #
+  # This span is for the EAGER path only: `:telemetry.span` closes when the fun
+  # returns, and here that means the full result is materialised. Lazy streaming
+  # (#59, via handle_declare/handle_fetch) must NOT reuse this — a cursor returns
+  # before any rows are pulled, so the span would time only RUN and would stuff
+  # the whole materialised result into `:result`. Streaming needs its own
+  # start-on-declare / stop-on-deallocate instrumentation carrying row counts.
   defp do_query(conn, query, params, options) do
-    case DBConnection.prepare_execute(conn, query, params, options) do
-      {:ok, _query, result} -> {:ok, result}
-      {:error, _} = error -> error
-    end
+    metadata = %{
+      db_system: "neo4j",
+      db_statement: statement(query),
+      db_instance: options[:db]
+    }
+
+    # `:telemetry.span` fires `:exception` (and reraises) if the fun raises/exits;
+    # for the `{:error, _}` return we flag a coarse `:result` status and stash the
+    # error so tracers can set span status without us holding the whole result.
+    :telemetry.span([:bolty, :query], metadata, fn ->
+      case DBConnection.prepare_execute(conn, query, params, options) do
+        {:ok, _query, result} ->
+          {{:ok, result}, Map.put(metadata, :result, :ok)}
+
+        # prepare_execute always surfaces failures as an exception struct
+        # (%Bolty.Error{} or %DBConnection.ConnectionError{}).
+        {:error, error} = failure ->
+          {failure, metadata |> Map.put(:result, :error) |> Map.put(:error, error)}
+      end
+    end)
   end
+
+  defp statement(%Bolty.Query{statement: statement}), do: statement
+  defp statement(%Bolty.Queries{statement: statement}), do: statement
 
   defp format_param({name, value}), do: {name, {:ok, value}}
 end
