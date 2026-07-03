@@ -8,6 +8,8 @@ defmodule Bolty.TelemetryTest do
   """
   use ExUnit.Case, async: false
 
+  @moduletag :integration
+
   alias Bolty.Connection
 
   @opts Bolty.TestHelper.opts()

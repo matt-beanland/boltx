@@ -4,6 +4,8 @@
 defmodule BoltyTest do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
+
   alias Bolty.Response
   alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset, Vector}
 

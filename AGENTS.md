@@ -52,6 +52,8 @@ Because 7687 now serves TLS, `bolt+s` / `bolt+ssc` are testable locally: `mix te
 
 Scope docker commands to the **named service** (e.g. `docker compose up -d neo4j-bolt5`) — avoid a bare `docker compose up` / `--remove-orphans` that could sweep unrelated containers. The suite's setup runs `MATCH (n) DETACH DELETE n`, so don't point it at a database you care about. Run the version matrix with `mix test.matrix` (`BOLT_6_TCP_PORT=7689` for the Bolt 6 server).
 
+Plain `mix test` runs the **unit** suite only (no Neo4j). DB tests are tagged `:integration` and excluded unless a server is configured — `test_helper.exs` auto-includes them when `BOLT_TCP_PORT`/`BOLT_VERSIONS` is set (CI, `mix test.matrix`, `BOLT_TCP_PORT=7687 mix test`), or run `mix test --include integration`. When adding a test that connects, tag its module/describe `:integration` so `mix test` stays server-free.
+
 ## Policy is the source of truth — and keep its docs in sync
 
 Version- and server-driven behaviour lives in `%Bolty.Policy{}`, resolved once at HELLO by `Bolty.Policy.Resolver` and surfaced read-only via `Bolty.connection_info/1`. Codecs pattern-match policy fields; they never read a version number directly.

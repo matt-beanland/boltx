@@ -4,6 +4,8 @@
 defmodule Large.Result.Set.Test do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
+
   # Regression for #57: a result message larger than a single Bolt chunk
   # (> 65_535 bytes) is split by the server across multiple chunks. The reader
   # must reassemble the chunk payloads before decoding; previously it assumed

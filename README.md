@@ -275,14 +275,19 @@ It is advisable to use the specific terminology from the official documentation 
 
 ### Test
 
+The suite is split into **unit** and **integration** tests:
+
+- Plain `mix test` runs the unit suite only — no Neo4j required — so a contributor without Docker can run and add tests. This includes the PackStream round-trip property tests.
+- DB-dependent tests are tagged `:integration` and are excluded by default. They run automatically when a server is configured (any `BOLT_TCP_PORT` or `BOLT_VERSIONS`, as CI and `mix test.matrix` set), or explicitly with `mix test --include integration`. For a local server: `BOLT_TCP_PORT=7687 mix test`.
+
 As certain versions of Bolt may be compatible with specific functionalities while others can undergo significant changes, tags are employed to facilitate version-specific testing. Some of these tags include:
 
-- `:core` (Included in all executions).
+- `:core` (a version-agnostic integration test — runs at whatever version is negotiated).
 - `:bolt_version_{{specific version}}` (Tag to run the test on a specific version, for example, for 5.2: `:bolt_version_5_2`, for version 1: `:bolt_version_1_0)`.
 - `bolt_{major version}_x`  (Tag to run on all minor versions of a major version, for example, for 5: `:bolt_5_x`, for all minor versions of 4:: `:bolt_4_x`).
 - `:last_version` (Tag to run the test only on the latest version).
 
-By default, all tags are disabled except the `:core` tag. To enable the tags, it is necessary to configure the following environment variables:
+When a server is configured, `:core` tests run and the version tags are disabled by default. To enable specific version tags, configure the following environment variables:
 
 - `BOLT_VERSIONS`: selects the Bolt version the **test suite** negotiates and which version tags run (e.g. `BOLT_VERSIONS=5.4 mix test`). This is a test-suite convenience only — configure the driver itself with the `:versions` connection option.
 - `BOLT_TCP_PORT`: the port the **test suite** connects to (default 7687). Configure the driver itself with the `:port` connection option.
