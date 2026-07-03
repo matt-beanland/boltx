@@ -104,7 +104,7 @@ defmodule Bolty.Mixfile do
     [
       source_ref: "v#{@version}",
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: ["README.md", "guides/telemetry.md", "CHANGELOG.md"]
     ]
   end
 
@@ -112,6 +112,7 @@ defmodule Bolty.Mixfile do
   defp deps do
     [
       {:db_connection, "~> 2.7"},
+      {:telemetry, "~> 1.0"},
       {:jason, "~> 1.4", optional: true},
       {:poison, "~> 6.0", optional: true},
 
