@@ -24,7 +24,7 @@ Documentation: [https://hexdocs.pm/bolty](https://hexdocs.pm/bolty)
 
 | Feature               | Implemented |
 | --------------------- | ------------ |
-| Querys                | YES          |
+| Queries               | YES          |
 | Transactions          | YES          |
 | Stream capabilities   | NO           |
 | Routing               | NO           |
@@ -66,9 +66,9 @@ iex> {:ok, conn} = Bolty.start_link(opts)
 iex> Bolty.query!(conn, "return 1 as n") |> Bolty.Response.first()
 %{"n" => 1}
 
-# Commit is performed automatically if everythings went fine
+# Commit is performed automatically if everything went fine
 Bolty.transaction(conn, fn conn ->
-  result = Bolty.query!(conn, "CREATE (m:Movie {title: "Matrix"}) RETURN m")
+  result = Bolty.query!(conn, "CREATE (m:Movie {title: 'Matrix'}) RETURN m")
 end)
 
 ```
