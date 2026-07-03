@@ -32,6 +32,7 @@ defmodule Bolty do
           | {:ssl, boolean()}
           | {:ssl_opts, [:ssl.tls_client_option()]}
           | {:connect_timeout, timeout()}
+          | {:recv_timeout, timeout()}
           | {:socket_options, [:gen_tcp.connect_option()]}
           | DBConnection.start_option()
 
@@ -74,6 +75,15 @@ defmodule Bolty do
   * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
 
+  * `:recv_timeout` - Per-read timeout in milliseconds for post-connect protocol
+      reads (default: `15_000`). This is a socket-inactivity timeout: it fires
+      only if the server sends *no* bytes for this long, and the window resets on
+      each chunk received, so streaming a large result is unaffected. A read that
+      times out is surfaced as `{:error, %Bolty.Error{code: :timeout}}` and the
+      connection is disconnected. Can be overridden per query via the same option
+      to `query/4`; set to `:infinity` for queries that may compute for a long
+      time before returning any data.
+
   * `:ssl` - Set to `true` if SSL should be used (default: `true`)
 
   * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[verify: :verify_none]`)
@@ -109,6 +119,14 @@ defmodule Bolty do
   version negotiation, and Neo4j server errors) is surfaced as a `Bolty.Error`,
   so callers can match a single error shape. Pool checkout/timeout failures may
   additionally surface as `DBConnection.ConnectionError`.
+
+  ## Options
+
+  * `:db` - Target database for multi-database routing (default: server default).
+
+  * `:recv_timeout` - Overrides the connection's `:recv_timeout` for this query
+      (see `start_link/1`). Pass `:infinity` for a query expected to run longer
+      than the connection default before returning data.
 
   ## Examples
 
