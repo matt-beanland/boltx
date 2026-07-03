@@ -123,6 +123,7 @@ defmodule Bolty.Mixfile do
       {:porcelain, "~> 2.0.3", only: [:test, :dev], runtime: false},
       {:uuid, "~> 1.1.8", only: [:test, :dev], runtime: false},
       {:tzdata, "~> 1.1", only: [:test, :dev]},
+      {:stream_data, "~> 1.0", only: [:test, :dev]},
 
       # Benchmarking dependencies
       {:benchee, "~> 1.3", optional: true, only: [:dev, :test]},

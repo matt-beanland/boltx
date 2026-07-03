@@ -4,6 +4,8 @@
 defmodule Bolty.ConnectionTest do
   use ExUnit.Case, async: false
 
+  @moduletag :integration
+
   alias Bolty.Connection
   alias Bolty.BoltProtocol.Versions
 

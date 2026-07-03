@@ -4,6 +4,8 @@
 defmodule Bolty.ConnectionRecoveryTest do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
+
   import ExUnit.CaptureLog
 
   # Regression coverage for #54: a statement FAILURE must leave the pooled

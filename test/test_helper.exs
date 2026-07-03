@@ -5,6 +5,20 @@ alias Bolty.Utils.Converters
 
 Logger.configure(level: :debug)
 
+env_versions =
+  System.get_env("BOLT_VERSIONS", "")
+  |> String.split(",")
+  |> Enum.reject(&(&1 == ""))
+  |> Enum.map(&Converters.to_float/1)
+
+# Is a Neo4j server configured for this run? CI, `mix test.matrix`, and local
+# `BOLT_TCP_PORT=7687 mix test` all set one of these. When none is set (a plain
+# `mix test` on a machine with no database), we exclude `:integration` so the
+# DB-dependent suite is skipped and the unit tests run on their own — a
+# contributor without Docker/Neo4j can still run `mix test`.
+db_configured? =
+  System.get_env("BOLT_TCP_PORT", "") != "" or env_versions != []
+
 exclude = [
   :skip,
   :bench,
@@ -15,15 +29,18 @@ exclude = [
   :tls
 ]
 
-include = [:core]
+# With a DB present we run integration tests (subject to the version tags below),
+# so `:core` is re-included to override version excludes for version-agnostic
+# tests. With no DB, exclude `:integration` and don't re-include `:core` — the
+# DB tests (all tagged `:integration`) drop out while unit tests still run.
+{exclude, include} =
+  if db_configured? do
+    {exclude, [:core]}
+  else
+    {[:integration | exclude], []}
+  end
 
 available_versions = Bolty.BoltProtocol.Versions.available_versions()
-
-env_versions =
-  System.get_env("BOLT_VERSIONS", "")
-  |> String.split(",")
-  |> Enum.reject(&(&1 == ""))
-  |> Enum.map(&Converters.to_float/1)
 
 {include, exclude} =
   Enum.reduce(available_versions, {include, exclude}, fn version, {inc, exc} ->

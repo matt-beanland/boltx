@@ -83,6 +83,8 @@ defmodule Bolty.TimeoutTest do
   end
 
   describe "against a live server" do
+    @describetag :integration
+
     @tag :core
     test "connect stores the configured recv_timeout on the client" do
       opts = [recv_timeout: 8_000] ++ Bolty.TestHelper.opts()

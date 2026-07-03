@@ -45,6 +45,10 @@ jobs:
         run: mix compile --force --warnings-as-errors
       - name: Dialyzer
         run: mix dialyzer --format github
+      # No Neo4j in this job: verifies the unit suite passes with no database,
+      # so `:integration` tagging can't silently regress into a server dependency.
+      - name: Unit tests (no database)
+        run: mix test
 
   floor:
     # Exercise the advertised Elixir floor (mix.exs `elixir: "~> 1.17"`) so the

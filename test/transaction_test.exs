@@ -4,6 +4,8 @@
 defmodule Transaction.Test do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
+
   alias Bolty.Response
 
   @opts Bolty.TestHelper.opts()
