@@ -193,8 +193,23 @@ defmodule Bolty.PackStream.Unpacker do
     [int | unpack(rest)]
   end
 
-  def unpack(<<int::signed-integer, rest::binary>>) do
+  # Tiny integer: a single byte holding -16..127 (markers 0xF0..0xFF and
+  # 0x00..0x7F). Bounded explicitly so an unknown/reserved marker byte can't be
+  # silently misread as a tiny int.
+  def unpack(<<int::signed-integer, rest::binary>>) when int in -16..127 do
     [int | unpack(rest)]
+  end
+
+  # Unknown / reserved PackStream marker. Fail loudly rather than decode a corrupt
+  # or malicious byte as data. Thrown (not raised) so PackStream.unpack/1 surfaces
+  # it as {:error, %Bolty.Error{}} via its try/catch.
+  def unpack(<<marker, _rest::binary>>) do
+    throw(
+      Bolty.Error.wrap(__MODULE__, %{
+        code: :unknown_marker,
+        message: "unknown PackStream marker 0x" <> Integer.to_string(marker, 16)
+      })
+    )
   end
 
   # Local Date
@@ -268,7 +283,7 @@ defmodule Bolty.PackStream.Unpacker do
          @legacy_datetime_with_zone_offset_struct_size}
       ) do
     {[seconds, nanoseconds, zone_offset], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
+      decode_struct(struct, @legacy_datetime_with_zone_offset_struct_size)
 
     naive_dt =
       NaiveDateTime.add(
@@ -286,7 +301,7 @@ defmodule Bolty.PackStream.Unpacker do
         {@datetime_with_zone_offset_signature, struct, @datetime_with_zone_offset_struct_size}
       ) do
     {[seconds, nanoseconds, zone_offset], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
+      decode_struct(struct, @datetime_with_zone_offset_struct_size)
 
     naive_dt =
       NaiveDateTime.add(
@@ -328,6 +343,18 @@ defmodule Bolty.PackStream.Unpacker do
   def unpack({@vector_signature, struct, @vector_struct_size}) do
     {[type_marker, data], rest} = decode_struct(struct, @vector_struct_size)
     [decode_vector(type_marker, data) | rest]
+  end
+
+  # Unknown struct signature. Fail loudly (thrown, so PackStream.unpack/1 returns
+  # {:error, %Bolty.Error{}}) rather than crash with a FunctionClauseError on a
+  # corrupt or unsupported server structure.
+  def unpack({signature, _struct, _struct_size}) do
+    throw(
+      Bolty.Error.wrap(__MODULE__, %{
+        code: :unknown_marker,
+        message: "unknown PackStream struct signature 0x" <> Integer.to_string(signature, 16)
+      })
+    )
   end
 
   # Private

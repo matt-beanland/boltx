@@ -868,4 +868,34 @@ defmodule Bolty.PackStreamTest do
       end
     end
   end
+
+  describe "Decode rejects unknown markers (#76)" do
+    test "an unknown/reserved marker byte returns {:error, :unknown_marker}" do
+      for marker <- [0xC4, 0xC5, 0xC6, 0xC7, 0xCF] do
+        assert {:error, %Bolty.Error{code: :unknown_marker}} = PackStream.unpack(<<marker>>)
+      end
+    end
+
+    test "an unknown marker mid-stream errors instead of decoding as a tiny int" do
+      # tiny list of 3, second element is a reserved marker (0xC4) not a tiny int.
+      assert {:error, %Bolty.Error{code: :unknown_marker}} =
+               PackStream.unpack(<<0x93, 0x01, 0xC4, 0x02>>)
+    end
+
+    test "an unknown struct signature returns {:error, :unknown_marker}" do
+      assert {:error, %Bolty.Error{code: :unknown_marker}} =
+               PackStream.unpack(<<0xB1, 0xFF, 0xC0>>)
+    end
+
+    test "unpack! raises %Bolty.Error{} on an unknown marker" do
+      assert_raise Bolty.Error, fn -> PackStream.unpack!(<<0xC4>>) end
+    end
+
+    test "tiny-int boundaries still decode" do
+      assert PackStream.unpack!(<<0x00>>) == [0]
+      assert PackStream.unpack!(<<0x7F>>) == [127]
+      assert PackStream.unpack!(<<0xF0>>) == [-16]
+      assert PackStream.unpack!(<<0xFF>>) == [-1]
+    end
+  end
 end
