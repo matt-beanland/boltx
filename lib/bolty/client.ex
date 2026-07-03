@@ -26,7 +26,7 @@ defmodule Bolty.Client do
     LogoffMessage
   }
 
-  defstruct [:sock, :bolt_version, policy: %Bolty.Policy{}]
+  defstruct [:sock, :bolt_version, :recv_timeout, policy: %Bolty.Policy{}]
 
   defmodule Config do
     @moduledoc false
@@ -44,6 +44,7 @@ defmodule Bolty.Client do
       :username,
       :password,
       :connect_timeout,
+      :recv_timeout,
       :socket_options,
       :versions,
       :ssl?,
@@ -79,6 +80,7 @@ defmodule Bolty.Client do
            username: username,
            password: password,
            connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
+           recv_timeout: Keyword.get(opts, :recv_timeout, @default_timeout),
            socket_options:
              Keyword.merge(
                [mode: :binary, packet: :raw, active: false],
@@ -163,7 +165,7 @@ defmodule Bolty.Client do
   end
 
   def do_connect(config) do
-    client = %__MODULE__{sock: nil, bolt_version: nil}
+    client = %__MODULE__{sock: nil, bolt_version: nil, recv_timeout: config.recv_timeout}
 
     case maybe_connect_to_ssl(client, config) do
       {:ok, client} ->
@@ -334,7 +336,7 @@ defmodule Bolty.Client do
     payload = HelloMessage.encode(client.bolt_version, [{:policy, client.policy} | fields])
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -342,7 +344,7 @@ defmodule Bolty.Client do
     payload = LogonMessage.encode(client.bolt_version, fields)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -351,7 +353,7 @@ defmodule Bolty.Client do
       RunMessage.encode(client.bolt_version, query, parameters, extra_parameters, client.policy)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &RunMessage.prepare_messages/2, :infinity)
+      recv_packets(client, &RunMessage.prepare_messages/2, client.recv_timeout)
     end
   end
 
@@ -359,7 +361,7 @@ defmodule Bolty.Client do
     payload = PullMessage.encode(client.bolt_version, extra_parameters)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &PullMessage.prepare_messages/2, :infinity)
+      recv_packets(client, &PullMessage.prepare_messages/2, client.recv_timeout)
     end
   end
 
@@ -399,7 +401,7 @@ defmodule Bolty.Client do
     payload = BeginMessage.encode(client.bolt_version, extra_parameters)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -407,7 +409,7 @@ defmodule Bolty.Client do
     payload = CommitMessage.encode(client.bolt_version)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -415,7 +417,7 @@ defmodule Bolty.Client do
     payload = RollbackMessage.encode(client.bolt_version)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -423,7 +425,7 @@ defmodule Bolty.Client do
     payload = ResetMessage.encode(client.bolt_version)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -431,7 +433,7 @@ defmodule Bolty.Client do
     payload = DiscardMessage.encode(client.bolt_version, extra_parameters)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &DiscardMessage.prepare_messages/2, :infinity)
+      recv_packets(client, &DiscardMessage.prepare_messages/2, client.recv_timeout)
     end
   end
 
@@ -457,7 +459,7 @@ defmodule Bolty.Client do
     payload = LogoffMessage.encode(client.bolt_version)
 
     with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
+      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
     end
   end
 
@@ -509,6 +511,9 @@ defmodule Bolty.Client do
       {:ok, message_record} ->
         recv_packets(client, prepare_messages, timeout, [message_record | messages])
 
+      # get_chunk_size/get_chunk already wrap a socket :timeout (and any other
+      # recv error) into a %Bolty.Error{code: :timeout}; the caller tears the
+      # connection down rather than reuse a desynced one.
       {:error, _} = error ->
         error
     end

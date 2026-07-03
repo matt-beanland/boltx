@@ -163,12 +163,27 @@ defmodule Bolty.Connection do
   def handle_status(_opts, %__MODULE__{in_transaction: true} = state), do: {:transaction, state}
   def handle_status(_opts, state), do: {:idle, state}
 
-  defp execute(statement, params, _opts, state) do
+  defp execute(statement, params, opts, state) do
     %__MODULE__{client: client} = state
+
+    # Per-query override of the connection-wide :recv_timeout. Applied to a local
+    # copy only, so it governs this call (RUN/PULL) without leaking into the
+    # pooled connection's state and affecting later queries.
+    client =
+      case Keyword.fetch(opts, :recv_timeout) do
+        {:ok, recv_timeout} -> %{client | recv_timeout: recv_timeout}
+        :error -> client
+      end
 
     case Client.run_statement(client, statement, params) do
       {:ok, statement_result} ->
         {:ok, statement_result}
+
+      # A recv timeout left the socket desynced (a late RUN/PULL response may still
+      # arrive); RESET-recovery would read the wrong bytes, so tear the connection
+      # down instead of returning it to the pool.
+      {:error, %Bolty.Error{code: :timeout} = error} ->
+        {:disconnect, error, state}
 
       {:error, %Bolty.Error{} = error} ->
         recover_from_failure(client, error, state)
