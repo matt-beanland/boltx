@@ -84,6 +84,7 @@ defmodule Bolty.Mixfile do
         "mix.exs",
         "README.md",
         "CHANGELOG.md",
+        "usage-rules.md",
         "LICENSE",
         "NOTICE",
         "LICENSES",
@@ -103,6 +104,7 @@ defmodule Bolty.Mixfile do
   defp docs() do
     [
       source_ref: "v#{@version}",
+      source_url: @url_github,
       main: "readme",
       extras: ["README.md", "CHANGELOG.md"]
     ]

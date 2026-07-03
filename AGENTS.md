@@ -27,7 +27,7 @@ Typical flow:
 3. `mix git_ops.release` on `dev` — bumps `@version` in `mix.exs`, updates the README dep snippet, writes the `CHANGELOG.md` section, commits and tags `vX.Y.Z`. `feat` → minor, `fix`/etc. → patch (pre-1.0 too).
 4. Push `dev` and the tag; merge `dev` → `main`; `gh release create vX.Y.Z`; then **you** run `mix hex.publish` (needs Hex credentials).
 
-Docs-only fix right after publishing? Within Hex's ~1-hour window you can correct the README, **move the tag** onto the fix, and re-publish the same version (`git tag -f`, `git push -f` the tag). Only `README.md` + `CHANGELOG.md` ship in the package (`mix.exs` `files`), so a fix to `usage-rules.md` / this file does not need a republish.
+Docs-only fix right after publishing? Within Hex's ~1-hour window you can correct the README, **move the tag** onto the fix, and re-publish the same version (`git tag -f`, `git push -f` the tag). `README.md`, `CHANGELOG.md`, and `usage-rules.md` ship in the package (`mix.exs` `files`), so a fix to those docs may need a republish.
 
 ## CI
 
