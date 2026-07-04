@@ -401,13 +401,10 @@ defmodule Bolty.Client do
   def run_statement(client, %Bolty.Queries{} = queries, parameters) do
     %Bolty.Queries{statement: statement, extra: extra_parameters} = queries
 
-    cypher_seps = ~r/;(.){0,1}\n/
-
-    statements =
-      statement
-      |> String.split(cypher_seps, trim: true)
-      |> Enum.map(&String.trim/1)
-      |> Enum.filter(&(String.length(&1) > 0))
+    # Split on top-level `;` only — the splitter is aware of string literals,
+    # comments, and backtick identifiers, so a `;` hiding inside any of those
+    # does not break the batch. See `Bolty.Utils.StatementSplitter`.
+    statements = Bolty.Utils.StatementSplitter.split(statement)
 
     Enum.reduce_while(statements, {:ok, []}, fn statement, {:ok, acc} ->
       case Bolty.Client.run_statement(client, statement, parameters, extra_parameters) do
@@ -483,13 +480,15 @@ defmodule Bolty.Client do
     end
   end
 
+  # Keepalive for idle pooled connections (see `Connection.ping/1`). RESET is a
+  # single message round-trip — cheaper than a RUN/PULL and with no query
+  # planning — and doubles as a liveness check: the server replies SUCCESS on a
+  # healthy connection. It clears any server-side state, which is exactly what we
+  # want on an idle connection between checkouts.
   def send_ping(client) do
-    case run_statement(client, "RETURN true as success", %{}, %{}) do
-      {:ok, statement_result(result_pull: pull_result(records: [[true]]))} ->
-        {:ok, true}
-
-      _ ->
-        {:error, :db_ping_failed}
+    case send_reset(client) do
+      {:ok, _} -> {:ok, true}
+      _ -> {:error, :db_ping_failed}
     end
   end
 

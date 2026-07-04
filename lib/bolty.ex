@@ -141,11 +141,7 @@ defmodule Bolty do
   ```
   """
   def query(conn, statement, params \\ %{}, opts \\ []) do
-    formatted_params =
-      params
-      |> Enum.map(&format_param/1)
-      |> Enum.map(fn {k, {:ok, value}} -> {k, value} end)
-      |> Map.new()
+    formatted_params = Map.new(params)
 
     extra =
       opts
@@ -176,12 +172,21 @@ defmodule Bolty do
     end
   end
 
+  @doc """
+  Executes a batch of `;`-separated statements and returns a list of results.
+
+  The batch string is split into individual statements before each is run in
+  turn against the same connection. Execution stops at the first failure and
+  returns that `{:error, %Bolty.Error{}}`.
+
+  Statements are split on a top-level `;` — one that is not inside a string
+  literal, a comment (`//` or `/* */`), or a backtick-quoted identifier — so a
+  `;` hiding inside any of those is safe. The terminating `;` is dropped (Bolt
+  runs one bare statement at a time), and blank or comment-only segments are
+  skipped rather than sent to the server.
+  """
   def query_many(conn, statement, params \\ %{}, opts \\ []) do
-    formatted_params =
-      params
-      |> Enum.map(&format_param/1)
-      |> Enum.map(fn {k, {:ok, value}} -> {k, value} end)
-      |> Map.new()
+    formatted_params = Map.new(params)
 
     queries = %Bolty.Queries{statement: statement}
     do_query(conn, queries, formatted_params, opts)
@@ -264,6 +269,4 @@ defmodule Bolty do
 
   defp statement(%Bolty.Query{statement: statement}), do: statement
   defp statement(%Bolty.Queries{statement: statement}), do: statement
-
-  defp format_param({name, value}), do: {name, {:ok, value}}
 end
