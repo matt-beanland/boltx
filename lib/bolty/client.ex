@@ -401,6 +401,13 @@ defmodule Bolty.Client do
   def run_statement(client, %Bolty.Queries{} = queries, parameters) do
     %Bolty.Queries{statement: statement, extra: extra_parameters} = queries
 
+    # NOTE: this is a naive statement splitter — it breaks the batch on a `;`
+    # followed by a newline, with no awareness of Cypher syntax. A semicolon
+    # inside a string literal, comment, or map key that happens to sit before a
+    # newline will split the statement in the wrong place and corrupt the batch.
+    # Robustly fixing this needs a real Cypher lexer; until then keep each
+    # statement in a `query_many/4` batch on a single line, or split client-side
+    # and issue separate `query/4` calls. See the warning on `Bolty.query_many/4`.
     cypher_seps = ~r/;(.){0,1}\n/
 
     statements =
@@ -483,13 +490,15 @@ defmodule Bolty.Client do
     end
   end
 
+  # Keepalive for idle pooled connections (see `Connection.ping/1`). RESET is a
+  # single message round-trip — cheaper than a RUN/PULL and with no query
+  # planning — and doubles as a liveness check: the server replies SUCCESS on a
+  # healthy connection. It clears any server-side state, which is exactly what we
+  # want on an idle connection between checkouts.
   def send_ping(client) do
-    case run_statement(client, "RETURN true as success", %{}, %{}) do
-      {:ok, statement_result(result_pull: pull_result(records: [[true]]))} ->
-        {:ok, true}
-
-      _ ->
-        {:error, :db_ping_failed}
+    case send_reset(client) do
+      {:ok, _} -> {:ok, true}
+      _ -> {:error, :db_ping_failed}
     end
   end
 

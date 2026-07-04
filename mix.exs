@@ -120,8 +120,6 @@ defmodule Bolty.Mixfile do
 
       # Testing dependencies
       {:excoveralls, "~> 0.18.0", optional: true, only: [:test, :dev]},
-      {:porcelain, "~> 2.0.3", only: [:test, :dev], runtime: false},
-      {:uuid, "~> 1.1.8", only: [:test, :dev], runtime: false},
       {:tzdata, "~> 1.1", only: [:test, :dev]},
       {:stream_data, "~> 1.0", only: [:test, :dev]},
 

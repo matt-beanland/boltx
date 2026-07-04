@@ -67,7 +67,6 @@ available_versions = Bolty.BoltProtocol.Versions.available_versions()
   end)
 
 ExUnit.start(capture_log: true, assert_receive_timeout: 500, exclude: exclude, include: include)
-Application.ensure_started(:porcelain)
 
 defmodule Bolty.TestHelper do
   def opts() do

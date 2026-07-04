@@ -40,7 +40,9 @@ defmodule BoltyTest do
       response = Bolty.query!(c.conn, "RETURN 300 AS r")
 
       assert %Response{results: [%{"r" => 300}]} = response
-      assert response |> Enum.member?("r")
+      # `member?` tests row membership, consistent with what iteration yields.
+      assert response |> Enum.member?(%{"r" => 300})
+      refute response |> Enum.member?("r")
       assert 1 = response |> Enum.count()
       assert [%{"r" => 300}] = response |> Enum.take(1)
       assert %{"r" => 300} = response |> Response.first()

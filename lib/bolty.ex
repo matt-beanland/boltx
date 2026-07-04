@@ -141,11 +141,7 @@ defmodule Bolty do
   ```
   """
   def query(conn, statement, params \\ %{}, opts \\ []) do
-    formatted_params =
-      params
-      |> Enum.map(&format_param/1)
-      |> Enum.map(fn {k, {:ok, value}} -> {k, value} end)
-      |> Map.new()
+    formatted_params = Map.new(params)
 
     extra =
       opts
@@ -176,12 +172,23 @@ defmodule Bolty do
     end
   end
 
+  @doc """
+  Executes a batch of `;`-separated statements and returns a list of results.
+
+  The batch string is split into individual statements before each is run in
+  turn against the same connection. Execution stops at the first failure and
+  returns that `{:error, %Bolty.Error{}}`.
+
+  > #### Naive statement splitting {: .warning}
+  >
+  > Statements are split on a semicolon followed by a newline (`;\\n`) with no
+  > awareness of Cypher syntax. A `;` inside a string literal, comment, or map
+  > that lands before a newline will split in the wrong place and corrupt the
+  > batch. Keep each statement on a single line, or split client-side and issue
+  > separate `query/4` calls, if your statements may contain such semicolons.
+  """
   def query_many(conn, statement, params \\ %{}, opts \\ []) do
-    formatted_params =
-      params
-      |> Enum.map(&format_param/1)
-      |> Enum.map(fn {k, {:ok, value}} -> {k, value} end)
-      |> Map.new()
+    formatted_params = Map.new(params)
 
     queries = %Bolty.Queries{statement: statement}
     do_query(conn, queries, formatted_params, opts)
@@ -264,6 +271,4 @@ defmodule Bolty do
 
   defp statement(%Bolty.Query{statement: statement}), do: statement
   defp statement(%Bolty.Queries{statement: statement}), do: statement
-
-  defp format_param({name, value}), do: {name, {:ok, value}}
 end
