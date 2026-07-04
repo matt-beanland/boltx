@@ -401,20 +401,10 @@ defmodule Bolty.Client do
   def run_statement(client, %Bolty.Queries{} = queries, parameters) do
     %Bolty.Queries{statement: statement, extra: extra_parameters} = queries
 
-    # NOTE: this is a naive statement splitter — it breaks the batch on a `;`
-    # followed by a newline, with no awareness of Cypher syntax. A semicolon
-    # inside a string literal, comment, or map key that happens to sit before a
-    # newline will split the statement in the wrong place and corrupt the batch.
-    # Robustly fixing this needs a real Cypher lexer; until then keep each
-    # statement in a `query_many/4` batch on a single line, or split client-side
-    # and issue separate `query/4` calls. See the warning on `Bolty.query_many/4`.
-    cypher_seps = ~r/;(.){0,1}\n/
-
-    statements =
-      statement
-      |> String.split(cypher_seps, trim: true)
-      |> Enum.map(&String.trim/1)
-      |> Enum.filter(&(String.length(&1) > 0))
+    # Split on top-level `;` only — the splitter is aware of string literals,
+    # comments, and backtick identifiers, so a `;` hiding inside any of those
+    # does not break the batch. See `Bolty.Utils.StatementSplitter`.
+    statements = Bolty.Utils.StatementSplitter.split(statement)
 
     Enum.reduce_while(statements, {:ok, []}, fn statement, {:ok, acc} ->
       case Bolty.Client.run_statement(client, statement, parameters, extra_parameters) do

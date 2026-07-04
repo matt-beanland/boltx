@@ -179,13 +179,11 @@ defmodule Bolty do
   turn against the same connection. Execution stops at the first failure and
   returns that `{:error, %Bolty.Error{}}`.
 
-  > #### Naive statement splitting {: .warning}
-  >
-  > Statements are split on a semicolon followed by a newline (`;\\n`) with no
-  > awareness of Cypher syntax. A `;` inside a string literal, comment, or map
-  > that lands before a newline will split in the wrong place and corrupt the
-  > batch. Keep each statement on a single line, or split client-side and issue
-  > separate `query/4` calls, if your statements may contain such semicolons.
+  Statements are split on a top-level `;` — one that is not inside a string
+  literal, a comment (`//` or `/* */`), or a backtick-quoted identifier — so a
+  `;` hiding inside any of those is safe. The terminating `;` is dropped (Bolt
+  runs one bare statement at a time), and blank or comment-only segments are
+  skipped rather than sent to the server.
   """
   def query_many(conn, statement, params \\ %{}, opts \\ []) do
     formatted_params = Map.new(params)
