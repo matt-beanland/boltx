@@ -22,7 +22,7 @@ defmodule Bolty.ClientTest do
 
   defp handle_handshake(client, opts) do
     case client.bolt_version do
-      version when version >= 5.1 ->
+      version when version >= {5, 1} ->
         metadata = Client.send_hello(client, opts)
         Client.send_logon(client, opts)
         metadata
@@ -104,6 +104,31 @@ defmodule Bolty.ClientTest do
     test "the password is redacted when the config is inspected" do
       {:ok, config} = Client.Config.new(auth: [username: "u", password: "s3cret"])
       refute inspect(config) =~ "s3cret"
+    end
+
+    test "parses string :versions to canonical tuples without warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: ["5.4", "6.0"])
+          # canonical tuples, sorted desc, padded to the 4 handshake slots
+          assert config.versions == [{6, 0}, {5, 4}, {0, 0}, {0, 0}]
+        end)
+
+      refute log =~ "deprecated"
+    end
+
+    test "accepts float :versions but logs a one-time deprecation warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [5.4])
+          assert config.versions == [{5, 4}, {0, 0}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "deprecated"
     end
 
     test "maps schemes to the correct TLS verification intent" do
@@ -220,44 +245,36 @@ defmodule Bolty.ClientTest do
   describe "connect" do
     @tag :bolt_version_5_3
     test "multiple versions specified" do
-      opts = [versions: [5.3, 4, 3]] ++ @opts
+      opts = [versions: ["5.3", "4.0", "3.0"]] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+      assert {5, 3} == client.bolt_version
     end
 
     @tag :bolt_version_5_3
     test "unordered versions specified" do
-      opts = [versions: [4, 3, 5.3]] ++ @opts
+      opts = [versions: ["4.0", "3.0", "5.3"]] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+      assert {5, 3} == client.bolt_version
     end
 
     @tag :last_version
     test "no versions specified" do
       opts = [] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      # latest_versions/0 returns ranged tuples like `{5, 0..4}`; the
-      # negotiated `client.bolt_version` is the latest float in that range.
-      {major, minor_or_range} = hd(Versions.latest_versions())
-
-      minor =
-        case minor_or_range do
-          %Range{} = r -> List.last(Range.to_list(r))
-          m when is_integer(m) -> m
-        end
-
-      assert major + minor / 10 == client.bolt_version
+      # With no `:versions`, the highest mutually-supported version is negotiated;
+      # on the last_version job that is the newest version bolty supports.
+      assert client.bolt_version == List.last(Versions.available_versions())
     end
 
     @tag core: true
     test "zero version" do
-      opts = [versions: [0]] ++ @opts
+      opts = [versions: ["0.0"]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
     @tag core: true
     test "major version incompatible with the server" do
-      opts = [versions: [50]] ++ @opts
+      opts = [versions: ["50.0"]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
@@ -284,7 +301,7 @@ defmodule Bolty.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk)))
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 1.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {1, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -314,7 +331,7 @@ defmodule Bolty.ClientTest do
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk1)) ++ framed(body(chunk2)))
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 3.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {3, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -348,7 +365,7 @@ defmodule Bolty.ClientTest do
           [@noop_chunk] ++ framed(body(chunk1)) ++ [@noop_chunk] ++ framed(body(chunk2))
         )
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -380,7 +397,7 @@ defmodule Bolty.ClientTest do
           framed(success)
 
       pid = Bolty.Mocks.SockMock.start_link(frames)
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [{:success, %{}}, {:record, [1024, 2048]}]

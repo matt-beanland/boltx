@@ -89,7 +89,7 @@ defmodule Bolty.TelemetryTest do
 
       assert_receive {:telemetry, [:bolty, :connect], connect_meas, connect_meta}
       assert is_integer(connect_meas.duration)
-      assert is_float(connect_meta.bolt_version)
+      assert is_binary(connect_meta.bolt_version)
       assert is_bitstring(connect_meta.server_version)
       assert is_bitstring(connect_meta.connection_id)
 

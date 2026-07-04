@@ -41,8 +41,8 @@ defmodule Bolty.ConnectionResetRescueTest do
 
     client = %Bolty.Client{
       sock: {ScriptedSock, agent},
-      bolt_version: 5.0,
-      policy: Bolty.Policy.Resolver.resolve(5.0, %{})
+      bolt_version: {5, 0},
+      policy: Bolty.Policy.Resolver.resolve({5, 0}, %{})
     }
 
     state = %Bolty.Connection{client: client, in_transaction: false}

@@ -7,6 +7,7 @@ defmodule Bolty.Connection do
 
   import Bolty.BoltProtocol.ServerResponse
 
+  alias Bolty.BoltProtocol.Versions
   alias Bolty.Client
   alias Bolty.Policy
   alias Bolty.Response
@@ -45,7 +46,7 @@ defmodule Bolty.Connection do
           %{duration: System.monotonic_time() - start},
           %{
             db_system: "neo4j",
-            bolt_version: client.bolt_version,
+            bolt_version: Versions.format(client.bolt_version),
             server_version: new_state.server_version,
             connection_id: new_state.connection_id
           }
@@ -103,7 +104,7 @@ defmodule Bolty.Connection do
   @impl true
   def handle_execute(%Bolty.ConnectionInfo{} = query, _params, _opts, state) do
     result = %{
-      bolt_version: state.client.bolt_version,
+      bolt_version: Versions.format(state.client.bolt_version),
       server_version: state.server_version,
       policy: state.client.policy
     }
@@ -248,14 +249,15 @@ defmodule Bolty.Connection do
     do_init(client.bolt_version, client, opts)
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version >= 5.1 do
+  defp do_init(bolt_version, client, opts)
+       when is_tuple(bolt_version) and bolt_version >= {5, 1} do
     with {:ok, response_hello} <- Client.send_hello(client, opts),
          {:ok, _response_logon} <- Client.send_logon(client, opts) do
       {:ok, response_hello}
     end
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) do
+  defp do_init(bolt_version, client, opts) when is_tuple(bolt_version) do
     Client.send_hello(client, opts)
   end
 

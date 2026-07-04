@@ -147,8 +147,28 @@ defmodule Bolty.Client do
     end
 
     def get_versions(opts) do
-      versions = Keyword.get(opts, :versions) || Versions.latest_versions()
-      ((versions |> Enum.into([])) ++ [0, 0, 0]) |> Enum.take(4) |> Enum.sort(&>=/2)
+      case Keyword.get(opts, :versions) do
+        nil ->
+          Versions.latest_versions()
+
+        versions ->
+          {parsed, deprecated_float?} =
+            Enum.map_reduce(versions, false, fn version, dep? ->
+              {canonical, float?} = Versions.parse(version)
+              {canonical, dep? or float?}
+            end)
+
+          if deprecated_float? do
+            require Logger
+
+            Logger.warning(
+              "bolty: passing float Bolt versions to :versions is deprecated and will be " <>
+                "removed; use strings like \"5.4\" (a float can't distinguish 5.10 from 5.1)."
+            )
+          end
+
+          (parsed ++ [{0, 0}, {0, 0}, {0, 0}]) |> Enum.take(4) |> Enum.sort(&>=/2)
+      end
     end
   end
 
@@ -304,7 +324,7 @@ defmodule Bolty.Client do
          encode_version <- recv_packets(client, config.connect_timeout),
          version <- decode_version(encode_version) do
       case version do
-        +0.0 -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
+        {0, 0} -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
         _ -> {:ok, %{client | bolt_version: version}}
       end
     else
@@ -475,7 +495,7 @@ defmodule Bolty.Client do
 
   defp decode_version(<<0, 0, minor::unsigned-integer, major::unsigned-integer>>)
        when is_integer(major) and is_integer(minor) do
-    Float.round(major + minor / 10.0, 1)
+    {major, minor}
   end
 
   def send_packet(client, payload) do

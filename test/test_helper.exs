@@ -1,15 +1,17 @@
 # SPDX-FileCopyrightText: 2024 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
-alias Bolty.Utils.Converters
+alias Bolty.BoltProtocol.Versions
 
 Logger.configure(level: :debug)
 
+# Bolt versions are `{major, minor}` tuples internally; parse BOLT_VERSIONS
+# ("5.4,6.0") into that form so the tags below line up with available_versions/0.
 env_versions =
   System.get_env("BOLT_VERSIONS", "")
   |> String.split(",")
   |> Enum.reject(&(&1 == ""))
-  |> Enum.map(&Converters.to_float/1)
+  |> Enum.map(fn v -> Versions.parse(v) |> elem(0) end)
 
 # Is a Neo4j server configured for this run? CI, `mix test.matrix`, and local
 # `BOLT_TCP_PORT=7687 mix test` all set one of these. When none is set (a plain
@@ -44,13 +46,12 @@ available_versions = Bolty.BoltProtocol.Versions.available_versions()
 
 {include, exclude} =
   Enum.reduce(available_versions, {include, exclude}, fn version, {inc, exc} ->
-    [major | [minor]] =
-      version |> Float.to_string() |> String.split(".") |> Enum.map(&String.to_integer/1)
+    {major, minor} = version
 
     bolt_version_atom =
       String.to_atom("bolt_version_#{Integer.to_string(major)}_#{Integer.to_string(minor)}")
 
-    bolt_version_x = String.to_atom("bolt_#{Integer.to_string(trunc(version))}_x")
+    bolt_version_x = String.to_atom("bolt_#{Integer.to_string(major)}_x")
 
     if version in env_versions do
       case version === List.last(available_versions) do
@@ -115,9 +116,11 @@ defmodule Bolty.TestHelper do
   end
 
   defp maybe_put_env_versions(opts) do
+    # Pass the raw string forms ("5.4") — the driver's :versions option now takes
+    # strings; floats are deprecated and would log a warning on every run.
     case System.get_env("BOLT_VERSIONS", "") |> String.split(",") |> Enum.reject(&(&1 == "")) do
       [] -> opts
-      versions -> Keyword.put(opts, :versions, Enum.map(versions, &Converters.to_float/1))
+      versions -> Keyword.put(opts, :versions, versions)
     end
   end
 

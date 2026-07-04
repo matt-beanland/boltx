@@ -10,7 +10,7 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
 
   @signature 0x01
 
-  def encode(bolt_version, fields) when is_float(bolt_version) and bolt_version >= 5.1 do
+  def encode(bolt_version, fields) when is_tuple(bolt_version) and bolt_version >= {5, 1} do
     policy = Keyword.get(fields, :policy, %Bolty.Policy{})
 
     message = [
@@ -23,7 +23,7 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
     MessageEncoder.encode(@signature, message)
   end
 
-  def encode(bolt_version, fields) when is_float(bolt_version) and bolt_version >= 3.0 do
+  def encode(bolt_version, fields) when is_tuple(bolt_version) and bolt_version >= {3, 0} do
     message = [Map.merge(get_auth_params(fields), get_user_agent(bolt_version, fields))]
     MessageEncoder.encode(@signature, message)
   end

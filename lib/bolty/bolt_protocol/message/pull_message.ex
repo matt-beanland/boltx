@@ -11,7 +11,7 @@ defmodule Bolty.BoltProtocol.Message.PullMessage do
   @signature 0x3F
 
   def encode(bolt_version, extra_parameters)
-      when is_float(bolt_version) and bolt_version >= 4.0 do
+      when is_tuple(bolt_version) and bolt_version >= {4, 0} do
     message = [get_extra_parameters(extra_parameters)]
     MessageEncoder.encode(@signature, message)
   end

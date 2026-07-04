@@ -8,7 +8,7 @@ defmodule Bolty.BoltProtocol.Message.CommitMessage do
 
   @signature 0x12
 
-  def encode(bolt_version) when is_float(bolt_version) and bolt_version >= 3.0 do
+  def encode(bolt_version) when is_tuple(bolt_version) and bolt_version >= {3, 0} do
     message = []
     MessageEncoder.encode(@signature, message)
   end

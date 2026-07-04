@@ -90,7 +90,7 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:port` | Port | `7687` |
 | `:scheme` | One of the schemes below | `"bolt+s"` |
 | `:auth` | `[username: ..., password: ...]` (`:username` required) | required |
-| `:versions` | Bolt versions to negotiate. Accepts floats (`[5.4]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`). Range tuples are preferred — the handshake has only 4 slots and ranges cover more versions per slot. Omit to use `Versions.latest_versions()` (all supported versions, auto-rangeified). | `Versions.latest_versions()` |
+| `:versions` | Bolt versions to negotiate. Accepts strings (`["5.4"]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`); floats (`[5.4]`) are deprecated (can't distinguish `5.10` from `5.1`) but still accepted with a warning. Range tuples are preferred — the handshake has only 4 slots and ranges cover more per slot. Omit to use `Versions.latest_versions()`. `connection_info/1` reports the negotiated `bolt_version` as a string (`"5.8"`). | `Versions.latest_versions()` |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
 | `:notifications_minimum_severity` | Bolt 5.2+ | `nil` |
 | `:notifications_disabled_categories` | Bolt 5.2–5.5 | `nil` |

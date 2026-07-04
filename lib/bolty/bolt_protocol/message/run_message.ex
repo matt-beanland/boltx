@@ -12,7 +12,7 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
   def encode(bolt_version, query, parameters, extra_parameters, policy \\ %Policy{})
 
   def encode(bolt_version, query, parameters, extra_parameters, policy)
-      when is_float(bolt_version) and bolt_version >= 3.0 do
+      when is_tuple(bolt_version) and bolt_version >= {3, 0} do
     message = [query, parameters, get_extra_parameters(extra_parameters)]
     MessageEncoder.encode(@signature, message, policy)
   end

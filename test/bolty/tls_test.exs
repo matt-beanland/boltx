@@ -37,7 +37,7 @@ defmodule Bolty.TLSTest do
       opts = [scheme: "bolt+s", ssl_opts: [cacertfile: @ca_path]] ++ base_opts()
 
       assert {:ok, client} = Client.connect(opts)
-      assert is_float(client.bolt_version)
+      assert is_tuple(client.bolt_version)
     end
 
     test "fails against the OS trust store (server CA is unknown)" do
@@ -70,7 +70,7 @@ defmodule Bolty.TLSTest do
       opts = [scheme: "bolt+ssc"] ++ base_opts()
 
       assert {:ok, client} = Client.connect(opts)
-      assert is_float(client.bolt_version)
+      assert is_tuple(client.bolt_version)
     end
   end
 end

@@ -30,9 +30,9 @@ defmodule Bolty.TimeoutTest do
   defp client(agent, recv_timeout) do
     %Client{
       sock: {TimingOutSock, agent},
-      bolt_version: 5.0,
+      bolt_version: {5, 0},
       recv_timeout: recv_timeout,
-      policy: Bolty.Policy.Resolver.resolve(5.0, %{})
+      policy: Bolty.Policy.Resolver.resolve({5, 0}, %{})
     }
   end
 
