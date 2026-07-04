@@ -106,6 +106,31 @@ defmodule Bolty.ClientTest do
       refute inspect(config) =~ "s3cret"
     end
 
+    test "parses string :versions to canonical tuples without warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: ["5.4", "6.0"])
+          # canonical tuples, sorted desc, padded to the 4 handshake slots
+          assert config.versions == [{6, 0}, {5, 4}, {0, 0}, {0, 0}]
+        end)
+
+      refute log =~ "deprecated"
+    end
+
+    test "accepts float :versions but logs a one-time deprecation warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [5.4])
+          assert config.versions == [{5, 4}, {0, 0}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "deprecated"
+    end
+
     test "maps schemes to the correct TLS verification intent" do
       base_opts = [
         auth: [username: "usertests"]
@@ -284,7 +309,7 @@ defmodule Bolty.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk)))
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 1.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {1, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -314,7 +339,7 @@ defmodule Bolty.ClientTest do
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk1)) ++ framed(body(chunk2)))
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 3.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {3, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -348,7 +373,7 @@ defmodule Bolty.ClientTest do
           [@noop_chunk] ++ framed(body(chunk1)) ++ [@noop_chunk] ++ framed(body(chunk2))
         )
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -380,7 +405,7 @@ defmodule Bolty.ClientTest do
           framed(success)
 
       pid = Bolty.Mocks.SockMock.start_link(frames)
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [{:success, %{}}, {:record, [1024, 2048]}]

@@ -54,8 +54,8 @@ opts = [
     prefix: :default
 ]
 
-# Pin to a specific Bolt version:
-opts = [versions: [5.4]] ++ opts
+# Pin to a specific Bolt version (versions are strings; floats are deprecated):
+opts = [versions: ["5.4"]] ++ opts
 
 # Offer multiple versions as ranges (handshake has 4 slots — ranges cover more):
 opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts
@@ -166,7 +166,7 @@ Bolty negotiates the highest mutually-supported Bolt version during connection. 
 ```elixir
 iex> Bolty.connection_info(conn)
 %{
-  bolt_version: 5.8,
+  bolt_version: "5.8",
   server_version: "Neo4j/5.26.28",
   policy: %Bolty.Policy{
     datetime: :evolved,
@@ -217,8 +217,8 @@ opts = [versions: [{5, 7..8}]] ++ opts
 # Require the renamed notification field (Bolt 5.6+)
 opts = [versions: [{5, 6..8}]] ++ opts
 
-# Target a single known version
-opts = [versions: [5.4]] ++ opts
+# Target a single known version (a string; a float like `5.4` is deprecated)
+opts = [versions: ["5.4"]] ++ opts
 
 # Offer two disjoint ranges when you want broad compatibility but must skip 5.5
 opts = [versions: [{5, 6..8}, {5, 0..4}]] ++ opts

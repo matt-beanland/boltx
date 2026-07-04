@@ -23,7 +23,7 @@ defmodule Bolty.Policy.Resolver do
   `server_metadata` is the raw map returned by HELLO (keys are strings:
   `"server"`, `"hints"`, `"connection_id"`, etc.).
   """
-  @spec resolve(float() | nil, map()) :: Policy.t()
+  @spec resolve({non_neg_integer(), non_neg_integer()} | nil, map()) :: Policy.t()
   def resolve(bolt_version, server_metadata) when is_map(server_metadata) do
     server_version = Map.get(server_metadata, "server")
 
@@ -40,7 +40,7 @@ defmodule Bolty.Policy.Resolver do
   # Bolt 5.x uses evolved DateTime struct tags (0x49/0x69).
   # Bolt 4.x and below (no longer supported) used :legacy.
   defp put_datetime(policy, bolt_version, _server_version)
-       when is_float(bolt_version) and bolt_version >= 5.0 do
+       when is_tuple(bolt_version) and bolt_version >= {5, 0} do
     %{policy | datetime: :evolved}
   end
 
@@ -48,7 +48,7 @@ defmodule Bolty.Policy.Resolver do
 
   # Bolt 5.6 renamed the HELLO field for disabled notification categories.
   defp put_notifications_field(policy, bolt_version, _server_version)
-       when is_float(bolt_version) and bolt_version >= 5.6 do
+       when is_tuple(bolt_version) and bolt_version >= {5, 6} do
     %{policy | notifications_field: :notifications_disabled_classifications}
   end
 
@@ -57,7 +57,7 @@ defmodule Bolty.Policy.Resolver do
   # Bolt 5.7 switched to GQL-compliant FAILURE responses: neo4j_code/description
   # instead of code/message.
   defp put_gql_errors(policy, bolt_version, _server_version)
-       when is_float(bolt_version) and bolt_version >= 5.7 do
+       when is_tuple(bolt_version) and bolt_version >= {5, 7} do
     %{policy | gql_errors: true}
   end
 
@@ -65,7 +65,7 @@ defmodule Bolty.Policy.Resolver do
 
   # Bolt 6.0 introduced the Vector PackStream struct (signature 0x56).
   defp put_vectors(policy, bolt_version, _server_version)
-       when is_float(bolt_version) and bolt_version >= 6.0 do
+       when is_tuple(bolt_version) and bolt_version >= {6, 0} do
     %{policy | vectors: true}
   end
 
@@ -76,7 +76,7 @@ defmodule Bolty.Policy.Resolver do
   # opt into an explicit `CYPHER 5` prefix now that 2026.02+ servers default the
   # query language to Cypher 25.
   defp put_cypher_5(policy, bolt_version, _server_version)
-       when is_float(bolt_version) and bolt_version >= 5.0 do
+       when is_tuple(bolt_version) and bolt_version >= {5, 0} do
     %{policy | cypher_5: true}
   end
 

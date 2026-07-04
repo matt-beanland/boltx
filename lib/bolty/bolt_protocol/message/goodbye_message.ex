@@ -8,7 +8,7 @@ defmodule Bolty.BoltProtocol.Message.GoodbyeMessage do
 
   @signature 0x02
 
-  def encode(bolt_version) when is_float(bolt_version) and bolt_version >= 3.0 do
+  def encode(bolt_version) when is_tuple(bolt_version) and bolt_version >= {3, 0} do
     MessageEncoder.encode(@signature, [])
   end
 

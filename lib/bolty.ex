@@ -24,7 +24,7 @@ defmodule Bolty do
           | {:hostname, String.t()}
           | {:port, :inet.port_number()}
           | {:scheme, :inet.port_number()}
-          | {:versions, list(float())}
+          | {:versions, list(String.t() | float())}
           | {:auth, basic_auth()}
           | {:user_agent, String.t()}
           | {:notifications_minimum_severity, String.t()}
@@ -58,7 +58,11 @@ defmodule Bolty do
 
   * `:scheme` - Is one among neo4j, neo4j+s, neo4j+ssc, bolt, bolt+s, bolt+ssc (default: bolt+s).
 
-  * `:versions` - List of bolt versions you want to be negotiated with the server.
+  * `:versions` - List of Bolt versions to offer during negotiation, as strings
+   (`["5.4", "6.0"]`) or `{major, minor..minor}` range tuples (`[{5, 6..8}]`).
+   Floats (`[5.4]`) are **deprecated** — they can't distinguish `5.10` from `5.1`
+   — and are still accepted with a one-time warning. (Default: the latest
+   supported versions.)
 
   * `:auth` - The basic authentication scheme
 
@@ -211,12 +215,12 @@ defmodule Bolty do
   ```elixir
   Bolty.transaction(Bolt, fn conn ->
     Bolty.connection_info(conn)
-    # => %{bolt_version: 5.8, server_version: "Neo4j/5.26.27", policy: %Bolty.Policy{...}}
+    # => %{bolt_version: "5.8", server_version: "Neo4j/5.26.27", policy: %Bolty.Policy{...}}
   end)
   ```
   """
   @spec connection_info(conn()) :: %{
-          bolt_version: float(),
+          bolt_version: String.t(),
           server_version: String.t(),
           policy: Bolty.Policy.t()
         }

@@ -8,7 +8,7 @@ defmodule Bolty.BoltProtocol.Message.LogoffMessage do
 
   @signature 0x6B
 
-  def encode(bolt_version) when is_float(bolt_version) and bolt_version >= 5.1 do
+  def encode(bolt_version) when is_tuple(bolt_version) and bolt_version >= {5, 1} do
     MessageEncoder.encode(@signature, [])
   end
 

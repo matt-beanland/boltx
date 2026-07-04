@@ -9,14 +9,14 @@ defmodule Bolty.BoltProtocol.Message.CommitMessageTest do
   describe "CommitMessage.encode/1" do
     @tag :core
     test "coding with version >= 3 of bolt" do
-      bolt_version = 3.0
+      bolt_version = {3, 0}
 
       assert <<0, 2, 176, 18, 0, 0>> == CommitMessage.encode(bolt_version)
     end
 
     @tag :core
     test "coding with version < 3 of bolt" do
-      bolt_version = 1.0
+      bolt_version = {1, 0}
 
       assert {:error,
               %Bolty.Error{
