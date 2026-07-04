@@ -24,11 +24,12 @@ defmodule Bolty.Query do
 
   * `:tx_metadata` - is a map that can contain some metadata information, mainly used for logging. (default: `null`)
   """
-  @type extra() ::
-          {:bookmarks, list(String.t()) | nil}
-          | {:mode, String.t() | nil}
-          | {:db, String.t() | nil}
-          | {:tx_metadata, String.t() | nil}
+  @type extra() :: %{
+          optional(:bookmarks) => [String.t()],
+          optional(:mode) => String.t(),
+          optional(:db) => String.t() | nil,
+          optional(:tx_metadata) => map()
+        }
   @type t :: %__MODULE__{
           statement: String.t(),
           extra: extra()
