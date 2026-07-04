@@ -22,7 +22,7 @@ defmodule Bolty.ClientTest do
 
   defp handle_handshake(client, opts) do
     case client.bolt_version do
-      version when version >= 5.1 ->
+      version when version >= {5, 1} ->
         metadata = Client.send_hello(client, opts)
         Client.send_logon(client, opts)
         metadata
@@ -245,44 +245,36 @@ defmodule Bolty.ClientTest do
   describe "connect" do
     @tag :bolt_version_5_3
     test "multiple versions specified" do
-      opts = [versions: [5.3, 4, 3]] ++ @opts
+      opts = [versions: ["5.3", "4.0", "3.0"]] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+      assert {5, 3} == client.bolt_version
     end
 
     @tag :bolt_version_5_3
     test "unordered versions specified" do
-      opts = [versions: [4, 3, 5.3]] ++ @opts
+      opts = [versions: ["4.0", "3.0", "5.3"]] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+      assert {5, 3} == client.bolt_version
     end
 
     @tag :last_version
     test "no versions specified" do
       opts = [] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      # latest_versions/0 returns ranged tuples like `{5, 0..4}`; the
-      # negotiated `client.bolt_version` is the latest float in that range.
-      {major, minor_or_range} = hd(Versions.latest_versions())
-
-      minor =
-        case minor_or_range do
-          %Range{} = r -> List.last(Range.to_list(r))
-          m when is_integer(m) -> m
-        end
-
-      assert major + minor / 10 == client.bolt_version
+      # With no `:versions`, the highest mutually-supported version is negotiated;
+      # on the last_version job that is the newest version bolty supports.
+      assert client.bolt_version == List.last(Versions.available_versions())
     end
 
     @tag core: true
     test "zero version" do
-      opts = [versions: [0]] ++ @opts
+      opts = [versions: ["0.0"]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
     @tag core: true
     test "major version incompatible with the server" do
-      opts = [versions: [50]] ++ @opts
+      opts = [versions: ["50.0"]] ++ @opts
       {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
     end
 
