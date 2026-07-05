@@ -24,10 +24,12 @@ defmodule Bolty.BoltProtocol.Versions do
   @type version :: {non_neg_integer(), non_neg_integer()}
   @type version_range :: {non_neg_integer(), Range.t()}
 
+  @spec available_versions() :: [version()]
   def available_versions() do
     @available_bolt_versions
   end
 
+  @spec latest_versions() :: [version() | version_range()]
   def latest_versions() do
     ((available_versions() |> Enum.sort(&>=/2) |> rangeify()) ++ [{0, 0}, {0, 0}, {0, 0}])
     |> Enum.take(4)
@@ -65,6 +67,7 @@ defmodule Bolty.BoltProtocol.Versions do
   @spec format(version()) :: String.t()
   def format({major, minor}), do: "#{major}.#{minor}"
 
+  @spec to_bytes(version() | version_range()) :: binary()
   def to_bytes({major, minor}) when is_integer(minor) do
     <<0, 0>> <> <<minor, major>>
   end
@@ -75,6 +78,7 @@ defmodule Bolty.BoltProtocol.Versions do
     <<0>> <> <<previous, minor, major>>
   end
 
+  @spec rangeify([version()]) :: [version() | version_range()]
   def rangeify(list) when is_list(list) do
     list
     |> Enum.reduce([], fn {major, minor} = value, acc ->
