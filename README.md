@@ -159,6 +159,22 @@ point at a private CA (`ssl_opts: [cacertfile: "..."]`).
 > `:ssl_opts` are no longer silently overridden. Pin `0.2.1` if you depend on the
 > old behaviour.
 
+### Named-zone datetimes
+
+A Neo4j `datetime()` carrying a named zone (e.g. `"Europe/Berlin"`) is resolved
+into an Elixir `DateTime` when decoded, which requires a configured
+`:time_zone_database`. Bolty deliberately bundles none — that global is the host
+application's to own — so configure one:
+
+```elixir
+# add {:tz, "~> 0.28"} (or {:tzdata, "~> 1.1"}) to your deps, then in config:
+config :elixir, :time_zone_database, Tz.TimeZoneDatabase
+```
+
+Without a database, decoding such a value does not crash — the query returns a
+clear `{:error, %Bolty.Error{code: :time_zone_database_not_configured}}`.
+Integer-offset datetimes (`DateTimeWithTZOffset`) need no database.
+
 ## Negotiated capabilities
 
 Bolty negotiates the highest mutually-supported Bolt version during connection. The outcome determines which protocol behaviours are active for the lifetime of that connection. Call `Bolty.connection_info/1` to inspect what was negotiated:
