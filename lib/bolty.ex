@@ -62,7 +62,6 @@ defmodule Bolty do
           | {:user_agent, String.t()}
           | {:notifications_minimum_severity, String.t()}
           | {:notifications_disabled_categories, list(String.t())}
-          | {:ssl, boolean()}
           | {:ssl_opts, [:ssl.tls_client_option()]}
           | {:connect_timeout, timeout()}
           | {:recv_timeout, timeout()}
@@ -89,7 +88,10 @@ defmodule Bolty do
 
   * `:port` - Server port (default: `7687`)
 
-  * `:scheme` - Is one among neo4j, neo4j+s, neo4j+ssc, bolt, bolt+s, bolt+ssc (default: bolt+s).
+  * `:scheme` - Is one among neo4j, neo4j+s, neo4j+ssc, bolt, bolt+s, bolt+ssc
+   (default: bolt+s). TLS is derived entirely from this: `bolt`/`neo4j` is
+   plaintext, `+s` is full certificate verification against the OS trust
+   store, `+ssc` is encrypted but trust-all (self-signed certs).
 
   * `:versions` - List of Bolt versions to offer during negotiation, as strings
    (`["5.4", "6.0"]`) or `{major, minor..minor}` range tuples (`[{5, 6..8}]`).
@@ -121,9 +123,11 @@ defmodule Bolty do
       to `query/4`; set to `:infinity` for queries that may compute for a long
       time before returning any data.
 
-  * `:ssl` - Set to `true` if SSL should be used (default: `true`)
-
-  * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[verify: :verify_none]`)
+  * `:ssl_opts` - A list of `:ssl.connect/2` options, merged *over* the strict,
+   secure-by-default TLS options bolty derives from `:scheme` (default: `[]`).
+   An explicit `verify:`/`cacertfile:`/`cacerts:` here always overrides the
+   scheme-derived default. Only applies when `:scheme` enables TLS (`+s` or
+   `+ssc`); ignored for plain `bolt`/`neo4j`.
 
   The given options are passed down to DBConnection, some of the most commonly used ones are
    documented below:

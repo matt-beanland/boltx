@@ -214,6 +214,36 @@ defmodule Bolty.ClientConfigTest do
                Client.Config.new(opts6)
     end
 
+    test "a stray :ssl option has no effect on TLS but logs a warning (#107)" do
+      import ExUnit.CaptureLog
+
+      # The old :ssl boolean was removed as dead code; TLS derives entirely
+      # from :scheme. Confirms a caller can't silently get plaintext by
+      # setting ssl: true alongside a plaintext scheme (or vice versa) without
+      # at least being warned — the key still has no functional effect, but
+      # its presence is no longer silent.
+      opts = [auth: [username: "usertests"], scheme: "bolt", ssl: true]
+
+      log =
+        capture_log(fn ->
+          assert {:ok, %Client.Config{scheme: "bolt", ssl?: false, tls_verify: :none}} =
+                   Client.Config.new(opts)
+        end)
+
+      assert log =~ ":ssl is no longer a supported option"
+    end
+
+    test "no :ssl key means no warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, _config} = Client.Config.new(auth: [username: "usertests"], scheme: "bolt")
+        end)
+
+      refute log =~ ":ssl"
+    end
+
     test "preserves user-supplied :ssl_opts verbatim (no override at config time)" do
       opts = [
         auth: [username: "usertests"],

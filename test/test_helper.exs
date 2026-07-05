@@ -77,8 +77,7 @@ defmodule Bolty.TestHelper do
       ssl_opts: ssl_opts(),
       pool_size: 1,
       prefix: :default,
-      scheme: "bolt",
-      ssl: false
+      scheme: "bolt"
     ]
     |> with_env_overrides()
   end
@@ -91,8 +90,7 @@ defmodule Bolty.TestHelper do
       pool_size: 1,
       max_overflow: 3,
       prefix: :default,
-      scheme: "bolt",
-      ssl: false
+      scheme: "bolt"
     ]
     |> with_env_overrides()
   end
