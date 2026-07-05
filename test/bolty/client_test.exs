@@ -159,6 +159,24 @@ defmodule Bolty.ClientTest do
       assert log =~ "dropping unsupported Bolt version(s) 5.5"
     end
 
+    test "surviving minors of a narrowed range are re-coalesced, not exploded into one slot each" do
+      import ExUnit.CaptureLog
+
+      # {5, 3..9} spans 7 minors; 5.5 and 5.9 don't exist in
+      # Versions.available_versions(), leaving two contiguous survivor runs
+      # (3..4 and 6..8). Only 4 handshake slots exist in total (pad_and_sort/1),
+      # so if survivors were kept as flat individual tuples instead of being
+      # re-ranged, this would need 5 slots and something would be silently
+      # dropped by the Enum.take(4) padding step.
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 3..9}])
+          assert config.versions == [{5, 6..8}, {5, 3..4}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "dropping unsupported Bolt version(s) 5.5, 5.9"
+    end
+
     test "a range :versions entry with no supported minors is a config error" do
       assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
                Client.Config.new(auth: [username: "u"], versions: [{3, 0..2}])

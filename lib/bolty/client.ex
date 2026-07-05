@@ -250,7 +250,18 @@ defmodule Bolty.Client do
           %{kept: [], dropped: Enum.map(dropped_minors, &{major, &1})}
 
         {kept, dropped} ->
-          %{kept: Enum.map(kept, &{major, &1}), dropped: Enum.map(dropped, &{major, &1})}
+          # Only 4 handshake slots exist in total (see pad_and_sort/1), so a
+          # partially-supported range must stay as compact as possible rather
+          # than exploding into one slot per surviving minor — re-coalesce any
+          # contiguous survivors back into range slot(s) with the same logic
+          # latest_versions/0 uses to build the default offer.
+          recompacted =
+            kept
+            |> Enum.map(&{major, &1})
+            |> Enum.sort(&>=/2)
+            |> Versions.rangeify()
+
+          %{kept: recompacted, dropped: Enum.map(dropped, &{major, &1})}
       end
     end
 
