@@ -131,6 +131,41 @@ defmodule Bolty.ClientTest do
       assert log =~ "deprecated"
     end
 
+    test "a range :versions entry that is fully supported is kept compact, no warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 6..8}])
+          # kept as one range slot, not expanded — every minor in it is supported
+          assert config.versions == [{5, 6..8}, {0, 0}, {0, 0}, {0, 0}]
+        end)
+
+      refute log =~ "unsupported"
+    end
+
+    test "a range :versions entry spanning an unsupported minor is narrowed, with a warning" do
+      import ExUnit.CaptureLog
+
+      # {5, 5} doesn't exist in Versions.available_versions() (a real gap between
+      # 5.4 and 5.6), so this range straddles a supported/unsupported boundary
+      # exactly like a future version-floor bump would.
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 4..6}])
+          assert config.versions == [{5, 6}, {5, 4}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "dropping unsupported Bolt version(s) 5.5"
+    end
+
+    test "a range :versions entry with no supported minors is a config error" do
+      assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
+               Client.Config.new(auth: [username: "u"], versions: [{3, 0..2}])
+
+      assert message =~ "{3, 0..2}"
+    end
+
     test "maps schemes to the correct TLS verification intent" do
       base_opts = [
         auth: [username: "usertests"]

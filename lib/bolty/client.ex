@@ -186,16 +186,24 @@ defmodule Bolty.Client do
     # dropped with a warning as long as at least one requested version is
     # actually supported; if none are, that's a config error, not a silent
     # fallback to bolty's defaults (the caller asked for something specific).
+    #
+    # `:versions` entries can be a plain {major, minor} or a documented
+    # {major, minor..minor} range (one handshake slot offering several
+    # minors at once). A range is classified minor-by-minor rather than as
+    # one opaque unit: if every minor in it is still supported it's kept
+    # compactly as a range, if only some are it's kept as the individual
+    # still-supported minors (e.g. after a future floor bump drops the low
+    # end of a range a caller configured), and only a range with no
+    # supported minors at all is dropped entirely.
     defp reject_unsupported_versions(raw_versions, parsed_versions) do
       supported = Versions.available_versions()
+      classified = Enum.map(parsed_versions, &classify_version(&1, supported))
 
-      {ok, rejected} =
-        raw_versions
-        |> Enum.zip(parsed_versions)
-        |> Enum.split_with(fn {_raw, canonical} -> canonical in supported end)
+      kept = Enum.flat_map(classified, & &1.kept)
+      dropped = Enum.flat_map(classified, & &1.dropped)
 
-      case {ok, rejected} do
-        {[], _rejected} ->
+      cond do
+        kept == [] ->
           {:error,
            Bolty.Error.wrap(Bolty.Client, %{
              code: :unsupported_versions,
@@ -205,21 +213,44 @@ defmodule Bolty.Client do
                  Enum.map_join(supported, ", ", &Versions.format/1)
            })}
 
-        {ok, []} ->
-          {:ok, pad_and_sort(Enum.map(ok, &elem(&1, 1)))}
-
-        {ok, rejected} ->
+        dropped != [] ->
           require Logger
 
-          rejected_raw = Enum.map(rejected, &elem(&1, 0))
-
           Logger.warning(
-            "bolty: dropping unsupported Bolt version(s) #{inspect(rejected_raw)} from " <>
-              ":versions — bolty only supports " <>
+            "bolty: dropping unsupported Bolt version(s) " <>
+              "#{Enum.map_join(dropped, ", ", &Versions.format/1)} from :versions " <>
+              "(requested #{inspect(raw_versions)}) — bolty only supports " <>
               Enum.map_join(supported, ", ", &Versions.format/1)
           )
 
-          {:ok, pad_and_sort(Enum.map(ok, &elem(&1, 1)))}
+          {:ok, pad_and_sort(kept)}
+
+        true ->
+          {:ok, pad_and_sort(kept)}
+      end
+    end
+
+    defp classify_version({_major, minor} = canonical, supported) when is_integer(minor) do
+      if canonical in supported do
+        %{kept: [canonical], dropped: []}
+      else
+        %{kept: [], dropped: [canonical]}
+      end
+    end
+
+    defp classify_version({major, %Range{} = range}, supported) do
+      {kept_minors, dropped_minors} =
+        range |> Enum.to_list() |> Enum.split_with(&({major, &1} in supported))
+
+      case {kept_minors, dropped_minors} do
+        {_, []} ->
+          %{kept: [{major, range}], dropped: []}
+
+        {[], _} ->
+          %{kept: [], dropped: Enum.map(dropped_minors, &{major, &1})}
+
+        {kept, dropped} ->
+          %{kept: Enum.map(kept, &{major, &1}), dropped: Enum.map(dropped, &{major, &1})}
       end
     end
 
