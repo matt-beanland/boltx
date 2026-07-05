@@ -28,33 +28,6 @@ defmodule Bolty.TypesHelperTest do
     end
   end
 
-  describe "datetime_with_micro/2:" do
-    test "Successful with valid data" do
-      expected = %DateTime{
-        calendar: Calendar.ISO,
-        day: 1,
-        hour: 23,
-        microsecond: {0, 0},
-        minute: 0,
-        month: 1,
-        second: 7,
-        std_offset: 0,
-        time_zone: "Europe/Paris",
-        utc_offset: 3600,
-        year: 2000,
-        zone_abbr: "CET"
-      }
-
-      assert ^expected = TypesHelper.datetime_with_micro(~N[2000-01-01 23:00:07], "Europe/Paris")
-    end
-
-    test "Fails with invalid timezone" do
-      assert_raise ArgumentError, fn ->
-        TypesHelper.datetime_with_micro(~N[2000-01-01 23:00:07], "Invalid")
-      end
-    end
-  end
-
   describe "formated-time_offset/1" do
     test "Valid positive offset" do
       assert "+01:03" == TypesHelper.formated_time_offset(3783)

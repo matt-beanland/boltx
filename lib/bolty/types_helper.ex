@@ -21,15 +21,6 @@ defmodule Bolty.TypesHelper do
   end
 
   @doc """
-  Convert NaiveDateTime and timezone into a Calendar.DateTime
-  Without losing microsecond data!
-  """
-  @spec datetime_with_micro(Calendar.naive_datetime(), String.t()) :: Calendar.datetime()
-  def datetime_with_micro(%NaiveDateTime{} = naive_dt, timezone) do
-    DateTime.from_naive!(naive_dt, timezone)
-  end
-
-  @doc """
   Convert an amount of seconds in a +hours:minutes offset
   """
   @spec formated_time_offset(integer()) :: String.t()
