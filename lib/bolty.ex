@@ -140,6 +140,8 @@ defmodule Bolty do
   {:ok, people} = Bolty.query(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
   ```
   """
+  @spec query(conn(), String.t(), map(), keyword()) ::
+          {:ok, Bolty.Response.t()} | {:error, Bolty.Error.t() | DBConnection.ConnectionError.t()}
   def query(conn, statement, params \\ %{}, opts \\ []) do
     formatted_params = Map.new(params)
 
@@ -165,6 +167,7 @@ defmodule Bolty do
   people = Bolty.query!(conn, "MATCH (n:PERSON) RETURN n", %{}, [db: "mydb"])
   ```
   """
+  @spec query!(conn(), String.t(), map(), keyword()) :: Bolty.Response.t()
   def query!(conn, statement, params \\ %{}, opts \\ []) do
     case query(conn, statement, params, opts) do
       {:ok, result} -> result
@@ -185,6 +188,9 @@ defmodule Bolty do
   runs one bare statement at a time), and blank or comment-only segments are
   skipped rather than sent to the server.
   """
+  @spec query_many(conn(), String.t(), map(), keyword()) ::
+          {:ok, [Bolty.Response.t()]}
+          | {:error, Bolty.Error.t() | DBConnection.ConnectionError.t()}
   def query_many(conn, statement, params \\ %{}, opts \\ []) do
     formatted_params = Map.new(params)
 
@@ -192,6 +198,7 @@ defmodule Bolty do
     do_query(conn, queries, formatted_params, opts)
   end
 
+  @spec query_many!(conn(), String.t(), map(), keyword()) :: [Bolty.Response.t()]
   def query_many!(conn, statement, params \\ %{}, opts \\ []) do
     case query_many(conn, statement, params, opts) do
       {:ok, result} -> result
