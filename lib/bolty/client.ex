@@ -66,6 +66,8 @@ defmodule Bolty.Client do
       {username, password} = get_user_and_pass(opts)
       {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
 
+      warn_if_legacy_ssl_option(opts)
+
       with :ok <- validate_username(username),
            {:ok, versions} <- get_versions(opts) do
         {:ok,
@@ -99,6 +101,25 @@ defmodule Bolty.Client do
     end
 
     defp validate_username(_username), do: :ok
+
+    # :ssl (a boolean) was the pre-P0-1 TLS toggle; TLS intent is now derived
+    # entirely from :scheme, and nothing reads :ssl anymore. Any other
+    # unrecognised option is silently ignored (see #107 discussion — general
+    # unknown-option validation is a separate, bigger concern), but :ssl gets
+    # a targeted warning since it's the one option we know used to work and
+    # whose silent removal could leave a caller believing TLS is configured
+    # when it is not.
+    defp warn_if_legacy_ssl_option(opts) do
+      if Keyword.has_key?(opts, :ssl) do
+        require Logger
+
+        Logger.warning(
+          "bolty: :ssl is no longer a supported option and is ignored — TLS is derived " <>
+            "entirely from :scheme (bolt/neo4j = plaintext, +s = verified TLS, +ssc = " <>
+            "self-signed TLS); remove :ssl from your connection options."
+        )
+      end
+    end
 
     # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
     # the strict defaults (incl. SNI, which needs the hostname) are built at
