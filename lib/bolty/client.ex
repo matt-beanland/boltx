@@ -334,55 +334,32 @@ defmodule Bolty.Client do
   end
 
   def prepare_generic_messages(_bolt_version, messages) do
-    response = hd(messages)
-
-    case response do
-      {:success, response} ->
-        {:ok, response}
-
-      {:ignored, _} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :ignored)}
-
-      {:failure, response} ->
-        {:error,
-         Bolty.Error.wrap(__MODULE__, %{
-           code: response["neo4j_code"] || response["code"],
-           message: response["description"] || response["message"]
-         })}
-    end
+    MessageDecoder.prepare_generic(__MODULE__, messages)
   end
 
   def send_hello(client, fields) do
     payload = HelloMessage.encode(client.bolt_version, [{:policy, client.policy} | fields])
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_logon(client, fields) do
     payload = LogonMessage.encode(client.bolt_version, fields)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_run(client, query, parameters, extra_parameters) do
     payload =
       RunMessage.encode(client.bolt_version, query, parameters, extra_parameters, client.policy)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &RunMessage.prepare_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &RunMessage.prepare_messages/2)
   end
 
   def send_pull(client, extra_parameters) do
     payload = PullMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &PullMessage.prepare_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &PullMessage.prepare_messages/2)
   end
 
   def run_statement(client, query, parameters, extra_parameters) do
@@ -417,41 +394,31 @@ defmodule Bolty.Client do
   def send_begin(client, extra_parameters) do
     payload = BeginMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_commit(client) do
     payload = CommitMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_rollback(client) do
     payload = RollbackMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_reset(client) do
     payload = ResetMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_discard(client, extra_parameters) do
     payload = DiscardMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &DiscardMessage.prepare_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &DiscardMessage.prepare_messages/2)
   end
 
   def send_goodbye(client) do
@@ -475,9 +442,7 @@ defmodule Bolty.Client do
   def send_logoff(client) do
     payload = LogoffMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, client.recv_timeout)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   # Keepalive for idle pooled connections (see `Connection.ping/1`). RESET is a
@@ -499,6 +464,15 @@ defmodule Bolty.Client do
 
   def send_packet(client, payload) do
     send_data(client, payload)
+  end
+
+  # Send an already-encoded message and read the response with the given
+  # `prepare_messages/2` interpreter. The common body of the `send_*` helpers;
+  # `send_goodbye/1` is the exception (it tears the port down on `:closed`).
+  defp send_and_recv(client, payload, prepare_messages) do
+    with :ok <- send_packet(client, payload) do
+      recv_packets(client, prepare_messages, client.recv_timeout)
+    end
   end
 
   def send_data(%{sock: {sock_mod, sock}}, data) do
@@ -539,9 +513,8 @@ defmodule Bolty.Client do
   end
 
   defp get_next_message(client, timeout) do
-    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>),
-         {:ok, message} <- decode_message(message_binary) do
-      {:ok, message}
+    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>) do
+      decode_message(message_binary)
     end
   end
 

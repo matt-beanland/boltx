@@ -14,10 +14,6 @@ defmodule Bolty.BoltProtocol.Message.CommitMessage do
   end
 
   def encode(_) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "COMMIT message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "COMMIT")
   end
 end

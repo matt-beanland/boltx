@@ -16,10 +16,6 @@ defmodule Bolty.BoltProtocol.Message.LogonMessage do
   end
 
   def encode(_, _) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "LOGON message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "LOGON")
   end
 end

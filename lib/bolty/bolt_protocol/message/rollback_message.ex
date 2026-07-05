@@ -14,10 +14,6 @@ defmodule Bolty.BoltProtocol.Message.RollbackMessage do
   end
 
   def encode(_) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "ROLLBACK message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "ROLLBACK")
   end
 end

@@ -43,6 +43,8 @@ jobs:
         run: mix format --check-formatted
       - name: Compile (warnings as errors)
         run: mix compile --force --warnings-as-errors
+      - name: Credo
+        run: mix credo
       - name: Dialyzer
         run: mix dialyzer --format github
       # No Neo4j in this job: verifies the unit suite passes with no database,

@@ -47,7 +47,12 @@
         # Priority values are: `low, normal, high, higher`
         {Credo.Check.Design.AliasUsage, priority: :low},
         # For others you can set parameters
-        {Credo.Check.Design.DuplicatedCode, mass_threshold: 16, nodes_threshold: 2},
+        # mass_threshold 30 (up from the stricter 16): the one-module-per-Bolt-
+        # message design leaves small, deliberately-parallel `encode/_` clauses
+        # (e.g. COMMIT/ROLLBACK, RESET/GOODBYE) that differ only by signature and
+        # name. Keeping them explicit is clearer than abstracting them away; this
+        # still catches any substantive (>=30-node) duplication.
+        {Credo.Check.Design.DuplicatedCode, mass_threshold: 30, nodes_threshold: 2},
         {Credo.Check.Design.TagTODO, false},
         {Credo.Check.Design.TagFIXME, false},
         {Credo.Check.Readability.FunctionNames},
