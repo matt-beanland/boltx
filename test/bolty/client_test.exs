@@ -131,6 +131,59 @@ defmodule Bolty.ClientTest do
       assert log =~ "deprecated"
     end
 
+    test "a range :versions entry that is fully supported is kept compact, no warning" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 6..8}])
+          # kept as one range slot, not expanded — every minor in it is supported
+          assert config.versions == [{5, 6..8}, {0, 0}, {0, 0}, {0, 0}]
+        end)
+
+      refute log =~ "unsupported"
+    end
+
+    test "a range :versions entry spanning an unsupported minor is narrowed, with a warning" do
+      import ExUnit.CaptureLog
+
+      # {5, 5} doesn't exist in Versions.available_versions() (a real gap between
+      # 5.4 and 5.6), so this range straddles a supported/unsupported boundary
+      # exactly like a future version-floor bump would.
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 4..6}])
+          assert config.versions == [{5, 6}, {5, 4}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "dropping unsupported Bolt version(s) 5.5"
+    end
+
+    test "surviving minors of a narrowed range are re-coalesced, not exploded into one slot each" do
+      import ExUnit.CaptureLog
+
+      # {5, 3..9} spans 7 minors; 5.5 and 5.9 don't exist in
+      # Versions.available_versions(), leaving two contiguous survivor runs
+      # (3..4 and 6..8). Only 4 handshake slots exist in total (pad_and_sort/1),
+      # so if survivors were kept as flat individual tuples instead of being
+      # re-ranged, this would need 5 slots and something would be silently
+      # dropped by the Enum.take(4) padding step.
+      log =
+        capture_log(fn ->
+          {:ok, config} = Client.Config.new(auth: [username: "u"], versions: [{5, 3..9}])
+          assert config.versions == [{5, 6..8}, {5, 3..4}, {0, 0}, {0, 0}]
+        end)
+
+      assert log =~ "dropping unsupported Bolt version(s) 5.5, 5.9"
+    end
+
+    test "a range :versions entry with no supported minors is a config error" do
+      assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
+               Client.Config.new(auth: [username: "u"], versions: [{3, 0..2}])
+
+      assert message =~ "{3, 0..2}"
+    end
+
     test "maps schemes to the correct TLS verification intent" do
       base_opts = [
         auth: [username: "usertests"]
@@ -244,10 +297,20 @@ defmodule Bolty.ClientTest do
 
   describe "connect" do
     @tag :bolt_version_5_3
-    test "multiple versions specified" do
+    test "multiple versions specified — unsupported entries are dropped with a warning" do
+      import ExUnit.CaptureLog
+
       opts = [versions: ["5.3", "4.0", "3.0"]] ++ @opts
-      assert {:ok, client} = Client.connect(opts)
-      assert {5, 3} == client.bolt_version
+
+      log =
+        capture_log(fn ->
+          assert {:ok, client} = Client.connect(opts)
+          assert {5, 3} == client.bolt_version
+        end)
+
+      assert log =~ "dropping unsupported Bolt version"
+      assert log =~ "4.0"
+      assert log =~ "3.0"
     end
 
     @tag :bolt_version_5_3
@@ -267,15 +330,26 @@ defmodule Bolty.ClientTest do
     end
 
     @tag core: true
-    test "zero version" do
+    test "zero version is rejected at config time, not sent to the server" do
       opts = [versions: ["0.0"]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
     end
 
     @tag core: true
-    test "major version incompatible with the server" do
+    test "a version bolty doesn't implement is rejected at config time, not sent to the server" do
       opts = [versions: ["50.0"]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
+    end
+
+    @tag core: true
+    test ":versions with only unsupported entries returns a clean error listing them" do
+      opts = [versions: ["3.0", "4.2"]] ++ @opts
+
+      assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
+               Client.connect(opts)
+
+      assert message =~ "3.0"
+      assert message =~ "4.2"
     end
 
     @tag core: true

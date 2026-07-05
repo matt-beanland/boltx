@@ -248,25 +248,6 @@ defmodule Bolty.PackStream.Unpacker do
     [t | rest]
   end
 
-  # Legacy Datetime with zone Id
-  def unpack(
-        {@legacy_datetime_with_zone_id_signature, struct,
-         @legacy_datetime_with_zone_id_struct_size}
-      ) do
-    {[seconds, nanoseconds, zone_id], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
-
-    naive_dt =
-      NaiveDateTime.add(
-        ~N[1970-01-01 00:00:00.000000],
-        seconds * 1_000_000_000 + nanoseconds,
-        :nanosecond
-      )
-
-    dt = Bolty.TypesHelper.datetime_with_micro(naive_dt, zone_id)
-    [dt | rest]
-  end
-
   # Datetime with zone Id
   def unpack({@datetime_with_zone_id_signature, struct, @datetime_with_zone_id_struct_size}) do
     {[seconds, nanoseconds, zone_id], rest} =
@@ -285,25 +266,6 @@ defmodule Bolty.PackStream.Unpacker do
       end
 
     [datetime | rest]
-  end
-
-  # Legacy Datetime with zone offset
-  def unpack(
-        {@legacy_datetime_with_zone_offset_signature, struct,
-         @legacy_datetime_with_zone_offset_struct_size}
-      ) do
-    {[seconds, nanoseconds, zone_offset], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_offset_struct_size)
-
-    naive_dt =
-      NaiveDateTime.add(
-        ~N[1970-01-01 00:00:00.000000],
-        seconds * 1_000_000_000 + nanoseconds,
-        :nanosecond
-      )
-
-    dt = DateTimeWithTZOffset.create(naive_dt, zone_offset)
-    [dt | rest]
   end
 
   # Datetime with zone offset

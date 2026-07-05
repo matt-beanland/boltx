@@ -16,13 +16,10 @@ defmodule Bolty.Policy do
   """
 
   @typedoc """
-  DateTime encoding dialect.
-
-    * `:legacy` — emit legacy struct tags (0x46/0x66). Required for Bolt 4.x
-      wire regardless of server version.
-    * `:evolved` — emit evolved struct tags (0x49/0x69). Required for Bolt 5.x.
+  DateTime encoding dialect. Bolty only ever negotiates Bolt 5.0+, which always
+  uses the evolved struct tags (0x49/0x69) — `:evolved` is the only value.
   """
-  @type datetime :: :legacy | :evolved
+  @type datetime :: :evolved
 
   @typedoc """
   HELLO wire field name for disabled notification categories/classifications.

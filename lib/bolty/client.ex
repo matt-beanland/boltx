@@ -56,22 +56,18 @@ defmodule Bolty.Client do
     Builds a `%Config{}` from connection options.
 
     Returns `{:ok, config}`, or `{:error, %Bolty.Error{}}` when a required field
-    (currently `:username`) is missing — the caller surfaces that cleanly rather
-    than raising inside DBConnection's connect callback.
+    (currently `:username`) is missing, or when `:versions` contains no version
+    bolty actually implements — either way the caller surfaces that cleanly
+    rather than raising (or silently misbehaving) inside DBConnection's connect
+    callback.
     """
     def new(opts) do
       {hostname, port} = get_hostname_and_port(opts)
       {username, password} = get_user_and_pass(opts)
       {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
-      versions = get_versions(opts)
 
-      if is_nil(username) do
-        {:error,
-         Bolty.Error.wrap(Bolty.Client, %{
-           code: :missing_username,
-           message: ":username is missing — set auth: [username: ...] in your connection config"
-         })}
-      else
+      with :ok <- validate_username(username),
+           {:ok, versions} <- get_versions(opts) do
         {:ok,
          %__MODULE__{
            hostname: hostname,
@@ -93,6 +89,16 @@ defmodule Bolty.Client do
          }}
       end
     end
+
+    defp validate_username(nil) do
+      {:error,
+       Bolty.Error.wrap(Bolty.Client, %{
+         code: :missing_username,
+         message: ":username is missing — set auth: [username: ...] in your connection config"
+       })}
+    end
+
+    defp validate_username(_username), do: :ok
 
     # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
     # the strict defaults (incl. SNI, which needs the hostname) are built at
@@ -149,7 +155,7 @@ defmodule Bolty.Client do
     def get_versions(opts) do
       case Keyword.get(opts, :versions) do
         nil ->
-          Versions.latest_versions()
+          {:ok, Versions.latest_versions()}
 
         versions ->
           {parsed, deprecated_float?} =
@@ -167,8 +173,100 @@ defmodule Bolty.Client do
             )
           end
 
-          (parsed ++ [{0, 0}, {0, 0}, {0, 0}]) |> Enum.take(4) |> Enum.sort(&>=/2)
+          reject_unsupported_versions(versions, parsed)
       end
+    end
+
+    # bolty only ever negotiates versions it actually implements — a version
+    # that isn't in Versions.available_versions() (e.g. a pre-5.0 Bolt version,
+    # or one bolty hasn't caught up to yet) must never reach the handshake
+    # bytes: if a server somehow *did* accept it, bolty's own message/policy
+    # code doesn't speak that dialect and would fail confusingly deep in
+    # encode/decode instead of cleanly at connect. Unsupported entries are
+    # dropped with a warning as long as at least one requested version is
+    # actually supported; if none are, that's a config error, not a silent
+    # fallback to bolty's defaults (the caller asked for something specific).
+    #
+    # `:versions` entries can be a plain {major, minor} or a documented
+    # {major, minor..minor} range (one handshake slot offering several
+    # minors at once). A range is classified minor-by-minor rather than as
+    # one opaque unit: if every minor in it is still supported it's kept
+    # compactly as a range, if only some are it's kept as the individual
+    # still-supported minors (e.g. after a future floor bump drops the low
+    # end of a range a caller configured), and only a range with no
+    # supported minors at all is dropped entirely.
+    defp reject_unsupported_versions(raw_versions, parsed_versions) do
+      supported = Versions.available_versions()
+      classified = Enum.map(parsed_versions, &classify_version(&1, supported))
+
+      kept = Enum.flat_map(classified, & &1.kept)
+      dropped = Enum.flat_map(classified, & &1.dropped)
+
+      cond do
+        kept == [] ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :unsupported_versions,
+             message:
+               "none of the requested :versions #{inspect(raw_versions)} are supported by " <>
+                 "bolty; supported versions are " <>
+                 Enum.map_join(supported, ", ", &Versions.format/1)
+           })}
+
+        dropped != [] ->
+          require Logger
+
+          Logger.warning(
+            "bolty: dropping unsupported Bolt version(s) " <>
+              "#{Enum.map_join(dropped, ", ", &Versions.format/1)} from :versions " <>
+              "(requested #{inspect(raw_versions)}) — bolty only supports " <>
+              Enum.map_join(supported, ", ", &Versions.format/1)
+          )
+
+          {:ok, pad_and_sort(kept)}
+
+        true ->
+          {:ok, pad_and_sort(kept)}
+      end
+    end
+
+    defp classify_version({_major, minor} = canonical, supported) when is_integer(minor) do
+      if canonical in supported do
+        %{kept: [canonical], dropped: []}
+      else
+        %{kept: [], dropped: [canonical]}
+      end
+    end
+
+    defp classify_version({major, %Range{} = range}, supported) do
+      {kept_minors, dropped_minors} =
+        range |> Enum.to_list() |> Enum.split_with(&({major, &1} in supported))
+
+      case {kept_minors, dropped_minors} do
+        {_, []} ->
+          %{kept: [{major, range}], dropped: []}
+
+        {[], _} ->
+          %{kept: [], dropped: Enum.map(dropped_minors, &{major, &1})}
+
+        {kept, dropped} ->
+          # Only 4 handshake slots exist in total (see pad_and_sort/1), so a
+          # partially-supported range must stay as compact as possible rather
+          # than exploding into one slot per surviving minor — re-coalesce any
+          # contiguous survivors back into range slot(s) with the same logic
+          # latest_versions/0 uses to build the default offer.
+          recompacted =
+            kept
+            |> Enum.map(&{major, &1})
+            |> Enum.sort(&>=/2)
+            |> Versions.rangeify()
+
+          %{kept: recompacted, dropped: Enum.map(dropped, &{major, &1})}
+      end
+    end
+
+    defp pad_and_sort(versions) do
+      (versions ++ [{0, 0}, {0, 0}, {0, 0}]) |> Enum.take(4) |> Enum.sort(&>=/2)
     end
   end
 

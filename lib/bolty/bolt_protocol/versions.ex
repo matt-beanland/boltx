@@ -87,15 +87,9 @@ defmodule Bolty.BoltProtocol.Versions do
 
   # Fold one version into the accumulated (reversed) list, merging it into the
   # previous entry's range when the two are numerically adjacent, otherwise
-  # prepending it. Versions below 4.3 are never range-merged.
-  defp coalesce({major, minor} = value, acc) do
-    cond do
-      acc == [] -> [value]
-      major < 4 -> [value | acc]
-      major == 4 and minor < 3 -> [value | acc]
-      true -> merge_with_previous(value, acc)
-    end
-  end
+  # prepending it.
+  defp coalesce(value, []), do: [value]
+  defp coalesce(value, acc), do: merge_with_previous(value, acc)
 
   defp merge_with_previous({major, minor} = value, [{prev_major, prev} | tail] = acc) do
     cond do
