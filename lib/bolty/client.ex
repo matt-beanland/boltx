@@ -539,9 +539,8 @@ defmodule Bolty.Client do
   end
 
   defp get_next_message(client, timeout) do
-    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>),
-         {:ok, message} <- decode_message(message_binary) do
-      {:ok, message}
+    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>) do
+      decode_message(message_binary)
     end
   end
 

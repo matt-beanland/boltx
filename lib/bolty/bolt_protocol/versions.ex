@@ -81,43 +81,35 @@ defmodule Bolty.BoltProtocol.Versions do
   @spec rangeify([version()]) :: [version() | version_range()]
   def rangeify(list) when is_list(list) do
     list
-    |> Enum.reduce([], fn {major, minor} = value, acc ->
-      cond do
-        acc == [] ->
-          [value]
-
-        major < 4 ->
-          [value | acc]
-
-        major == 4 and minor < 3 ->
-          [value | acc]
-
-        true ->
-          [{prev_major, prev_minor_or_range} | tail] = acc
-
-          cond do
-            major < prev_major ->
-              [value | acc]
-
-            is_integer(prev_minor_or_range) ->
-              if minor + 1 == prev_minor_or_range do
-                [{prev_major, Range.new(minor, prev_minor_or_range)} | tail]
-              else
-                [value | acc]
-              end
-
-            true ->
-              if minor + 1 == prev_minor_or_range.first do
-                [
-                  {prev_major, Range.new(minor, List.last(Range.to_list(prev_minor_or_range)))}
-                  | tail
-                ]
-              else
-                [value | acc]
-              end
-          end
-      end
-    end)
+    |> Enum.reduce([], &coalesce/2)
     |> Enum.reverse()
   end
+
+  # Fold one version into the accumulated (reversed) list, merging it into the
+  # previous entry's range when the two are numerically adjacent, otherwise
+  # prepending it. Versions below 4.3 are never range-merged.
+  defp coalesce({major, minor} = value, acc) do
+    cond do
+      acc == [] -> [value]
+      major < 4 -> [value | acc]
+      major == 4 and minor < 3 -> [value | acc]
+      true -> merge_with_previous(value, acc)
+    end
+  end
+
+  defp merge_with_previous({major, minor} = value, [{prev_major, prev} | tail] = acc) do
+    cond do
+      major < prev_major -> [value | acc]
+      adjacent?(minor, prev) -> [{prev_major, extend_range(minor, prev)} | tail]
+      true -> [value | acc]
+    end
+  end
+
+  defp adjacent?(minor, prev) when is_integer(prev), do: minor + 1 == prev
+  defp adjacent?(minor, %Range{} = prev), do: minor + 1 == prev.first
+
+  defp extend_range(minor, prev) when is_integer(prev), do: Range.new(minor, prev)
+
+  defp extend_range(minor, %Range{} = prev),
+    do: Range.new(minor, List.last(Range.to_list(prev)))
 end
