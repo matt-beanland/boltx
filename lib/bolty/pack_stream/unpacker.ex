@@ -272,8 +272,18 @@ defmodule Bolty.PackStream.Unpacker do
     {[seconds, nanoseconds, zone_id], rest} =
       decode_struct(struct, @datetime_with_zone_id_struct_size)
 
-    {:ok, date_from_unix} = DateTime.from_unix(seconds * 1_000_000_000 + nanoseconds, :nanosecond)
-    {:ok, datetime} = DateTime.shift_zone(date_from_unix, zone_id)
+    {:ok, instant} = DateTime.from_unix(seconds * 1_000_000_000 + nanoseconds, :nanosecond)
+
+    # Resolving the named zone needs a configured Elixir `:time_zone_database`.
+    # Throw a clear %Bolty.Error{} (which PackStream.unpack/1 surfaces as
+    # {:error, _}) rather than let a MatchError escape when a consumer has not
+    # configured one — the common case being a UTC-only default database.
+    datetime =
+      case DateTime.shift_zone(instant, zone_id) do
+        {:ok, datetime} -> datetime
+        {:error, reason} -> throw(zone_resolution_error(zone_id, reason))
+      end
+
     [datetime | rest]
   end
 
@@ -358,6 +368,27 @@ defmodule Bolty.PackStream.Unpacker do
   end
 
   # Private
+
+  # A failure to resolve a datetime's named zone into a clear %Bolty.Error{}.
+  # The UTC-only default database is the common footgun: the consumer never
+  # configured a real `:time_zone_database`.
+  defp zone_resolution_error(zone_id, :utc_only_time_zone_database) do
+    Bolty.Error.wrap(__MODULE__, %{
+      code: :time_zone_database_not_configured,
+      message:
+        "received a datetime in zone #{inspect(zone_id)} but no Elixir " <>
+          ":time_zone_database is configured; set one (e.g. tz or tzdata) to " <>
+          "decode named-zone datetimes"
+    })
+  end
+
+  defp zone_resolution_error(zone_id, reason) do
+    Bolty.Error.wrap(__MODULE__, %{
+      code: :time_zone_resolution_failed,
+      message: "could not resolve datetime zone #{inspect(zone_id)}: #{inspect(reason)}"
+    })
+  end
+
   @spec decode_string(binary(), integer()) :: list()
   defp decode_string(bytes, str_length) do
     <<string::binary-size(^str_length), rest::binary>> = bytes
