@@ -158,23 +158,39 @@ defmodule Bolty.Client do
           {:ok, Versions.latest_versions()}
 
         versions ->
-          {parsed, deprecated_float?} =
-            Enum.map_reduce(versions, false, fn version, dep? ->
-              {canonical, float?} = Versions.parse(version)
-              {canonical, dep? or float?}
-            end)
-
-          if deprecated_float? do
-            require Logger
-
-            Logger.warning(
-              "bolty: passing float Bolt versions to :versions is deprecated and will be " <>
-                "removed; use strings like \"5.4\" (a float can't distinguish 5.10 from 5.1)."
-            )
-          end
-
-          reject_unsupported_versions(versions, parsed)
+          parse_versions(versions)
       end
+    end
+
+    # Versions.parse/1 raises on a malformed entry (e.g. "abc" -> ArgumentError,
+    # "5" or "5.4.3" -> MatchError, an unrecognised shape like an atom or map ->
+    # FunctionClauseError) — none of which are documented, so left uncaught they
+    # crash the connect callback instead of returning the {:error, %Bolty.Error{}}
+    # this module otherwise guarantees (see :missing_username, :unsupported_versions).
+    defp parse_versions(versions) do
+      {parsed, deprecated_float?} =
+        Enum.map_reduce(versions, false, fn version, dep? ->
+          {canonical, float?} = Versions.parse(version)
+          {canonical, dep? or float?}
+        end)
+
+      if deprecated_float? do
+        require Logger
+
+        Logger.warning(
+          "bolty: passing float Bolt versions to :versions is deprecated and will be " <>
+            "removed; use strings like \"5.4\" (a float can't distinguish 5.10 from 5.1)."
+        )
+      end
+
+      reject_unsupported_versions(versions, parsed)
+    rescue
+      e ->
+        {:error,
+         Bolty.Error.wrap(Bolty.Client, %{
+           code: :invalid_versions,
+           message: "invalid :versions #{inspect(versions)}: #{Exception.message(e)}"
+         })}
     end
 
     # bolty only ever negotiates versions it actually implements — a version

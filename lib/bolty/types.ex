@@ -92,6 +92,9 @@ defmodule Bolty.Types do
 
     @type t :: %__MODULE__{
             id: integer,
+            start: integer,
+            end: integer,
+            type: String.t(),
             properties: map,
             element_id: String.t(),
             start_node_element_id: String.t(),
