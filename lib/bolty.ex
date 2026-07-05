@@ -56,7 +56,7 @@ defmodule Bolty do
           {:uri, String.t()}
           | {:hostname, String.t()}
           | {:port, :inet.port_number()}
-          | {:scheme, :inet.port_number()}
+          | {:scheme, String.t()}
           | {:versions, list(String.t() | float())}
           | {:auth, basic_auth()}
           | {:user_agent, String.t()}
@@ -135,7 +135,7 @@ defmodule Bolty do
 
   * `:pool_size` - The size of the pool
   """
-  @spec start_link([start_option()]) :: {:ok, pid()} | {:error, Bolty.Error.t()}
+  @spec start_link([start_option()]) :: GenServer.on_start()
   def start_link(options) do
     DBConnection.start_link(Bolty.Connection, options)
   end
