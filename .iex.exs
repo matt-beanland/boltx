@@ -10,8 +10,6 @@ end
 alias Bolty.{Response, Types, Utils}
 alias Bolty
 
-Application.put_env(:tzdata, :autoupdate, :disabled)
-
 # Example options for an iex dev session — matches the keys
 # Bolty.Client.Config.new/1 reads. Default Bolt port is 7687.
 _dev_opts = [
