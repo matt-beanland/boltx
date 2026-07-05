@@ -244,10 +244,20 @@ defmodule Bolty.ClientTest do
 
   describe "connect" do
     @tag :bolt_version_5_3
-    test "multiple versions specified" do
+    test "multiple versions specified — unsupported entries are dropped with a warning" do
+      import ExUnit.CaptureLog
+
       opts = [versions: ["5.3", "4.0", "3.0"]] ++ @opts
-      assert {:ok, client} = Client.connect(opts)
-      assert {5, 3} == client.bolt_version
+
+      log =
+        capture_log(fn ->
+          assert {:ok, client} = Client.connect(opts)
+          assert {5, 3} == client.bolt_version
+        end)
+
+      assert log =~ "dropping unsupported Bolt version"
+      assert log =~ "4.0"
+      assert log =~ "3.0"
     end
 
     @tag :bolt_version_5_3
@@ -267,15 +277,26 @@ defmodule Bolty.ClientTest do
     end
 
     @tag core: true
-    test "zero version" do
+    test "zero version is rejected at config time, not sent to the server" do
       opts = [versions: ["0.0"]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
     end
 
     @tag core: true
-    test "major version incompatible with the server" do
+    test "a version bolty doesn't implement is rejected at config time, not sent to the server" do
       opts = [versions: ["50.0"]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
+    end
+
+    @tag core: true
+    test ":versions with only unsupported entries returns a clean error listing them" do
+      opts = [versions: ["3.0", "4.2"]] ++ @opts
+
+      assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
+               Client.connect(opts)
+
+      assert message =~ "3.0"
+      assert message =~ "4.2"
     end
 
     @tag core: true
