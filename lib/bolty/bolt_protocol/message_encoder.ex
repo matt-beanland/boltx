@@ -25,6 +25,29 @@ defmodule Bolty.BoltProtocol.MessageEncoder do
     encoded |> IO.iodata_to_binary()
   end
 
+  # The standard `{:error, %Bolty.Error{}}` a message module returns from its
+  # fallback `encode/_` clause when the negotiated Bolt version is too old to
+  # carry that message. `module` is the calling message module (for error
+  # context); `name` is the message name, e.g. `"RUN"`.
+  @spec unsupported_version_error(module(), String.t()) :: {:error, Bolty.Error.t()}
+  def unsupported_version_error(module, name) do
+    {:error,
+     Bolty.Error.wrap(module, %{
+       code: :unsupported_message_version,
+       message: "#{name} message version not supported"
+     })}
+  end
+
+  # The `n`/`qid` paging fields shared by the PULL and DISCARD message extras,
+  # each defaulting to `-1` (all records / the last query).
+  @spec paging_params(map()) :: %{n: integer(), qid: integer()}
+  def paging_params(extra_parameters) do
+    %{
+      n: Map.get(extra_parameters, :n, -1),
+      qid: Map.get(extra_parameters, :qid, -1)
+    }
+  end
+
   defp do_encode(signature, list, policy) when length(list) <= 15 do
     [
       <<@tiny_struct_marker::4, length(list)::4, signature>>,

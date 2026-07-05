@@ -4,6 +4,7 @@
 defmodule Bolty.BoltProtocol.Message.RunMessage do
   @moduledoc false
 
+  alias Bolty.BoltProtocol.MessageDecoder
   alias Bolty.BoltProtocol.MessageEncoder
   alias Bolty.Policy
 
@@ -18,28 +19,11 @@ defmodule Bolty.BoltProtocol.Message.RunMessage do
   end
 
   def encode(_, _, _, _, _) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "RUN message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "RUN")
   end
 
   def prepare_messages(_bolt_version, messages) do
-    case hd(messages) do
-      {:success, response} ->
-        {:ok, response}
-
-      {:ignored, _} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :ignored)}
-
-      {:failure, response} ->
-        {:error,
-         Bolty.Error.wrap(__MODULE__, %{
-           code: response["neo4j_code"] || response["code"],
-           message: response["description"] || response["message"]
-         })}
-    end
+    MessageDecoder.prepare_generic(__MODULE__, messages)
   end
 
   defp get_extra_parameters(extra_parameters) do

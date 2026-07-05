@@ -29,11 +29,7 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
   end
 
   def encode(_, _) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "HELLO message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "HELLO")
   end
 
   defp get_extra_parameters(policy, fields) do

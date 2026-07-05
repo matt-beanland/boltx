@@ -15,11 +15,7 @@ defmodule Bolty.BoltProtocol.Message.BeginMessage do
   end
 
   def encode(_, _) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "BEGIN message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "BEGIN")
   end
 
   defp get_extra_parameters(extra_parameters) do

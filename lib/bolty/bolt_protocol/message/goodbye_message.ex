@@ -13,10 +13,6 @@ defmodule Bolty.BoltProtocol.Message.GoodbyeMessage do
   end
 
   def encode(_) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "GOODBYE message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "GOODBYE")
   end
 end
