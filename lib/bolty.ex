@@ -3,7 +3,40 @@
 
 defmodule Bolty do
   @moduledoc """
-  Bolt driver for Elixir.
+  Bolt driver for Elixir — talk to Neo4j (and other Bolt servers) over the
+  binary Bolt protocol.
+
+  Bolty is built on [DBConnection](https://hexdocs.pm/db_connection), so a
+  connection is a supervised, pooled process: start one with `start_link/1`
+  (or via `child_spec/1` in a supervision tree) and query it with `query/4` /
+  `query_many/4`.
+
+  ## Example
+
+  ```elixir
+  {:ok, conn} =
+    Bolty.start_link(
+      hostname: "localhost",
+      auth: [username: "neo4j", password: "password"]
+    )
+
+  {:ok, %Bolty.Response{} = res} =
+    Bolty.query(conn, "MATCH (n:Person) RETURN n.name AS name LIMIT $limit", %{limit: 5})
+
+  # A Response is Enumerable over its result rows
+  names = Enum.map(res, & &1["name"])
+  ```
+
+  See `start_link/1` for the full connection options (TLS, pooling, auth). Every
+  failure — connection, TLS, version negotiation, and Neo4j server errors — is
+  surfaced as a `Bolty.Error`, so callers can match a single error shape.
+
+  ## Guides
+
+  - [Public API & compatibility boundary](public_api.md) — what is supported
+    under semantic versioning
+  - [Telemetry](telemetry.md) — the `[:bolty, :query]` span and other events
+  - `usage-rules.md` — an agent-facing quick reference (shipped in the package)
   """
 
   @type conn() :: DBConnection.conn()
@@ -198,6 +231,10 @@ defmodule Bolty do
     do_query(conn, queries, formatted_params, opts)
   end
 
+  @doc """
+  Same as `query_many/4`, but returns the list of `Bolty.Response` structs
+  directly and raises the `Bolty.Error` from the first failing statement.
+  """
   @spec query_many!(conn(), String.t(), map(), keyword()) :: [Bolty.Response.t()]
   def query_many!(conn, statement, params \\ %{}, opts \\ []) do
     case query_many(conn, statement, params, opts) do
