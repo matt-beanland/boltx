@@ -184,6 +184,16 @@ defmodule Bolty.ClientTest do
       assert message =~ "{3, 0..2}"
     end
 
+    test "malformed :versions entries return a clean error instead of raising (#110)" do
+      for bad <- ["abc", "5", "5.4.3", :atom, %{}, [1, 2]] do
+        assert {:error, %Bolty.Error{code: :invalid_versions, bolt: %{message: message}}} =
+                 Client.Config.new(auth: [username: "u"], versions: [bad]),
+               "expected #{inspect(bad)} to return a clean error, not raise"
+
+        assert message =~ inspect(bad)
+      end
+    end
+
     test "maps schemes to the correct TLS verification intent" do
       base_opts = [
         auth: [username: "usertests"]

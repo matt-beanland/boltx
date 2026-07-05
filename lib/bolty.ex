@@ -274,8 +274,10 @@ defmodule Bolty do
           policy: Bolty.Policy.t()
         }
   def connection_info(conn) do
-    {:ok, _, info} = DBConnection.prepare_execute(conn, %Bolty.ConnectionInfo{}, %{})
-    info
+    case DBConnection.prepare_execute(conn, %Bolty.ConnectionInfo{}, %{}) do
+      {:ok, _query, info} -> info
+      {:error, error} -> raise error
+    end
   end
 
   # Wrap the round-trip in a `[:bolty, :query]` telemetry span so operators get
