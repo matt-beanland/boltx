@@ -2,12 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Query do
-  @moduledoc """
-  This module defines a structure to represent Bolty single query.
-
-  A Bolty query consists of a statement and additional data (extra).
-
-  """
+  @moduledoc false
+  # Internal: the struct wrapping a single statement + `extra` options, built by
+  # `Bolty.query/4` and passed through the `DBConnection.Query` protocol. Not
+  # part of the public API — construct queries via `Bolty.query/4`.
 
   @typedoc """
   Extra contains additional options. _Introduced in bolt 3_
@@ -39,11 +37,9 @@ defmodule Bolty.Query do
 end
 
 defmodule Bolty.Queries do
-  @moduledoc """
-  This module defines a structure to represent Bolty queries.
-
-  It consists of a statement and additional data (extra). The extra configuration applies to all queries.
-  """
+  @moduledoc false
+  # Internal: the struct wrapping a `;`-separated batch + shared `extra`, built
+  # by `Bolty.query_many/4`. Not part of the public API — use `query_many/4`.
 
   @type t :: %__MODULE__{
           statement: String.t(),
