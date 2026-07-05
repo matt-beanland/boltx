@@ -18,7 +18,6 @@ defmodule Bolty.Mixfile do
       package: package(),
       description: "Neo4j driver for Elixir, using the fast Bolt protocol",
       name: "Bolty",
-      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       docs: docs(),
       dialyzer: [
@@ -58,10 +57,7 @@ defmodule Bolty.Mixfile do
 
   defp aliases do
     [
-      setup: ["deps.get", &enable_git_hooks/1],
-      test: [
-        "test"
-      ]
+      setup: ["deps.get", &enable_git_hooks/1]
     ]
   end
 
