@@ -116,7 +116,7 @@ defmodule Bolty.Mixfile do
 
       # Testing dependencies
       {:excoveralls, "~> 0.18.0", optional: true, only: [:test, :dev]},
-      {:tzdata, "~> 1.1", only: [:test, :dev]},
+      {:tz, "~> 0.28", only: [:test, :dev]},
       {:stream_data, "~> 1.0", only: [:test, :dev]},
 
       # Benchmarking dependencies
