@@ -321,15 +321,16 @@ defmodule Bolty.Client do
          |> Enum.reduce(<<>>, fn version, acc -> acc <> Versions.to_bytes(version) end))
 
     with :ok <- send_packet(client, data),
-         encode_version <- recv_packets(client, config.connect_timeout),
-         version <- decode_version(encode_version) do
-      case version do
+         response when is_binary(response) <- recv_packets(client, config.connect_timeout),
+         {major, minor} <- decode_version(response) do
+      case {major, minor} do
         {0, 0} -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
-        _ -> {:ok, %{client | bolt_version: version}}
+        version -> {:ok, %{client | bolt_version: version}}
       end
     else
-      _ ->
-        {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
+      {:error, %Bolty.Error{}} = error -> error
+      {:error, reason} -> {:error, wrap_connect_error(reason)}
+      _ -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
     end
   end
 
@@ -462,6 +463,8 @@ defmodule Bolty.Client do
     {major, minor}
   end
 
+  defp decode_version(_other), do: :error
+
   def send_packet(client, payload) do
     send_data(client, payload)
   end
@@ -484,11 +487,8 @@ defmodule Bolty.Client do
       {:ok, response} ->
         response
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      {:error, _} = error ->
-        error
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
   end
 
