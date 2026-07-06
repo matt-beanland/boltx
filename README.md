@@ -185,6 +185,11 @@ Bolty.start_link(
 )
 ```
 
+Generating and installing the server's certificates is Neo4j-side configuration —
+see Neo4j's [SSL framework](https://neo4j.com/docs/operations-manual/current/security/ssl-framework/)
+docs. Neo4j Aura and other managed offerings present public-CA certificates, so
+`+s` needs no setup.
+
 > **Changed in 0.3.0:** `+s`/`+ssc` verification was previously inverted, and
 > `+s` did no server authentication. `+s` now verifies by default, and explicit
 > `:ssl_opts` are no longer silently overridden. Pin `0.2.1` if you depend on the
