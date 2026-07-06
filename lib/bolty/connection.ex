@@ -36,7 +36,7 @@ defmodule Bolty.Connection do
       preliminary_policy = Policy.Resolver.resolve(client.bolt_version, %{})
       client_with_policy = %{client | policy: preliminary_policy}
 
-      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts) do
+      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts, config) do
         policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
         state = get_server_metadata_state(response_server_metadata)
         new_state = %__MODULE__{state | client: %{client | policy: policy}, policy: policy}
@@ -258,21 +258,31 @@ defmodule Bolty.Connection do
      end), state}
   end
 
-  defp do_init(client, opts) do
-    do_init(client.bolt_version, client, opts)
+  defp do_init(client, opts, config) do
+    do_init(client.bolt_version, client, opts, config)
   end
 
-  defp do_init(bolt_version, client, opts)
+  defp do_init(bolt_version, client, opts, config)
        when is_tuple(bolt_version) and bolt_version >= {5, 1} do
-    with {:ok, response_hello} <- Client.send_hello(client, opts),
+    with {:ok, response_hello} <- Client.send_hello(client, hello_fields(opts, config)),
          {:ok, _response_logon} <- Client.send_logon(client, opts) do
       {:ok, response_hello}
     end
   end
 
-  defp do_init(bolt_version, client, opts) when is_tuple(bolt_version) do
-    Client.send_hello(client, opts)
+  defp do_init(bolt_version, client, opts, config) when is_tuple(bolt_version) do
+    Client.send_hello(client, hello_fields(opts, config))
   end
+
+  # Carry the resolved HELLO `routing` extras (server-side routing) alongside the
+  # raw start opts. `nil` means routing is off, so the field is omitted entirely
+  # and the connection stays a plain direct one. The user-facing boolean `:routing`
+  # opt (if any) was already consumed by Config.new/1; here it's replaced by the
+  # resolved `%{"address" => ...}` value the HELLO encoder sends verbatim.
+  defp hello_fields(opts, %Client.Config{routing: nil}), do: opts
+
+  defp hello_fields(opts, %Client.Config{routing: routing}),
+    do: Keyword.put(opts, :routing, routing)
 
   defp get_server_metadata_state(response_metadata) do
     hints = Map.get(response_metadata, "hints", "")

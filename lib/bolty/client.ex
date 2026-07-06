@@ -38,7 +38,7 @@ defmodule Bolty.Client do
     @bolty_option_keys ~w(
       uri hostname port scheme versions auth user_agent
       notifications_minimum_severity notifications_disabled_categories
-      ssl_opts connect_timeout recv_timeout socket_options
+      ssl_opts connect_timeout recv_timeout socket_options routing
     )a
 
     # DBConnection.ConnectionPool.Pool prepends `pool_index: id` to every
@@ -63,7 +63,8 @@ defmodule Bolty.Client do
       :versions,
       :ssl?,
       :tls_verify,
-      :ssl_opts
+      :ssl_opts,
+      :routing
     ]
 
     @doc """
@@ -82,7 +83,8 @@ defmodule Bolty.Client do
         {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
 
         with :ok <- validate_username(username),
-             {:ok, versions} <- get_versions(opts) do
+             {:ok, versions} <- get_versions(opts),
+             {:ok, routing} <- get_routing(opts, scheme, hostname, port) do
           {:ok,
            %__MODULE__{
              hostname: hostname,
@@ -100,7 +102,8 @@ defmodule Bolty.Client do
              versions: versions,
              ssl?: ssl?,
              tls_verify: tls_verify,
-             ssl_opts: ssl_opts
+             ssl_opts: ssl_opts,
+             routing: routing
            }}
         end
       end
@@ -210,6 +213,54 @@ defmodule Bolty.Client do
     defp get_user_and_pass(opts) do
       basic_auth = Keyword.get(opts, :auth, [])
       {Keyword.get(basic_auth, :username), Keyword.get(basic_auth, :password)}
+    end
+
+    # Resolves the Bolt HELLO `routing` field (server-side routing / SSR, Bolt
+    # 4.1+). When set, the server forwards each statement to the right cluster
+    # member using the `:mode`/`:bookmarks` bolty already sends over RUN/BEGIN;
+    # when absent, the server must not route (a plain direct connection).
+    #
+    # Enabled by default for `neo4j`/`neo4j+s`/`neo4j+ssc` schemes — which mean
+    # "routed" everywhere else in the ecosystem — and off for `bolt*`. An
+    # explicit `:routing` boolean overrides either way (same precedence as every
+    # other option: explicit opt > URI-derived > default), so `routing: false`
+    # is the opt-out for a `neo4j://` URI used cosmetically against a single
+    # instance or proxy, and `routing: true` forces it on a `bolt://` scheme.
+    #
+    # Returns `{:ok, %{"address" => "host:port"}}` when on (the extras value the
+    # HELLO encoder sends verbatim), `{:ok, nil}` when off (field omitted), or an
+    # `{:error, %Bolty.Error{}}` for a non-boolean `:routing` rather than
+    # silently ignoring a misconfiguration.
+    defp get_routing(opts, scheme, hostname, port) do
+      case Keyword.fetch(opts, :routing) do
+        {:ok, enabled?} when is_boolean(enabled?) ->
+          {:ok, routing_address(enabled?, hostname, port)}
+
+        {:ok, other} ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :invalid_routing,
+             message: ":routing must be true or false, got: #{inspect(other)}"
+           })}
+
+        :error ->
+          {:ok, routing_address(routed_scheme?(scheme), hostname, port)}
+      end
+    end
+
+    defp routed_scheme?(scheme), do: scheme in ~w(neo4j neo4j+s neo4j+ssc)
+
+    defp routing_address(false, _hostname, _port), do: nil
+    defp routing_address(true, hostname, port), do: %{"address" => format_address(hostname, port)}
+
+    # Bracket an IPv6 literal so the `host:port` join stays unambiguous
+    # (`[::1]:7687` rather than `::1:7687`). A hostname/IPv4 has no colon.
+    defp format_address(hostname, port) do
+      if String.contains?(hostname, ":") do
+        "[#{hostname}]:#{port}"
+      else
+        "#{hostname}:#{port}"
+      end
     end
 
     # Precedence, uniform across host/port/scheme: explicit opts > URI components

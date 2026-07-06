@@ -36,6 +36,23 @@ defmodule Bolty.BoltProtocol.Message.MessageEncoderTest do
       assert <<_, _, _, 0x01, _::binary>> =
                HelloMessage.encode({5, 0}, auth: [username: "hello", password: "hellopw"])
     end
+
+    test "includes the routing field when set (SSR), on both the 5.0 and 5.1+ paths" do
+      routing = %{"address" => "cluster.example.com:7687"}
+
+      for bolt_version <- [{5, 0}, {5, 4}] do
+        encoded = HelloMessage.encode(bolt_version, auth: [username: "u"], routing: routing)
+
+        assert :binary.match(encoded, "routing") != :nomatch
+        assert :binary.match(encoded, "cluster.example.com:7687") != :nomatch
+      end
+    end
+
+    test "omits the routing field when not set" do
+      encoded = HelloMessage.encode({5, 4}, auth: [username: "u"])
+
+      assert :binary.match(encoded, "routing") == :nomatch
+    end
   end
 
   describe "Encode BEGIN" do

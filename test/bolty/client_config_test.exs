@@ -307,6 +307,67 @@ defmodule Bolty.ClientConfigTest do
     end
   end
 
+  describe "server-side routing (:routing)" do
+    @describetag :core
+
+    test "neo4j schemes enable routing by default with the resolved address" do
+      for scheme <- ~w(neo4j neo4j+s neo4j+ssc) do
+        opts = [
+          scheme: scheme,
+          hostname: "cluster.example.com",
+          port: 7687,
+          auth: [username: "u"]
+        ]
+
+        assert {:ok, %Client.Config{routing: %{"address" => "cluster.example.com:7687"}}} =
+                 Client.Config.new(opts)
+      end
+    end
+
+    test "bolt schemes leave routing off by default" do
+      for scheme <- ~w(bolt bolt+s bolt+ssc) do
+        opts = [scheme: scheme, hostname: "single.example.com", port: 7687, auth: [username: "u"]]
+
+        assert {:ok, %Client.Config{routing: nil}} = Client.Config.new(opts)
+      end
+    end
+
+    test "routing: false opts a neo4j scheme out of routing" do
+      opts = [scheme: "neo4j+s", hostname: "h", port: 7687, routing: false, auth: [username: "u"]]
+
+      assert {:ok, %Client.Config{routing: nil}} = Client.Config.new(opts)
+    end
+
+    test "routing: true forces routing on a bolt scheme" do
+      opts = [scheme: "bolt", hostname: "h", port: 7687, routing: true, auth: [username: "u"]]
+
+      assert {:ok, %Client.Config{routing: %{"address" => "h:7687"}}} = Client.Config.new(opts)
+    end
+
+    test "the resolved address derives from URI components when not given explicitly" do
+      opts = [uri: "neo4j://router.example.com:7999", auth: [username: "u"]]
+
+      assert {:ok, %Client.Config{routing: %{"address" => "router.example.com:7999"}}} =
+               Client.Config.new(opts)
+    end
+
+    test "an IPv6 literal host is bracketed in the address" do
+      opts = [scheme: "neo4j", hostname: "::1", port: 7687, auth: [username: "u"]]
+
+      assert {:ok, %Client.Config{routing: %{"address" => "[::1]:7687"}}} =
+               Client.Config.new(opts)
+    end
+
+    test "a non-boolean :routing is a clean config error, not silently ignored" do
+      opts = [scheme: "neo4j", routing: "yes", auth: [username: "u"]]
+
+      assert {:error, %Bolty.Error{code: :invalid_routing, bolt: %{message: message}}} =
+               Client.Config.new(opts)
+
+      assert message =~ "must be true or false"
+    end
+  end
+
   describe "build_tls_opts/4" do
     @describetag :core
     @socket_opts [mode: :binary, packet: :raw, active: false]

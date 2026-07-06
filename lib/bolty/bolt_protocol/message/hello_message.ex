@@ -24,8 +24,13 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
   end
 
   def encode(bolt_version, fields) when is_tuple(bolt_version) and bolt_version >= {3, 0} do
-    message = [Map.merge(get_auth_params(fields), get_user_agent(bolt_version, fields))]
-    MessageEncoder.encode(@signature, message)
+    extras =
+      fields
+      |> get_auth_params()
+      |> Map.merge(get_user_agent(bolt_version, fields))
+      |> maybe_put_routing(fields)
+
+    MessageEncoder.encode(@signature, [extras])
   end
 
   def encode(_, _) do
@@ -48,5 +53,18 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
         do: Map.put(acc, policy.notifications_field, categories_value),
         else: acc
     end)
+    |> maybe_put_routing(fields)
+  end
+
+  # Opt the connection into server-side routing (SSR) by including the HELLO
+  # `routing` field. Config.new/1 resolves this to `%{"address" => "host:port"}`
+  # when on and omits it (nil) when off; its absence tells the server not to
+  # route. The atom key encodes to the wire string "routing" via the PackStream
+  # Atom packer.
+  defp maybe_put_routing(extras, fields) do
+    case Keyword.get(fields, :routing) do
+      nil -> extras
+      routing -> Map.put(extras, :routing, routing)
+    end
   end
 end
