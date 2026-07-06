@@ -40,7 +40,7 @@ defmodule Bolty.JsonImplementationsTest do
     assert alice["properties"]["name"] == "Alice"
     assert alice["properties"]["bolty"] == true
     # Duration -> ISO-8601 string
-    assert alice["properties"]["duration"] == "P1Y12MT54M65.0S"
+    assert alice["properties"]["duration"] == "P1Y12MT54M65S"
     # Point -> map
     assert alice["properties"]["geoloc"]["crs"] == "wgs-84-3d"
     assert alice["properties"]["geoloc"]["height"] == 50.0
