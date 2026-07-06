@@ -26,7 +26,7 @@ SPDX-License-Identifier: Apache-2.0
 **Do not use bolty when**:
 - You want Ash-style resources, actions, policies on top of Neo4j — use `ash_neo4j`, which sits on top of bolty.
 - You need **streaming** of large result sets (not implemented; see Feature Support).
-- You need **cluster routing** (not implemented; see Feature Support).
+- You need **full cluster routing** — topology autodiscovery, read-replica load-balancing, or automatic failover (not implemented). Server-side routing (SSR) against a single configured member *is* supported; see the Clustering guide and Feature Support.
 
 If in doubt: agents operating *inside an Ash application* should almost always be going through `ash_neo4j`. bolty is the right tool for driver-level work, tests, benchmarks, and building higher-level abstractions.
 
@@ -89,6 +89,7 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:hostname` | Host | `"localhost"` |
 | `:port` | Port | `7687` |
 | `:scheme` | One of the schemes below | `"bolt+s"` |
+| `:routing` | Enable server-side routing (SSR) — `HELLO routing` field. Boolean; overrides the scheme default (`neo4j*` → `true`, `bolt*` → `false`). A non-boolean is a `:invalid_routing` error. See the Clustering guide. | scheme-derived |
 | `:auth` | `[username: ..., password: ...]` (`:username` required) | required |
 | `:versions` | Bolt versions to negotiate. Accepts strings (`["5.4"]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`); floats (`[5.4]`) are deprecated (can't distinguish `5.10` from `5.1`) but still accepted with a warning. Range tuples are preferred — the handshake has only 4 slots and ranges cover more per slot. Omit to use `Versions.latest_versions()`. `connection_info/1` reports the negotiated `bolt_version` as a string (`"5.8"`). | `Versions.latest_versions()` |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
@@ -190,10 +191,11 @@ Everything else becomes `:unknown`, with the raw map still available in `error.b
 | Vector type pack/unpack (Bolt 6.0) | ✅ — issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
 | Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels` + wire-level dims (see §14) |
 | Streaming result sets | ❌ |
-| Cluster routing (`neo4j://` autodiscovery) | ❌ |
+| Server-side routing (SSR) against a configured cluster member | ✅ — `neo4j://` schemes / `:routing`; see the Clustering guide |
+| Full cluster routing (topology autodiscovery, read-replica load-balancing, auto-failover) | ❌ — front with DNS/L4 LB + bookmarks, or use an official driver |
 | Vector search (indexes, similarity ops) | ❌ — bolty exposes the type; search belongs to the query layer |
 
-If an agent needs routing or streaming today, that is not bolty's job — surface the gap to Matt rather than working around it silently.
+If an agent needs streaming, or cluster routing beyond SSR (autodiscovery/load-balancing/failover), that is not bolty's job — surface the gap to Matt rather than working around it silently.
 
 ## 12. Running tests
 

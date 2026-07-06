@@ -102,7 +102,13 @@ defmodule Bolty.Mixfile do
       source_ref: "v#{@version}",
       source_url: @url_github,
       main: "readme",
-      extras: ["README.md", "guides/public_api.md", "guides/telemetry.md", "CHANGELOG.md"]
+      extras: [
+        "README.md",
+        "guides/public_api.md",
+        "guides/clustering.md",
+        "guides/telemetry.md",
+        "CHANGELOG.md"
+      ]
     ]
   end
 

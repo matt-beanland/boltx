@@ -57,6 +57,7 @@ defmodule Bolty do
           | {:hostname, String.t()}
           | {:port, :inet.port_number()}
           | {:scheme, String.t()}
+          | {:routing, boolean()}
           | {:versions, list(String.t() | float())}
           | {:auth, basic_auth()}
           | {:user_agent, String.t()}
@@ -91,7 +92,17 @@ defmodule Bolty do
   * `:scheme` - Is one among neo4j, neo4j+s, neo4j+ssc, bolt, bolt+s, bolt+ssc
    (default: bolt+s). TLS is derived entirely from this: `bolt`/`neo4j` is
    plaintext, `+s` is full certificate verification against the OS trust
-   store, `+ssc` is encrypted but trust-all (self-signed certs).
+   store, `+ssc` is encrypted but trust-all (self-signed certs). The scheme
+   also sets the default for `:routing` (below).
+
+  * `:routing` - Whether to enable server-side routing (SSR) against a Neo4j
+   Enterprise causal cluster, so the server forwards each statement to the
+   right member based on the query's `:mode`/`:bookmarks` (see `query/4`).
+   Defaults to `true` for `neo4j*` schemes and `false` for `bolt*` schemes,
+   matching their meaning across the ecosystem; set it explicitly to override
+   (`routing: false` for a `neo4j://` URI used cosmetically against a single
+   instance or proxy, `routing: true` to force it on a `bolt://` scheme). See
+   the [Clustering guide](clustering.html) for prerequisites and caveats.
 
   * `:versions` - List of Bolt versions to offer during negotiation, as strings
    (`["5.4", "6.0"]`) or `{major, minor..minor}` range tuples (`[{5, 6..8}]`).
@@ -164,6 +175,19 @@ defmodule Bolty do
   ## Options
 
   * `:db` - Target database for multi-database routing (default: server default).
+
+  * `:mode` - Access mode for this query, `"w"` (write, default) or `"r"`
+      (read). Under server-side routing (a `neo4j://` connection to a cluster —
+      see `start_link/1`'s `:routing` and the [Clustering guide](clustering.html))
+      the server uses this to forward the query to a writable or a read member.
+      Without routing it is informational only.
+
+  * `:bookmarks` - A list of bookmark strings for causal consistency: the server
+      will not run this query until it has caught up to the transactions those
+      bookmarks identify. Each `Bolty.Response` carries the bookmark of the
+      transaction that produced it; thread the previous response's bookmark into
+      the next query to chain reads-after-writes. There is no session
+      abstraction, so bookmarks must be passed manually.
 
   * `:recv_timeout` - Overrides the connection's `:recv_timeout` for this query
       (see `start_link/1`). Pass `:infinity` for a query expected to run longer
@@ -247,6 +271,34 @@ defmodule Bolty do
     end
   end
 
+  @doc """
+  Runs `fun` inside a Bolt transaction, committing on return and rolling back on
+  `rollback/2` or a raised error.
+
+  `opts` are passed to `DBConnection.transaction/3`. `extra_parameters` is a map
+  applied to the opening `BEGIN` for the whole transaction:
+
+  * `:mode` - `"w"` (write, default) or `"r"` (read). Under server-side routing
+    (a `neo4j://` connection to a cluster — see `start_link/1`'s `:routing` and
+    the [Clustering guide](clustering.html)) the server routes the transaction to
+    a writable or a read member accordingly.
+
+  * `:bookmarks` - A list of bookmark strings for causal consistency; the
+    transaction will not begin until the server has caught up to the transactions
+    they identify. Read a completed transaction's bookmark from the last
+    `Bolty.Response` it produced and thread it into the next one — there is no
+    session abstraction, so this is manual.
+
+  * `:db` - Target database for the transaction (default: server default).
+
+  ## Example
+
+  ```elixir
+  Bolty.transaction(conn, fn conn ->
+    Bolty.query!(conn, "CREATE (:Person {name: $n})", %{n: "Ada"})
+  end, [], %{mode: "w"})
+  ```
+  """
   @spec transaction(conn, (DBConnection.t() -> result), [DBConnection.option()], map()) ::
           {:ok, result} | {:error, any}
         when result: var
