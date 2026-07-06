@@ -108,8 +108,8 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | URI scheme | TLS | ssl_opts merge |
 | --- | --- | --- |
 | `neo4j`, `bolt` | off | — |
-| `neo4j+s`, `bolt+s` | on | `verify: :verify_none` (full cert, but no verification) |
-| `neo4j+ssc`, `bolt+ssc` | on | `verify: :verify_peer` (self-signed allowed) |
+| `neo4j+s`, `bolt+s` | on | `verify: :verify_peer` (full cert verification against the OS trust store) |
+| `neo4j+ssc`, `bolt+ssc` | on | `verify: :verify_none` (encrypted, but self-signed / trust-all) |
 
 Default scheme when nothing is specified is `bolt+s`.
 
