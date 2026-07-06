@@ -76,7 +76,6 @@ defmodule Bolty.TestHelper do
       user_agent: "boltyTest/1",
       ssl_opts: ssl_opts(),
       pool_size: 1,
-      prefix: :default,
       scheme: "bolt"
     ]
     |> with_env_overrides()
@@ -88,8 +87,6 @@ defmodule Bolty.TestHelper do
       user_agent: "boltyTest/1",
       ssl_opts: ssl_opts(),
       pool_size: 1,
-      max_overflow: 3,
-      prefix: :default,
       scheme: "bolt"
     ]
     |> with_env_overrides()

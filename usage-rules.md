@@ -278,6 +278,7 @@ To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolv
 - `@error_map` only covers four Neo bolt errors; everything else collapses to `:unknown`. Extend when you need finer-grained handling.
 - `format_param/1` at the top level only rewrites `Point`. Temporal-with-offset structs pass through as-is; call their own `format_param/1` if you need Cypher-ready strings.
 - A missing `:username` returns `{:error, %Bolty.Error{code: :missing_username}}` from the connect path (it no longer raises). (The old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` env-var config was removed in 0.3.0 — pass explicit options.)
+- `start_link/1` options are validated against an allowlist (bolty's own `start_option()` keys plus whatever `DBConnection.available_start_options/0` reports for the installed `db_connection` version); an unrecognised key (e.g. a typo like `hostnam: "..."`, or the removed pre-P0-1 `:ssl` boolean — TLS is derived entirely from `:scheme` now) returns `{:error, %Bolty.Error{code: :invalid_option}}` instead of silently falling back to a default.
 
 ## 16. Commit format and changelog
 

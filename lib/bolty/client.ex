@@ -34,6 +34,20 @@ defmodule Bolty.Client do
     @default_timeout 15_000
     @default_port 7687
 
+    # Mirrors the `start_option()` typespec in lib/bolty.ex.
+    @bolty_option_keys ~w(
+      uri hostname port scheme versions auth user_agent
+      notifications_minimum_severity notifications_disabled_categories
+      ssl_opts connect_timeout recv_timeout socket_options
+    )a
+
+    # DBConnection.ConnectionPool.Pool prepends `pool_index: id` to every
+    # pooled connection's opts before calling `conn_mod.connect/1` — it's
+    # never something a caller passes to `start_link/1` themselves (and so
+    # isn't in `available_start_options/0`), but it *does* show up here since
+    # Config.new/1 runs inside that connect callback.
+    @dbconnection_internal_keys ~w(pool_index)a
+
     # Redact the password so a failed-connect crash report (DBConnection includes
     # state/opts) can't leak it to logs.
     @derive {Inspect, except: [:password]}
@@ -55,41 +69,102 @@ defmodule Bolty.Client do
     @doc """
     Builds a `%Config{}` from connection options.
 
-    Returns `{:ok, config}`, or `{:error, %Bolty.Error{}}` when a required field
-    (currently `:username`) is missing, or when `:versions` contains no version
-    bolty actually implements — either way the caller surfaces that cleanly
-    rather than raising (or silently misbehaving) inside DBConnection's connect
-    callback.
+    Returns `{:ok, config}`, or `{:error, %Bolty.Error{}}` when an unrecognised
+    option key is passed, when a required field (currently `:username`) is
+    missing, or when `:versions` contains no version bolty actually
+    implements — either way the caller surfaces that cleanly rather than
+    raising (or silently misbehaving) inside DBConnection's connect callback.
     """
     def new(opts) do
-      {hostname, port} = get_hostname_and_port(opts)
-      {username, password} = get_user_and_pass(opts)
-      {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
+      with :ok <- validate_options(opts) do
+        {hostname, port} = get_hostname_and_port(opts)
+        {username, password} = get_user_and_pass(opts)
+        {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
 
-      warn_if_legacy_ssl_option(opts)
-
-      with :ok <- validate_username(username),
-           {:ok, versions} <- get_versions(opts) do
-        {:ok,
-         %__MODULE__{
-           hostname: hostname,
-           port: port,
-           scheme: scheme,
-           username: username,
-           password: password,
-           connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
-           recv_timeout: Keyword.get(opts, :recv_timeout, @default_timeout),
-           socket_options:
-             Keyword.merge(
-               [mode: :binary, packet: :raw, active: false],
-               opts[:socket_options] || []
-             ),
-           versions: versions,
-           ssl?: ssl?,
-           tls_verify: tls_verify,
-           ssl_opts: ssl_opts
-         }}
+        with :ok <- validate_username(username),
+             {:ok, versions} <- get_versions(opts) do
+          {:ok,
+           %__MODULE__{
+             hostname: hostname,
+             port: port,
+             scheme: scheme,
+             username: username,
+             password: password,
+             connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
+             recv_timeout: Keyword.get(opts, :recv_timeout, @default_timeout),
+             socket_options:
+               Keyword.merge(
+                 [mode: :binary, packet: :raw, active: false],
+                 opts[:socket_options] || []
+               ),
+             versions: versions,
+             ssl?: ssl?,
+             tls_verify: tls_verify,
+             ssl_opts: ssl_opts
+           }}
+        end
       end
+    end
+
+    # Rejects any option key that is neither one of bolty's own (mirrored in
+    # @bolty_option_keys above) nor a key DBConnection itself understands.
+    # DBConnection.available_start_options/0 is queried live rather than
+    # hand-copied, so this stays in sync with whatever db_connection version
+    # is actually installed instead of drifting on a version bump (#121).
+    # Without this, a typo like `hostnam: "..."` silently falls back to the
+    # `"localhost"` default with zero signal that anything is wrong.
+    defp validate_options(opts) do
+      warn_on_conflicting_duplicates(opts)
+
+      # A plain membership check rather than `Keyword.validate/2`: that
+      # function treats each valid key as consumable only once, so a
+      # legitimately-repeated key (e.g. `[pool_size: 1] ++ TestHelper.opts()`,
+      # a common "override by prepending" idiom, where `pool_size` then
+      # appears twice) is flagged as invalid on its second occurrence.
+      valid_keys =
+        MapSet.new(
+          @bolty_option_keys ++
+            @dbconnection_internal_keys ++ DBConnection.available_start_options()
+        )
+
+      invalid_keys =
+        opts |> Keyword.keys() |> Enum.uniq() |> Enum.reject(&MapSet.member?(valid_keys, &1))
+
+      case invalid_keys do
+        [] ->
+          :ok
+
+        invalid_keys ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :invalid_option,
+             message:
+               "unrecognised option(s) #{inspect(invalid_keys)} — check for a typo; see " <>
+                 "Bolty.start_option() for the supported keys"
+           })}
+      end
+    end
+
+    # A key repeated with the *same* value every time (e.g. the deliberate
+    # `[pool_size: 1] ++ base_opts` override idiom, when base_opts already
+    # carries that same value) is inert and stays silent — `Keyword.get/3`
+    # takes the first occurrence either way. A key repeated with *different*
+    # values is ambiguous enough to be worth a warning: it's as likely to be a
+    # copy-paste mistake as a deliberate override, and either way the caller
+    # should know only the first value is actually used.
+    defp warn_on_conflicting_duplicates(opts) do
+      opts
+      |> Enum.group_by(fn {key, _value} -> key end, fn {_key, value} -> value end)
+      |> Enum.each(fn {key, values} ->
+        if values |> Enum.uniq() |> length() > 1 do
+          require Logger
+
+          Logger.warning(
+            "bolty: option :#{key} was passed multiple times with different values " <>
+              "#{inspect(values)} — the first occurrence wins; remove the duplicate if unintended"
+          )
+        end
+      end)
     end
 
     defp validate_username(nil) do
@@ -101,25 +176,6 @@ defmodule Bolty.Client do
     end
 
     defp validate_username(_username), do: :ok
-
-    # :ssl (a boolean) was the pre-P0-1 TLS toggle; TLS intent is now derived
-    # entirely from :scheme, and nothing reads :ssl anymore. Any other
-    # unrecognised option is silently ignored (see #107 discussion — general
-    # unknown-option validation is a separate, bigger concern), but :ssl gets
-    # a targeted warning since it's the one option we know used to work and
-    # whose silent removal could leave a caller believing TLS is configured
-    # when it is not.
-    defp warn_if_legacy_ssl_option(opts) do
-      if Keyword.has_key?(opts, :ssl) do
-        require Logger
-
-        Logger.warning(
-          "bolty: :ssl is no longer a supported option and is ignored — TLS is derived " <>
-            "entirely from :scheme (bolt/neo4j = plaintext, +s = verified TLS, +ssc = " <>
-            "self-signed TLS); remove :ssl from your connection options."
-        )
-      end
-    end
 
     # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
     # the strict defaults (incl. SNI, which needs the hostname) are built at
