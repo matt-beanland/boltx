@@ -272,6 +272,53 @@ defmodule Bolty do
   end
 
   @doc """
+  Lazily streams a query's result in batches, with server-side backpressure.
+
+  Returns a `DBConnection` stream that pulls records from the server in batches
+  as it is enumerated, rather than materialising the whole result up front like
+  `query/4`. Each element is a `%Bolty.Response{}` for one batch — its `results`
+  and `records` are that batch's records; the summary metadata (`stats`,
+  `bookmark`, …) lands on the final batch. Enumerating only part of the stream
+  fetches only the batches consumed; the rest is discarded server-side.
+
+  **Must be called inside a `transaction/4`** — streaming pages against the
+  statement's server-assigned query id, which only exists within an explicit
+  transaction. Enumerate the stream within the same transaction callback.
+
+  ## Options
+
+  * `:fetch_size` - Records to pull per batch (the Bolt `PULL n`). Default
+      `1000`. Smaller batches mean more round-trips but lower peak memory.
+
+  * `:mode`, `:bookmarks`, `:db` - As documented on `query/4`, applied to the
+      streamed statement's `RUN`.
+
+  ## Example
+
+  ```elixir
+  Bolty.transaction(conn, fn conn ->
+    conn
+    |> Bolty.stream("MATCH (n:Person) RETURN n", %{}, fetch_size: 500)
+    |> Stream.flat_map(& &1.results)
+    |> Enum.each(&process/1)
+  end)
+  ```
+  """
+  @spec stream(DBConnection.t(), String.t(), map(), keyword()) :: DBConnection.PrepareStream.t()
+  def stream(conn, statement, params \\ %{}, opts \\ []) do
+    formatted_params = Map.new(params)
+
+    extra =
+      opts
+      |> Keyword.take([:bookmarks, :mode, :db, :tx_metadata])
+      |> Enum.into(%{})
+
+    query = %Bolty.Query{statement: statement, extra: extra}
+
+    DBConnection.stream(conn, query, formatted_params, opts)
+  end
+
+  @doc """
   Runs `fun` inside a Bolt transaction, committing on return and rolling back on
   `rollback/2` or a raised error.
 
