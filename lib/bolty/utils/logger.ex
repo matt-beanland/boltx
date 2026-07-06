@@ -55,6 +55,25 @@ defmodule Bolty.Utils.Logger do
     end
   end
 
+  @doc """
+  Logs the hex of an outgoing client message.
+
+  Unlike the raw hex path, this takes the source message `body` alongside the
+  packed `encoded` bytes: when the body carries secret fields (e.g. a LOGON
+  `credentials`), the raw bytes would contain them in plaintext, so the dump is
+  suppressed and only a marker is logged. Field-level redaction isn't possible
+  once serialized, so suppression is the safe choice.
+  """
+  def log_client_message_hex(encoded, body) do
+    if Application.get_env(:bolty, :log_hex, false) do
+      if sensitive?(body) do
+        do_log_message(:client, fn -> "MESSAGE_TYPE ~ [hex suppressed: contains credentials]" end)
+      else
+        log_message(:client, :message_type, encoded, :hex)
+      end
+    end
+  end
+
   # Recursively replaces the value of any `@redacted_keys` field with a
   # placeholder so secrets never reach the log. Structs are left intact (they
   # don't carry auth secrets, and preserving them keeps logged query params
@@ -71,6 +90,21 @@ defmodule Bolty.Utils.Logger do
   end
 
   defp redact(data), do: data
+
+  # Whether `data` carries any `@redacted_keys` field. Walks the same shapes as
+  # `redact/1` (plain maps and lists, skipping structs).
+  defp sensitive?(data) when is_list(data), do: Enum.any?(data, &sensitive?/1)
+
+  defp sensitive?(%_{}), do: false
+
+  defp sensitive?(%{} = map) do
+    Enum.any?(map, fn
+      {key, _value} when key in @redacted_keys -> true
+      {_key, value} -> sensitive?(value)
+    end)
+  end
+
+  defp sensitive?(_data), do: false
 
   defp do_log_message(from, func) when is_function(func) do
     from_txt =

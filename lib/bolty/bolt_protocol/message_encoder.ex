@@ -21,7 +21,7 @@ defmodule Bolty.BoltProtocol.MessageEncoder do
       |> do_encode(data, policy)
       |> generate_chunks([])
 
-    Bolty.Utils.Logger.log_message(:client, :message_type, encoded, :hex)
+    Bolty.Utils.Logger.log_client_message_hex(encoded, data)
     encoded |> IO.iodata_to_binary()
   end
 
