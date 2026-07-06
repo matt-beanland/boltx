@@ -261,32 +261,10 @@ defmodule Bolty.ConnectionTest do
     end
   end
 
-  describe "Connection.handle_deallocate/4" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:ok, "", conn_data} == Connection.handle_deallocate("", "", %{}, conn_data)
-    end
-  end
-
-  describe "Connection.handle_declare/3" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:ok, "", conn_data, nil} == Connection.handle_declare("", "", %{}, conn_data)
-    end
-  end
-
-  describe "Connection.handle_fetch/3" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:cont, "", conn_data} == Connection.handle_fetch("", "", %{}, conn_data)
-    end
-  end
+  # handle_declare/4, handle_fetch/4 and handle_deallocate/4 are exercised
+  # end-to-end against a live server in test/streaming_test.exs (they now run
+  # RUN/PULL/DISCARD over a real cursor lifecycle rather than the old no-op
+  # stubs, so an isolated unit assertion on their return shape isn't meaningful).
 
   describe "Connection.handle_status/2" do
     @tag :core

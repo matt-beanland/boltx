@@ -18,8 +18,15 @@ defmodule Bolty.Connection do
     :hints,
     :connection_id,
     :policy,
-    in_transaction: false
+    in_transaction: false,
+    # qids of declared stream cursors that still have records pending
+    # server-side. handle_fetch removes a qid once its result is drained
+    # (has_more false); handle_deallocate DISCARDs only what remains here, so a
+    # fully-consumed stream isn't DISCARDed against an already-closed qid.
+    open_cursors: %{}
   ]
+
+  @default_fetch_size 1000
 
   @impl true
   def connect(opts) do
@@ -154,12 +161,101 @@ defmodule Bolty.Connection do
   def handle_prepare(query, _opts, state), do: {:ok, query, state}
   @impl true
   def handle_close(query, _opts, state), do: {:ok, query, state}
+  # Declare a server-side cursor for lazy streaming (DBConnection.stream/4, via
+  # Bolty.stream/3). Sends RUN only — no PULL — capturing the `qid` and `fields`
+  # from the RUN SUCCESS. Must run inside a transaction (DBConnection.stream
+  # enforces this); the explicit transaction is what makes the server assign a
+  # qid, which subsequent PULL/DISCARD page against.
   @impl true
-  def handle_deallocate(query, _cursor, _opts, state), do: {:ok, query, state}
+  def handle_declare(
+        %Bolty.Query{statement: statement, extra: extra} = query,
+        params,
+        opts,
+        state
+      ) do
+    %__MODULE__{client: client} = state
+    fetch_size = Keyword.get(opts, :fetch_size, @default_fetch_size)
+
+    case Client.send_run(client, statement, params, extra) do
+      {:ok, run_success} ->
+        qid = Map.get(run_success, "qid", -1)
+        cursor = %{qid: qid, fields: Map.get(run_success, "fields", []), fetch_size: fetch_size}
+
+        stream_telemetry(:start, %{system_time: System.system_time()}, %{
+          db_statement: statement,
+          db_instance: Map.get(extra, :db),
+          fetch_size: fetch_size
+        })
+
+        # Track the cursor for the stream's lifetime: `start_time` for the :stop
+        # duration, `discardable` for whether records remain to DISCARD at
+        # deallocate. Both live until handle_deallocate (always called).
+        entry = %{start_time: System.monotonic_time(), discardable: true}
+        {:ok, query, cursor, %{state | open_cursors: Map.put(state.open_cursors, qid, entry)}}
+
+      {:error, error} ->
+        declare_or_fetch_failure(client, error, state)
+    end
+  end
+
+  # Fetch the next batch: PULL {n: fetch_size, qid}. Each batch is surfaced as a
+  # `%Bolty.Response{}` (its `results`/`records` are that batch; summary/stats/
+  # bookmark land on the final batch's SUCCESS). `has_more` decides whether the
+  # cursor continues (`:cont`) or is exhausted (`:halt`).
   @impl true
-  def handle_declare(query, _params, _opts, state), do: {:ok, query, state, nil}
+  def handle_fetch(_query, %{qid: qid, fields: fields, fetch_size: fetch_size}, _opts, state) do
+    %__MODULE__{client: client} = state
+
+    case Client.send_pull(client, %{n: fetch_size, qid: qid}) do
+      {:ok, pull_result(records: records, success_data: success_data) = result_pull} ->
+        response =
+          Response.new(
+            statement_result(result_run: %{"fields" => fields}, result_pull: result_pull)
+          )
+
+        has_more = Map.get(success_data, "has_more", false)
+        stream_telemetry(:fetch, %{records: length(records)}, %{has_more: has_more})
+
+        if has_more do
+          {:cont, response, state}
+        else
+          # Drained: no records remain server-side, so mark the cursor
+          # non-discardable (keep the entry so handle_deallocate still emits :stop).
+          {:halt, response, mark_undiscardable(state, qid)}
+        end
+
+      {:error, error} ->
+        # After a FAILURE the recovery RESET clears the server-side cursor, so
+        # mark it non-discardable; handle_deallocate must not DISCARD it.
+        declare_or_fetch_failure(client, error, mark_undiscardable(state, qid))
+    end
+  end
+
+  # Release a cursor. Only DISCARD one still holding records server-side (early
+  # termination); a fully-drained cursor's qid is already closed, so DISCARDing
+  # it would error. Always drop it from the tracking map.
   @impl true
-  def handle_fetch(query, _cursor, _opts, state), do: {:cont, query, state}
+  def handle_deallocate(query, %{qid: qid}, _opts, state) do
+    entry = Map.get(state.open_cursors, qid)
+    closed_state = %{state | open_cursors: Map.delete(state.open_cursors, qid)}
+
+    if entry do
+      stream_telemetry(:stop, %{duration: System.monotonic_time() - entry.start_time}, %{})
+    end
+
+    # DISCARD only a cursor still holding records server-side (early
+    # termination). A drained or RESET-cleared cursor's qid is already closed,
+    # so DISCARDing it would error.
+    if entry && entry.discardable do
+      case Client.send_discard(state.client, %{n: -1, qid: qid}) do
+        {:ok, _} -> {:ok, query, closed_state}
+        {:error, error} -> {:disconnect, error, closed_state}
+      end
+    else
+      {:ok, query, closed_state}
+    end
+  end
+
   @impl true
   def handle_status(_opts, %__MODULE__{in_transaction: true} = state), do: {:transaction, state}
   def handle_status(_opts, state), do: {:idle, state}
@@ -236,6 +332,49 @@ defmodule Bolty.Connection do
     end
   rescue
     _ -> {:disconnect, error, state}
+  end
+
+  # Shared error handling for the streaming RUN (handle_declare) and PULL
+  # (handle_fetch). A recv timeout leaves the socket desynced, so tear the
+  # connection down; any other FAILURE follows the same RESET-recovery as the
+  # eager path (see execute/4) so a bad streamed query doesn't poison the pooled
+  # connection. Both return shapes ({:error, _, _} / {:disconnect, _, _}) are
+  # valid for the declare and fetch callbacks.
+  defp declare_or_fetch_failure(_client, %Bolty.Error{code: :timeout} = error, state) do
+    {:disconnect, error, state}
+  end
+
+  defp declare_or_fetch_failure(client, %Bolty.Error{} = error, state) do
+    recover_from_failure(client, error, state)
+  end
+
+  defp declare_or_fetch_failure(_client, error, state) do
+    {:disconnect, error, state}
+  end
+
+  # Marks a stream cursor as having no records left to DISCARD (drained or
+  # RESET-cleared), keeping its tracking entry so handle_deallocate still emits
+  # the :stop event. A no-op if the qid isn't tracked.
+  defp mark_undiscardable(state, qid) do
+    case Map.get(state.open_cursors, qid) do
+      nil ->
+        state
+
+      entry ->
+        %{state | open_cursors: Map.put(state.open_cursors, qid, %{entry | discardable: false})}
+    end
+  end
+
+  # Emits a `[:bolty, :stream, event]` telemetry event for lazy streaming
+  # (Bolty.stream/3): `:start` at declare, `:fetch` per PULL batch (records +
+  # has_more), `:stop` at deallocate (total wall-clock duration). See
+  # `guides/telemetry.md`.
+  defp stream_telemetry(event, measurements, metadata) do
+    :telemetry.execute(
+      [:bolty, :stream, event],
+      measurements,
+      Map.put(metadata, :db_system, "neo4j")
+    )
   end
 
   defp result(
