@@ -14,17 +14,17 @@ path = [
     ".tool-versions",
 ]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2024 bolty contributors"
+SPDX-FileCopyrightText = "2025 bolty contributors"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = "mix.lock"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2024 bolty contributors"
+SPDX-FileCopyrightText = "2025 bolty contributors"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = "NOTICE"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2024 bolty contributors"
+SPDX-FileCopyrightText = "2025 bolty contributors"
 SPDX-License-Identifier = "Apache-2.0"
