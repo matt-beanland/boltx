@@ -163,6 +163,28 @@ Any `:ssl_opts` you pass are merged **over** these defaults, so you can override
 verification (e.g. `ssl_opts: [verify: :verify_none]` for local development) or
 point at a private CA (`ssl_opts: [cacertfile: "..."]`).
 
+```elixir
+# Default TLS: bolt+s / neo4j+s verify the server cert against the OS trust
+# store — works out of the box for Neo4j Aura and other public CAs.
+{:ok, conn} =
+  Bolty.start_link(
+    scheme: "neo4j+s",
+    hostname: "xxxx.databases.neo4j.io",
+    auth: [username: "neo4j", password: System.fetch_env!("NEO4J_PASSWORD")]
+  )
+
+# Self-signed / internal certificate: use +ssc (encrypted, no verification).
+Bolty.start_link(scheme: "bolt+ssc", hostname: "neo4j.internal", auth: [username: "neo4j", password: "..."])
+
+# Verify against your own private CA instead of the OS trust store.
+Bolty.start_link(
+  scheme: "bolt+s",
+  hostname: "neo4j.internal",
+  ssl_opts: [cacertfile: "/etc/ssl/my-ca.pem"],
+  auth: [username: "neo4j", password: "..."]
+)
+```
+
 > **Changed in 0.3.0:** `+s`/`+ssc` verification was previously inverted, and
 > `+s` did no server authentication. `+s` now verifies by default, and explicit
 > `:ssl_opts` are no longer silently overridden. Pin `0.2.1` if you depend on the

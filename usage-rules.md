@@ -112,7 +112,7 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `neo4j+s`, `bolt+s` | on | `verify: :verify_peer` (full cert verification against the OS trust store) |
 | `neo4j+ssc`, `bolt+ssc` | on | `verify: :verify_none` (encrypted, but self-signed / trust-all) |
 
-Default scheme when nothing is specified is `bolt+s`.
+Default scheme when nothing is specified is `bolt+s`. Examples: public-CA/Aura → `Bolty.start_link(scheme: "neo4j+s", hostname: "xxxx.databases.neo4j.io", auth: [...])`; self-signed → `scheme: "bolt+ssc"`; private CA → `scheme: "bolt+s", ssl_opts: [cacertfile: "/etc/ssl/my-ca.pem"]`. User `:ssl_opts` merge over the scheme defaults.
 
 ## 6. Value mapping — Elixir ↔ Bolt/Neo4j
 
