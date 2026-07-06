@@ -3,7 +3,7 @@
 
 defmodule Bolty.ResponseEncoderTest do
   use ExUnit.Case, async: true
-  @moduletag :legacy
+  @moduletag :core
 
   doctest Bolty.ResponseEncoder
 end

@@ -163,7 +163,7 @@ end, [], %{db: "mydb", mode: "w", tx_metadata: %{caller: "agent-me"}})
 `Bolty.ResponseEncoder.encode(data, :json)` turns anything containing `Bolty.Types.*` into a JSON string. Two-step and overridable:
 
 1. Type → jsonable (protocol: `Bolty.ResponseEncoder.Json`) — implement your own `defimpl` for custom handling.
-2. Jsonable → string — choose `Bolty.ResponseEncoder.Json.Jason` (default) or `Bolty.ResponseEncoder.Json.Poison`; both optional deps declared in `mix.exs`.
+2. Jsonable → string — Elixir's built-in `JSON` (no external dep). bolty also ships `JSON.Encoder` implementations for `Bolty.Types.*`, so a result can be handed straight to `JSON.encode!/1`. (Requires Elixir 1.18+; `jason`/`poison` support was dropped in 0.3.0.)
 
 ## 10. Errors
 
@@ -217,10 +217,10 @@ Use `mix test.matrix` to run the full version matrix. Requires Docker and docker
 
 ## 13. Development loop
 
-- Elixir `~> 1.17` (the `Duration` type is 1.17+). `.tool-versions` pins the expected runtime.
+- Elixir `~> 1.18` (the built-in `JSON` module used for result encoding is 1.18+). `.tool-versions` pins the expected runtime.
 - `mix format` — `.formatter.exs` configured.
 - `mix credo` — `.credo.exs` tuned; keep warnings at 0.
-- `mix dialyzer` — PLT adds `:jason`, `:poison`, `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
+- `mix dialyzer` — PLT adds `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
 - `mix docs` — ex_doc; README.md is the main page.
 - `mix test --cover` / `mix coveralls` — 70% threshold gate.
 - `mix test.matrix` — runs the full test suite once per supported Bolt version against a local Neo4j instance and prints a pass/fail summary. Respects `BOLT_TCP_PORT` (default 7687).

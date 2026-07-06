@@ -12,7 +12,7 @@ defmodule Bolty.Mixfile do
     [
       app: :bolty,
       version: @version,
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       package: package(),
@@ -21,7 +21,7 @@ defmodule Bolty.Mixfile do
       start_permanent: Mix.env() == :prod,
       docs: docs(),
       dialyzer: [
-        plt_add_apps: [:jason, :poison, :mix],
+        plt_add_apps: [:mix],
         plt_local_path: "priv/plts",
         plt_core_path: "priv/plts",
         ignore_warnings: ".dialyzer_ignore.exs"
@@ -117,8 +117,6 @@ defmodule Bolty.Mixfile do
     [
       {:db_connection, "~> 2.7"},
       {:telemetry, "~> 1.0"},
-      {:jason, "~> 1.4", optional: true},
-      {:poison, "~> 6.0", optional: true},
 
       # Testing dependencies
       {:excoveralls, "~> 0.18.0", optional: true, only: [:test, :dev]},
