@@ -95,10 +95,46 @@ defmodule Bolty.TestHelper do
   # The driver no longer reads BOLT_VERSIONS / BOLT_TCP_PORT (removed in 0.3.0);
   # the test matrix (mix test.matrix / CI) still uses them to pick the Bolt
   # version and server port, so bridge them into explicit :versions / :port opts.
+  #
+  # NEO4J_HOST / NEO4J_SCHEME / NEO4J_PASSWORD additionally let the suite target a
+  # non-local server — e.g. point it at a Neo4j Aura instance to validate the
+  # driver against a real routed cluster over TLS:
+  #
+  #   NEO4J_HOST=xxxx.databases.neo4j.io NEO4J_SCHEME=neo4j+s \
+  #     NEO4J_PASSWORD=... BOLT_TCP_PORT=7687 mix test
   defp with_env_overrides(opts) do
     opts
     |> maybe_put_env_port()
     |> maybe_put_env_versions()
+    |> maybe_put_env_host()
+    |> maybe_put_env_scheme()
+    |> maybe_put_env_password()
+  end
+
+  defp maybe_put_env_host(opts) do
+    case System.get_env("NEO4J_HOST", "") do
+      "" -> opts
+      host -> Keyword.put(opts, :hostname, host)
+    end
+  end
+
+  defp maybe_put_env_scheme(opts) do
+    case System.get_env("NEO4J_SCHEME", "") do
+      "" -> opts
+      scheme -> Keyword.put(opts, :scheme, scheme)
+    end
+  end
+
+  defp maybe_put_env_password(opts) do
+    case System.get_env("NEO4J_PASSWORD", "") do
+      "" ->
+        opts
+
+      pw ->
+        if Keyword.has_key?(opts, :auth),
+          do: Keyword.update!(opts, :auth, &Keyword.put(&1, :password, pw)),
+          else: opts
+    end
   end
 
   defp maybe_put_env_port(opts) do
