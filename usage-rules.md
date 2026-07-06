@@ -25,7 +25,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Do not use bolty when**:
 - You want Ash-style resources, actions, policies on top of Neo4j — use `ash_neo4j`, which sits on top of bolty.
-- You need **streaming** of large result sets (not implemented; see Feature Support).
+- (Streaming of large result sets *is* supported now — see `Bolty.stream/4` and Feature Support — so this is no longer a reason to reach past bolty.)
 - You need **full cluster routing** — topology autodiscovery, read-replica load-balancing, or automatic failover (not implemented). Server-side routing (SSR) against a single configured member *is* supported; see the Clustering guide and Feature Support.
 
 If in doubt: agents operating *inside an Ash application* should almost always be going through `ash_neo4j`. bolty is the right tool for driver-level work, tests, benchmarks, and building higher-level abstractions.
@@ -71,6 +71,7 @@ Supervisor.start_link(children, strategy: :one_for_one)
 | `Bolty.query(conn, cypher, params \\ %{}, opts \\ [])` | Run one query | Returns `{:ok, %Bolty.Response{}} \| {:error, %Bolty.Error{}}`. |
 | `Bolty.query!/4` | Raising variant | Raises `Bolty.Error` on failure. |
 | `Bolty.query_many/4`, `query_many!/4` | Run a batch of statements | Returns list of responses. |
+| `Bolty.stream(conn, cypher, params \\ %{}, opts \\ [])` | Lazily stream a large result in batches | Returns a `DBConnection` stream of `%Bolty.Response{}` (one per batch). **Must be enumerated inside a `transaction/4`**. `:fetch_size` opt (default 1000). A mid-stream failure **raises** `%Bolty.Error{}` (streams have no error-tuple channel). |
 | `Bolty.transaction(conn, fun, opts \\ [], extra \\ %{})` | Transaction | `extra` is threaded into the BEGIN message (see §7). |
 | `Bolty.rollback(conn, reason)` | Explicit rollback | Delegates to `DBConnection.rollback/2`. |
 | `Bolty.Response.first/1` | Grab the first result row | Returns a map `%{field => value}` or `nil`. |
@@ -190,12 +191,12 @@ Everything else becomes `:unknown`, with the raw map still available in `error.b
 | Notifications opt-out (Bolt 5.2+) | ✅ |
 | Vector type pack/unpack (Bolt 6.0) | ✅ — issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
 | Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels` + wire-level dims (see §14) |
-| Streaming result sets | ❌ |
+| Streaming result sets (lazy, server-side backpressure) | ✅ — `Bolty.stream/4` inside a transaction; `:fetch_size` batches, `[:bolty, :stream, *]` telemetry |
 | Server-side routing (SSR) against a configured cluster member | ✅ — `neo4j://` schemes / `:routing`; see the Clustering guide |
 | Full cluster routing (topology autodiscovery, read-replica load-balancing, auto-failover) | ❌ — front with DNS/L4 LB + bookmarks, or use an official driver |
 | Vector search (indexes, similarity ops) | ❌ — bolty exposes the type; search belongs to the query layer |
 
-If an agent needs streaming, or cluster routing beyond SSR (autodiscovery/load-balancing/failover), that is not bolty's job — surface the gap to Matt rather than working around it silently.
+If an agent needs cluster routing beyond SSR (autodiscovery/load-balancing/failover), that is not bolty's job — surface the gap to Matt rather than working around it silently.
 
 ## 12. Running tests
 
@@ -248,7 +249,7 @@ Init dispatch in `Bolty.Connection.do_init/3`:
 - Bolt 5.0 → `HELLO`.
 - Bolt ≥ 5.1 → `HELLO` then `LOGON` (auth split out of HELLO).
 
-`handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`, `handle_close`, `handle_declare`, `handle_fetch`, `handle_deallocate` are all trivial; `handle_status` is hardcoded to `:idle`. Revisit if true streaming lands.
+`handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`/`handle_close` are trivial and `handle_status` is hardcoded to `:idle`, but `handle_declare`/`handle_fetch`/`handle_deallocate` now implement real server-side cursor streaming (RUN → PULL `{n, qid}` → DISCARD) behind `Bolty.stream/4`.
 
 Fork posture: drift from boltx is minimised on purpose. When applying fixes, prefer surgical patches over refactors so upstream back-ports remain feasible.
 

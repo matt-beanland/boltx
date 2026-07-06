@@ -26,8 +26,8 @@ Documentation: [https://hexdocs.pm/bolty](https://hexdocs.pm/bolty)
 | --------------------- | ------------ |
 | Queries               | YES          |
 | Transactions          | YES          |
-| Stream capabilities   | NO           |
-| Routing               | NO           |
+| Streaming             | YES — `Bolty.stream/4` (lazy, server-side backpressure) |
+| Routing               | Partial — server-side routing (SSR) for `neo4j://` schemes; no autodiscovery/failover |
 
 ## Usage
 
@@ -69,6 +69,15 @@ iex> Bolty.query!(conn, "return 1 as n") |> Bolty.Response.first()
 # Commit is performed automatically if everything went fine
 Bolty.transaction(conn, fn conn ->
   result = Bolty.query!(conn, "CREATE (m:Movie {title: 'Matrix'}) RETURN m")
+end)
+
+# Lazily stream a large result in batches (server-side backpressure).
+# Must be enumerated inside a transaction; :fetch_size sets the batch size.
+Bolty.transaction(conn, fn conn ->
+  conn
+  |> Bolty.stream("MATCH (n) RETURN n", %{}, fetch_size: 500)
+  |> Stream.flat_map(& &1.results)
+  |> Enum.each(&IO.inspect/1)
 end)
 
 ```
@@ -267,7 +276,8 @@ Supported element types:
 ## Telemetry
 
 Bolty emits [`:telemetry`](https://hexdocs.pm/telemetry) events for the query
-(`[:bolty, :query, :start | :stop | :exception]`) and connection
+(`[:bolty, :query, :start | :stop | :exception]`), streaming
+(`[:bolty, :stream, :start | :fetch | :stop]`), and connection
 (`[:bolty, :connect | :disconnect]`) lifecycle, so you can attach query latency,
 pool health, and error-rate metrics without wrapping every call site. See the
 [Telemetry guide](guides/telemetry.md) for the full event/measurement/metadata

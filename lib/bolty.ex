@@ -285,6 +285,12 @@ defmodule Bolty do
   statement's server-assigned query id, which only exists within an explicit
   transaction. Enumerate the stream within the same transaction callback.
 
+  Unlike `query/4`, a failure mid-stream is surfaced by **raising** a
+  `Bolty.Error` while the stream is being enumerated (the `Enumerable` protocol
+  has no error-tuple channel), rather than returning `{:error, _}`. The error
+  value is the same `%Bolty.Error{}`; the connection is RESET-recovered and
+  returns clean to the pool, and the enclosing transaction rolls back.
+
   ## Options
 
   * `:fetch_size` - Records to pull per batch (the Bolt `PULL n`). Default
@@ -304,7 +310,7 @@ defmodule Bolty do
   end)
   ```
   """
-  @spec stream(DBConnection.t(), String.t(), map(), keyword()) :: DBConnection.PrepareStream.t()
+  @spec stream(DBConnection.t(), String.t(), map(), keyword()) :: DBConnection.Stream.t()
   def stream(conn, statement, params \\ %{}, opts \\ []) do
     formatted_params = Map.new(params)
 

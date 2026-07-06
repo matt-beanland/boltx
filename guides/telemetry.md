@@ -17,6 +17,7 @@ Attach a handler at application start:
   [
     [:bolty, :query, :stop],
     [:bolty, :query, :exception],
+    [:bolty, :stream, :stop],
     [:bolty, :connect],
     [:bolty, :disconnect]
   ],
@@ -54,6 +55,26 @@ Metadata keys:
   `%DBConnection.ConnectionError{}`) returned to the caller.
 
 Query **parameters are not included** in metadata — they routinely carry secrets.
+
+## Streaming events
+
+`Bolty.stream/3` is lazy and consumer-paced, so it does **not** use the eager
+`[:bolty, :query]` span (which would close before any records are pulled).
+Instead it emits three discrete events over the cursor's lifetime:
+
+| Event | Measurements | Metadata |
+| --- | --- | --- |
+| `[:bolty, :stream, :start]` | `:system_time` | `:db_system`, `:db_statement`, `:db_instance`, `:fetch_size` |
+| `[:bolty, :stream, :fetch]` | `:records` | `:db_system`, `:has_more` |
+| `[:bolty, :stream, :stop]` | `:duration` | `:db_system` |
+
+- `:start` fires once when the stream's `RUN` is declared; `:fetch` fires once
+  per batch (`PULL`) with `:records` (the batch size) and `:has_more` (whether
+  more batches follow); `:stop` fires once when the cursor is released, with the
+  total wall-clock `:duration` of the stream.
+- Sum `:fetch` `:records` for the total streamed; pair `:start`/`:stop` for
+  timing. As with query events, the Cypher statement is included but
+  **parameters are not**.
 
 ## Connection events
 
