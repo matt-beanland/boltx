@@ -81,6 +81,30 @@ defmodule Bolty.TypesHelperTest do
       assert {:ok, "PT12.545876S"} = TypesHelper.format_duration(duration)
     end
 
+    test "renders whole seconds without a fractional part (matches Neo4j toString)" do
+      duration = %Duration{minute: 54, second: 65, microsecond: {0, 6}}
+      assert {:ok, "PT54M65S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "renders a negative duration" do
+      duration = %Duration{second: -30, microsecond: {0, 6}}
+      assert {:ok, "PT-30S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "renders an all-zero duration as PT0S" do
+      assert {:ok, "PT0S"} = TypesHelper.format_duration(%Duration{})
+    end
+
+    test "renders a fractional second with no trailing zeros" do
+      duration = %Duration{second: 5, microsecond: {500_000, 6}}
+      assert {:ok, "PT5.5S"} = TypesHelper.format_duration(duration)
+    end
+
+    test "omits the seconds field when only larger time components are set" do
+      duration = %Duration{hour: 2, minute: 30, microsecond: {0, 6}}
+      assert {:ok, "PT2H30M"} = TypesHelper.format_duration(duration)
+    end
+
     test "format_param/1 fails for invalid data" do
       duration = %Duration{
         day: 53.45,
