@@ -65,12 +65,15 @@ defmodule Bolty.Utils.Logger do
   once serialized, so suppression is the safe choice.
   """
   def log_client_message_hex(encoded, body) do
-    if Application.get_env(:bolty, :log_hex, false) do
-      if sensitive?(body) do
+    cond do
+      not Application.get_env(:bolty, :log_hex, false) ->
+        :ok
+
+      sensitive?(body) ->
         do_log_message(:client, fn -> "MESSAGE_TYPE ~ [hex suppressed: contains credentials]" end)
-      else
+
+      true ->
         log_message(:client, :message_type, encoded, :hex)
-      end
     end
   end
 
