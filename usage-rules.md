@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2024 bolty contributors
+SPDX-FileCopyrightText: 2025 bolty contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -352,13 +352,13 @@ bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. T
 - **Licence**: Apache-2.0 throughout. bolty derives from `boltx` (Luis Sagastume) which derives from `bolt_sips` (Florin Patrascu), both Apache-2.0. Upstream attribution lives in `NOTICE`; per-file headers carry the collective `bolty contributors` claim on our own modifications. Relicensing away from Apache-2.0 is not on the table — we don't own the upstream code and the patent grant is load-bearing for a protocol driver.
 - **Per-file header template** (hash-comment languages — Elixir, YAML, shell, etc.):
   ```
-  # SPDX-FileCopyrightText: 2024 bolty contributors
+  # SPDX-FileCopyrightText: 2025 bolty contributors
   # SPDX-License-Identifier: Apache-2.0
   ```
   For Markdown use HTML-comment form so GitHub renders it as nothing:
   ```html
   <!--
-  SPDX-FileCopyrightText: 2024 bolty contributors
+  SPDX-FileCopyrightText: 2025 bolty contributors
   SPDX-License-Identifier: Apache-2.0
   -->
   ```
