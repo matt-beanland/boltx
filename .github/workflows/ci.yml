@@ -53,9 +53,11 @@ jobs:
         run: mix test
 
   floor:
-    # Exercise the advertised Elixir floor (mix.exs `elixir: "~> 1.17"`) so the
-    # package can't claim a version it won't compile on — e.g. Duration is 1.17+.
-    name: Compile on the Elixir floor (1.17)
+    # Exercise the advertised Elixir floor (mix.exs `elixir: "~> 1.18"`) so the
+    # package can't claim a version it won't compile on — e.g. the built-in
+    # `JSON` module (used for result encoding) is 1.18+. OTP 27 provides the
+    # native `:json` that backs it.
+    name: Compile on the Elixir floor (1.18)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,7 +66,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: '27.2'
-          elixir-version: '1.17.3'
+          elixir-version: '1.18.4'
 
       - run: mix deps.get
       - name: Compile on the floor

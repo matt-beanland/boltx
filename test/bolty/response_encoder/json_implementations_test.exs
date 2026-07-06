@@ -4,7 +4,7 @@
 defmodule Bolty.JsonImplementationsTest do
   use ExUnit.Case, async: true
 
-  @moduletag :legacy
+  @moduletag :core
 
   alias Bolty.Types.{
     DateTimeWithTZOffset,
@@ -16,16 +16,47 @@ defmodule Bolty.JsonImplementationsTest do
     Path
   }
 
+  alias Bolty.ResponseEncoder
+
   defmodule TestStruct do
     defstruct [:id, :name]
   end
 
-  test "Jason implementation OK" do
-    assert result(:jason) == Jason.encode!(fixture())
+  test "JSON.encode!/1 on a Bolty struct matches ResponseEncoder.encode!/2" do
+    # Both paths run the same `Bolty.ResponseEncoder.Json` jsonable conversion —
+    # the JSON.Encoder impl (direct `JSON.encode!(struct)`) and the wrapper
+    # (`ResponseEncoder.encode!/2`) — so they must produce identical output.
+    assert JSON.encode!(fixture()) == ResponseEncoder.encode!(fixture(), :json)
   end
 
-  test "Poison implementation OK" do
-    assert result(:poison) == Poison.encode!(fixture())
+  test "a Bolty struct encodes to JSON that decodes back to the expected structure" do
+    decoded = JSON.decode!(JSON.encode!(fixture()))
+
+    assert %{"nodes" => [alice, bob], "relationships" => [knows, likes], "sequence" => [1, 1]} =
+             decoded
+
+    # Bolt types normalised to jsonable values:
+    assert alice["id"] == 56
+    assert alice["properties"]["name"] == "Alice"
+    assert alice["properties"]["bolty"] == true
+    # Duration -> ISO-8601 string
+    assert alice["properties"]["duration"] == "P1Y12MT54M65.0S"
+    # Point -> map
+    assert alice["properties"]["geoloc"]["crs"] == "wgs-84-3d"
+    assert alice["properties"]["geoloc"]["height"] == 50.0
+
+    # DateTimeWithTZOffset -> ISO-8601 string; a plain (non-Bolty) struct falls
+    # back to a map via the Json Any implementation.
+    assert bob["properties"]["created"] == "2019-03-05T12:34:56+01:00"
+    assert bob["properties"]["user_strut"] == %{"id" => 43, "name" => "Test"}
+
+    # TimeWithTZOffset -> ISO-8601 string; deprecated integer ids preserved.
+    assert knows["type"] == "KNOWS"
+    assert knows["properties"]["creation_time"] == "12:34:56+02:00"
+    assert knows["start"] == nil
+    assert likes["type"] == "LIKES"
+    assert likes["start"] == 56
+    assert likes["end"] == 57
   end
 
   defp fixture() do
@@ -43,7 +74,7 @@ defmodule Bolty.JsonImplementationsTest do
               hour: 0,
               minute: 54,
               month: 12,
-              microsecond: 0,
+              microsecond: {0, 0},
               second: 65,
               week: 0,
               year: 1
@@ -79,73 +110,5 @@ defmodule Bolty.JsonImplementationsTest do
       ],
       sequence: [1, 1]
     }
-  end
-
-  # Poison and Jason doesn't order keys the same way
-  defp result(:jason) do
-    # Pretty formated:
-
-    # {
-    # "nodes": [
-    # {
-    #   "id": 56,
-    #   "labels": [],
-    #   "properties": {
-    #     "duration": "P1Y12MT54M65.0S",
-    #     "geoloc": {
-    #       "crs": "wgs-84-3d",
-    #       "height": 50.0,
-    #       "latitude": 40.32332,
-    #       "longitude": 45.006,
-    #       "x": 45.006,
-    #       "y": 40.32332,
-    #       "z": 50.0
-    #     },
-    #     "bolty": true,
-    #     "name": "Alice"
-    #   }
-    # },
-    # {
-    #   "id": 57,
-    #   "labels": [],
-    #   "properties": {
-    #     "created": "2019-03-05T12:34:56+01:00",
-    #    "user_struct": {
-    #       id: 43,
-    #       name: "Test"
-    #     },
-    #     "bolty": true,
-    #     "name": "Bob"
-    #   }
-    # }
-    # ],
-    # "relationships": [
-    # {
-    #   "end": null,
-    #   "id": 58,
-    #   "properties": {
-    #     "creation_time": "12:34:56+02:00"
-    #   },
-    #   "start": null,
-    #   "type": "KNOWS"
-    # },
-    # {
-    #   "end": 57,
-    #   "id": 58,
-    #   "properties": {},
-    #   "start": 56,
-    #   "type": "LIKES"
-    # }
-    # ],
-    # "sequence": [
-    # 1,
-    # 1
-    # ]
-    # }
-    "{\"nodes\":[{\"id\":56,\"labels\":[],\"properties\":{\"duration\":\"P1Y12MT54M65.0S\",\"geoloc\":{\"crs\":\"wgs-84-3d\",\"height\":50.0,\"latitude\":40.32332,\"longitude\":45.006,\"x\":45.006,\"y\":40.32332,\"z\":50.0},\"bolty\":true,\"name\":\"Alice\"}},{\"id\":57,\"labels\":[],\"properties\":{\"created\":\"2019-03-05T12:34:56+01:00\",\"user_strut\":{\"id\":43,\"name\":\"Test\"},\"bolty\":true,\"name\":\"Bob\"}}],\"relationships\":[{\"end\":null,\"id\":58,\"properties\":{\"creation_time\":\"12:34:56+02:00\"},\"start\":null,\"type\":\"KNOWS\"},{\"end\":57,\"id\":58,\"properties\":{},\"start\":56,\"type\":\"LIKES\"}],\"sequence\":[1,1]}"
-  end
-
-  defp result(:poison) do
-    "{\"sequence\":[1,1],\"relationships\":[{\"type\":\"KNOWS\",\"start\":null,\"properties\":{\"creation_time\":\"12:34:56+02:00\"},\"id\":58,\"end\":null},{\"type\":\"LIKES\",\"start\":56,\"properties\":{},\"id\":58,\"end\":57}],\"nodes\":[{\"properties\":{\"name\":\"Alice\",\"bolty\":true,\"geoloc\":{\"z\":50.0,\"y\":40.32332,\"x\":45.006,\"longitude\":45.006,\"latitude\":40.32332,\"height\":50.0,\"crs\":\"wgs-84-3d\"},\"duration\":\"P1Y12MT54M65.0S\"},\"labels\":[],\"id\":56},{\"properties\":{\"name\":\"Bob\",\"bolty\":true,\"user_strut\":{\"name\":\"Test\",\"id\":43},\"created\":\"2019-03-05T12:34:56+01:00\"},\"labels\":[],\"id\":57}]}"
   end
 end
