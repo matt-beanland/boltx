@@ -83,6 +83,67 @@ defmodule Bolty.ClientConfigTest do
                Client.Config.new(hostname: "localhost")
     end
 
+    test "an unrecognised option key returns a clean error instead of a silent default (#121)" do
+      assert {:error, %Bolty.Error{code: :invalid_option, bolt: %{message: message}}} =
+               Client.Config.new(hostnam: "localhost", auth: [username: "u"])
+
+      assert message =~ "hostnam"
+    end
+
+    test "every bolty start_option() key is accepted" do
+      opts = [
+        uri: "bolt://localhost:7687",
+        hostname: "localhost",
+        port: 7687,
+        scheme: "bolt",
+        versions: ["5.4"],
+        auth: [username: "u", password: "p"],
+        user_agent: "my_app/1.0",
+        notifications_minimum_severity: "WARNING",
+        notifications_disabled_categories: ["HINT"],
+        ssl_opts: [],
+        connect_timeout: 1_000,
+        recv_timeout: 1_000,
+        socket_options: []
+      ]
+
+      assert {:ok, %Client.Config{}} = Client.Config.new(opts)
+    end
+
+    test "DBConnection's own start options (e.g. :pool_size, :name) are accepted" do
+      assert {:ok, %Client.Config{}} =
+               Client.Config.new(
+                 auth: [username: "u"],
+                 pool_size: 5,
+                 name: :my_bolty_pool,
+                 after_connect: fn _ -> :ok end
+               )
+    end
+
+    test "a key repeated with the same value (the override-by-prepending idiom) is silent" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          assert {:ok, %Client.Config{port: 7687}} =
+                   Client.Config.new(auth: [username: "u"], port: 7687, port: 7687)
+        end)
+
+      refute log =~ "multiple times"
+    end
+
+    test "a key repeated with conflicting values logs a warning, first occurrence wins" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          assert {:ok, %Client.Config{port: 7687}} =
+                   Client.Config.new(auth: [username: "u"], port: 7687, port: 9999)
+        end)
+
+      assert log =~ "option :port was passed multiple times with different values"
+    end
+
     test "the password is redacted when the config is inspected" do
       {:ok, config} = Client.Config.new(auth: [username: "u", password: "s3cret"])
       refute inspect(config) =~ "s3cret"
@@ -214,34 +275,19 @@ defmodule Bolty.ClientConfigTest do
                Client.Config.new(opts6)
     end
 
-    test "a stray :ssl option has no effect on TLS but logs a warning (#107)" do
-      import ExUnit.CaptureLog
-
+    test "a stray :ssl option is rejected as an unrecognised option (#107, #121)" do
       # The old :ssl boolean was removed as dead code; TLS derives entirely
-      # from :scheme. Confirms a caller can't silently get plaintext by
-      # setting ssl: true alongside a plaintext scheme (or vice versa) without
-      # at least being warned — the key still has no functional effect, but
-      # its presence is no longer silent.
+      # from :scheme. It used to get a targeted warn-only exception carved out
+      # of the general unknown-option handling (#107); now that #121 added
+      # general unknown-option validation, :ssl no longer needs (or gets) that
+      # special case — it's rejected the same way any other unrecognised key
+      # is, rather than being silently accepted with just a log line.
       opts = [auth: [username: "usertests"], scheme: "bolt", ssl: true]
 
-      log =
-        capture_log(fn ->
-          assert {:ok, %Client.Config{scheme: "bolt", ssl?: false, tls_verify: :none}} =
-                   Client.Config.new(opts)
-        end)
+      assert {:error, %Bolty.Error{code: :invalid_option, bolt: %{message: message}}} =
+               Client.Config.new(opts)
 
-      assert log =~ ":ssl is no longer a supported option"
-    end
-
-    test "no :ssl key means no warning" do
-      import ExUnit.CaptureLog
-
-      log =
-        capture_log(fn ->
-          {:ok, _config} = Client.Config.new(auth: [username: "usertests"], scheme: "bolt")
-        end)
-
-      refute log =~ ":ssl"
+      assert message =~ "ssl"
     end
 
     test "preserves user-supplied :ssl_opts verbatim (no override at config time)" do
