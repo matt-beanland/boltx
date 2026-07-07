@@ -10,6 +10,157 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.3.0](https://github.com/diffo-dev/bolty/compare/v0.2.1...v0.3.0) (2026-07-07)
+### Breaking Changes:
+
+* migrate JSON encoding to native Elixir JSON; drop jason/poison (#125) by Matt Beanland
+
+
+
+### Chores:
+
+* correct copyright year 2024 -> 2025 by Matt Beanland
+
+* fix inaccurate @specs and type-completeness nits (#111) by Matt Beanland
+
+* remove unreachable Bolt <5.0 legacy datetime code (#104) by Matt Beanland
+
+* swap tzdata for tz to drop the hackney dev/test tail (#99) by Matt Beanland
+
+* drop obsolete build_embedded and no-op test alias (#78) by Matt Beanland
+
+* API ergonomics cleanup + dead-dep removal (#79) by Matt Beanland
+
+* add shared pre-push hook for fast lint checks by Matt Beanland
+
+* group dependabot updates to reduce PR noise by Matt Beanland
+
+* bump erlang/elixir to 29.0.2 and 1.20.2 by Matt Beanland
+
+* bump dependencies by Matt Beanland
+
+### CI/CD:
+
+* run mix credo in the static-analysis job (#78) by Matt Beanland
+
+* bump Neo4j 5.26 LTS to 5.26.28 in the test matrix by Matt Beanland
+
+* run the TLS verification suite by Matt Beanland
+
+### Documentation:
+
+* note Erlang :ssl rejects self-signed server certs under +s by Matt Beanland
+
+* point to Neo4j SSL framework docs for server cert setup by Matt Beanland
+
+* add TLS connection examples to README and usage-rules by Matt Beanland
+
+* note Duration microsecond precision limitation (#129) by Matt Beanland
+
+* document result streaming (#59) by Matt Beanland
+
+* correct inverted verify values in usage-rules TLS scheme table by Matt Beanland
+
+* add cluster/SSR guide and update usage-rules (#113) by Matt Beanland
+
+* document :routing, :mode and :bookmarks (#113) by Matt Beanland
+
+* README note for the tz-database requirement; preserve the error code (#100) by Matt Beanland
+
+* expand the Bolty landing moduledoc + doc query_many!/4 (#78) by Matt Beanland
+
+* declare the public/internal API boundary (#77) by Matt Beanland
+
+* package and doc-config quick wins by Matt Beanland
+
+* refresh AGENTS.md Local Neo4j section for 5.26.28 + TLS by Matt Beanland
+
+### Features:
+
+* emit [:bolty, :stream, :start|:fetch|:stop] telemetry (#59) by Matt Beanland
+
+* lazy result streaming via DBConnection cursor callbacks (#59) by Matt Beanland
+
+* send HELLO routing field to enable server-side routing (#113) by Matt Beanland
+
+* validate start_link/1 options against an allowlist (#121) by Matt Beanland
+
+* @spec the public API surface (#77) by Matt Beanland
+
+* spec the internal version surface for dialyzer (#77) by Matt Beanland
+
+* syntax-aware statement splitter for query_many by Matt Beanland
+
+* represent Bolt versions as strings/tuples, not floats by Matt Beanland
+
+* add per-query recv timeouts for post-connect reads by Matt Beanland
+
+* emit :telemetry events for query and connect lifecycle by Matt Beanland
+
+### Bug Fixes:
+
+* render Duration JSON to match Neo4j toString; fix negative/zero (#129) by Matt Beanland
+
+* suppress hex debug log for messages carrying credentials (#123) by Matt Beanland
+
+* redact auth credentials from debug log (#109) by Matt Beanland
+
+* remove dead :ssl option and warn on its use (#107) by Matt Beanland
+
+* close remaining error-surface raise-through gaps (#110) by Matt Beanland
+
+* re-coalesce surviving range minors instead of flattening them by Matt Beanland
+
+* classify range :versions entries minor-by-minor, not as one unit by Matt Beanland
+
+* reject :versions bolty doesn't implement at config time by Matt Beanland
+
+* wrap handshake failures as %Bolty.Error{} instead of crashing (#106) by Matt Beanland
+
+* clear error (not a crash) when a named-zone datetime has no tz database (#100) by Matt Beanland
+
+* type Query/Queries `extra` as the map it actually is (#77) by Matt Beanland
+
+* convert remaining float version comparisons to tuples by Matt Beanland
+
+* reject unknown PackStream markers instead of silently misdecoding by Matt Beanland
+
+* deterministic PackStream map key ordering by Matt Beanland
+
+* raise Elixir floor to ~> 1.17 and CI-test it by Matt Beanland
+
+* uniform config precedence and remove env-var config by Matt Beanland
+
+* unify the error surface to always return %Bolty.Error{} by Matt Beanland
+
+* correct inverted TLS verification and stop overriding user ssl_opts by Matt Beanland
+
+### Refactoring:
+
+* flatten log_client_message_hex nesting to satisfy credo by Matt Beanland
+
+* deduplicate Bolt message boilerplate (#78) by Matt Beanland
+
+* clear credo refactoring findings (#78) by Matt Beanland
+
+### Style:
+
+* satisfy mix format in client_test.exs by Matt Beanland
+
+### Testing:
+
+* allow targeting a non-local server via NEO4J_HOST/SCHEME/PASSWORD by Matt Beanland
+
+* cover result streaming end-to-end (#59) by Matt Beanland
+
+* un-hide TLS/config unit tests from bare mix test (#108) by Matt Beanland
+
+* make bolty_test serial to stop async DB-truncate flake by Matt Beanland
+
+* split unit/integration suites and add PackStream property tests by Matt Beanland
+
+* add TLS integration rig on neo4j 5.26.28 by Matt Beanland
+
 ## [v0.2.1](https://github.com/diffo-dev/bolty/compare/v0.2.0...v0.2.1) (2026-06-26)
 
 
