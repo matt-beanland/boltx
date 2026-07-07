@@ -114,6 +114,8 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 
 Default scheme when nothing is specified is `bolt+s`. Examples: public-CA/Aura → `Bolty.start_link(scheme: "neo4j+s", hostname: "xxxx.databases.neo4j.io", auth: [...])`; self-signed → `scheme: "bolt+ssc"`; private CA → `scheme: "bolt+s", ssl_opts: [cacertfile: "/etc/ssl/my-ca.pem"]`. User `:ssl_opts` merge over the scheme defaults.
 
+**Self-signed gotcha:** Erlang `:ssl` rejects a **self-signed server cert** under `+s` (full verification) — reason `:selfsigned_peer` — even if you pass that cert as `ssl_opts: [cacertfile: <it>]`, and regardless of `basicConstraints`/`CA:TRUE`. (OpenSSL is lenient, so `openssl verify` passing ≠ `+s` works.) `+s` needs a real chain: a CA cert that signed a *distinct* server leaf (trust the CA via `cacertfile`). For a single self-signed cert (local/dev box), use **`+ssc`**.
+
 ## 6. Value mapping — Elixir ↔ Bolt/Neo4j
 
 All in `Bolty.Types`:

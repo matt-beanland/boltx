@@ -190,6 +190,30 @@ see Neo4j's [SSL framework](https://neo4j.com/docs/operations-manual/current/sec
 docs. Neo4j Aura and other managed offerings present public-CA certificates, so
 `+s` needs no setup.
 
+> **Self-signed certificates and `+s`:** Erlang's `:ssl` (which bolty uses)
+> rejects a **self-signed *server* certificate** under full verification — the
+> peer cert is flagged `:selfsigned_peer` — even if you pass that same cert as the
+> CA via `ssl_opts: [cacertfile: ...]`, and regardless of its `basicConstraints`.
+> (OpenSSL is more lenient, so `openssl verify` succeeding does **not** mean `+s`
+> will.) `+s` needs a **genuine chain**: a CA certificate that signed a *distinct*
+> server leaf — the server presents the leaf (which isn't self-signed), and you
+> trust the CA via `cacertfile`. For a single self-signed cert (a typical local /
+> dev box) use **`+ssc`** instead, which encrypts without verifying.
+>
+> To use `+s` with your own PKI, create a root CA and a server cert signed by it:
+>
+> ```bash
+> # 1. root CA (self-signed, CA:TRUE)
+> openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 3650 \
+>   -subj "/CN=My Neo4j CA" -addext "basicConstraints=critical,CA:TRUE"
+> # 2. server key + CSR, then sign the leaf with the CA (CA:FALSE, serverAuth, SAN)
+> openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=neo4j.internal"
+> openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 825 \
+>   -out server.crt -extfile <(printf "basicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:192.168.4.50")
+> # Neo4j serves server.crt + server.key; bolty trusts ca.crt:
+> #   scheme: "bolt+s", ssl_opts: [cacertfile: "ca.crt"]
+> ```
+
 > **Changed in 0.3.0:** `+s`/`+ssc` verification was previously inverted, and
 > `+s` did no server authentication. `+s` now verifies by default, and explicit
 > `:ssl_opts` are no longer silently overridden. Pin `0.2.1` if you depend on the
