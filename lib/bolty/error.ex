@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Error do
@@ -41,6 +41,20 @@ defmodule Bolty.Error do
   @spec wrap(module(), map()) :: t()
   def wrap(module, bolt_error) when is_map(bolt_error),
     do: %__MODULE__{module: module, code: bolt_error.code |> to_atom(), bolt: bolt_error}
+
+  # Mirrors Client.wrap_connect_error/1's tuple handling so any caller passing a
+  # raw tuple reason (e.g. a post-connect :ssl recv error during HELLO/LOGON)
+  # gets a clean %Bolty.Error{} instead of hitting this module's is_atom/
+  # is_binary/is_map guards and raising a FunctionClauseError.
+  @spec wrap(module(), {:tls_alert, {atom(), any()}}) :: t()
+  def wrap(module, {:tls_alert, {alert, description}}) do
+    wrap(module, %{code: :tls_alert, message: "#{alert}: #{description}"})
+  end
+
+  @spec wrap(module(), tuple()) :: t()
+  def wrap(module, reason) when is_tuple(reason) do
+    wrap(module, %{code: :connect_error, message: inspect(reason)})
+  end
 
   @spec wrap(any(), any(), any()) :: t()
   def wrap(module, code, packstream),

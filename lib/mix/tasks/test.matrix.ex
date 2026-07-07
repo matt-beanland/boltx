@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Mix.Tasks.Test.Matrix do
@@ -36,8 +36,7 @@ defmodule Mix.Tasks.Test.Matrix do
 
     per_version_results =
       Enum.map(versions, fn version ->
-        version_str = Float.to_string(version)
-        port = if trunc(version) >= 6, do: bolt6_port, else: default_port
+        {version_str, port} = version_env(version, default_port, bolt6_port)
         Mix.shell().info([:bright, "\n── Bolt #{version_str} (port #{port}) ──\n"])
 
         {_, status} =
@@ -81,5 +80,21 @@ defmodule Mix.Tasks.Test.Matrix do
     if failures != "" do
       Mix.raise("Bolt version(s) failed: #{failures}")
     end
+  end
+
+  @doc """
+  Maps a `{major, minor}` version to the `{version_string, port}` a per-version
+  `mix test` run should use: the string form for `BOLT_VERSIONS`, and the Bolt 6
+  port for `major >= 6`, otherwise the default port. Pure — split out from the
+  `System.cmd` loop so it can be unit-tested.
+  """
+  @spec version_env(
+          {non_neg_integer(), non_neg_integer()},
+          String.t(),
+          String.t()
+        ) :: {String.t(), String.t()}
+  def version_env({major, _minor} = version, default_port, bolt6_port) do
+    port = if major >= 6, do: bolt6_port, else: default_port
+    {Bolty.BoltProtocol.Versions.format(version), port}
   end
 end

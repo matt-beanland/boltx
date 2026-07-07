@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.ErrorTest do
@@ -34,6 +34,26 @@ defmodule Bolty.ErrorTest do
     test "falls back to safe string when module is nil" do
       error = %Error{code: :unknown}
       assert Exception.message(error) == "nil error: :unknown"
+    end
+  end
+
+  describe "Error.wrap/2 tuple handling (#110)" do
+    @tag :core
+    test "a {:tls_alert, ...} reason is wrapped, not left to raise on a bare tuple" do
+      error =
+        Error.wrap(Bolty.Client, {:tls_alert, {:certificate_expired, ~c"certificate expired"}})
+
+      assert %Error{code: :tls_alert, bolt: %{message: message}} = error
+      assert message =~ "certificate_expired"
+      assert message =~ "certificate expired"
+    end
+
+    @tag :core
+    test "any other tuple reason is wrapped with the raw reason preserved for diagnosis" do
+      error = Error.wrap(Bolty.Client, {:some_reason, :nested})
+
+      assert %Error{code: :connect_error, bolt: %{message: message}} = error
+      assert message =~ "some_reason"
     end
   end
 

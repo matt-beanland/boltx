@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Response do
@@ -49,6 +49,7 @@ defmodule Bolty.Response do
             type: nil,
             bookmark: nil
 
+  @spec new(tuple()) :: t()
   def new(
         statement_result(
           result_run: result_run,
@@ -70,6 +71,7 @@ defmodule Bolty.Response do
     }
   end
 
+  @spec first(t()) :: map() | nil
   def first(%__MODULE__{results: []}), do: nil
   def first(%__MODULE__{results: [head | _tail]}), do: head
 

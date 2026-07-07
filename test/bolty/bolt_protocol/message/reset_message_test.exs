@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.Message.ResetMessageTest do
@@ -9,13 +9,13 @@ defmodule Bolty.BoltProtocol.Message.ResetMessageTest do
   describe "ResetMessage.encode/1" do
     @tag :core
     test "coding with version >= 3.0 of bolt" do
-      bolt_version = 3.0
+      bolt_version = {3, 0}
       assert <<0, 2, 176, 15, 0, 0>> == ResetMessage.encode(bolt_version)
     end
 
     @tag :core
     test "coding with version <= 2 of bolt" do
-      bolt_version = 2.0
+      bolt_version = {2, 0}
 
       assert {:error,
               %Bolty.Error{

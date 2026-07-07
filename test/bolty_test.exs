@@ -1,8 +1,16 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule BoltyTest do
-  use ExUnit.Case, async: true
+  # async: false — this module's `:truncate` setup wipes the whole database
+  # (`MATCH (n) DETACH DELETE n`, see truncate/1). Run concurrently it would
+  # delete data out from under other integration tests mid-run (e.g. a committed
+  # node another module is about to read), causing intermittent failures. Kept
+  # serial so the global wipe never overlaps another test. Other integration
+  # modules scope their own cleanup (or design around it) and stay async.
+  use ExUnit.Case, async: false
+
+  @moduletag :integration
 
   alias Bolty.Response
   alias Bolty.Types.{Point, DateTimeWithTZOffset, TimeWithTZOffset, Vector}
@@ -32,7 +40,9 @@ defmodule BoltyTest do
       response = Bolty.query!(c.conn, "RETURN 300 AS r")
 
       assert %Response{results: [%{"r" => 300}]} = response
-      assert response |> Enum.member?("r")
+      # `member?` tests row membership, consistent with what iteration yields.
+      assert response |> Enum.member?(%{"r" => 300})
+      refute response |> Enum.member?("r")
       assert 1 = response |> Enum.count()
       assert [%{"r" => 300}] = response |> Enum.take(1)
       assert %{"r" => 300} = response |> Response.first()

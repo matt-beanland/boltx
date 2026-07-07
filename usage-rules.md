@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2024 bolty contributors
+SPDX-FileCopyrightText: 2025 bolty contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -25,8 +25,8 @@ SPDX-License-Identifier: Apache-2.0
 
 **Do not use bolty when**:
 - You want Ash-style resources, actions, policies on top of Neo4j — use `ash_neo4j`, which sits on top of bolty.
-- You need **streaming** of large result sets (not implemented; see Feature Support).
-- You need **cluster routing** (not implemented; see Feature Support).
+- (Streaming of large result sets *is* supported now — see `Bolty.stream/4` and Feature Support — so this is no longer a reason to reach past bolty.)
+- You need **full cluster routing** — topology autodiscovery, read-replica load-balancing, or automatic failover (not implemented). Server-side routing (SSR) against a single configured member *is* supported; see the Clustering guide and Feature Support.
 
 If in doubt: agents operating *inside an Ash application* should almost always be going through `ash_neo4j`. bolty is the right tool for driver-level work, tests, benchmarks, and building higher-level abstractions.
 
@@ -71,6 +71,7 @@ Supervisor.start_link(children, strategy: :one_for_one)
 | `Bolty.query(conn, cypher, params \\ %{}, opts \\ [])` | Run one query | Returns `{:ok, %Bolty.Response{}} \| {:error, %Bolty.Error{}}`. |
 | `Bolty.query!/4` | Raising variant | Raises `Bolty.Error` on failure. |
 | `Bolty.query_many/4`, `query_many!/4` | Run a batch of statements | Returns list of responses. |
+| `Bolty.stream(conn, cypher, params \\ %{}, opts \\ [])` | Lazily stream a large result in batches | Returns a `DBConnection` stream of `%Bolty.Response{}` (one per batch). **Must be enumerated inside a `transaction/4`**. `:fetch_size` opt (default 1000). A mid-stream failure **raises** `%Bolty.Error{}` (streams have no error-tuple channel). |
 | `Bolty.transaction(conn, fun, opts \\ [], extra \\ %{})` | Transaction | `extra` is threaded into the BEGIN message (see §7). |
 | `Bolty.rollback(conn, reason)` | Explicit rollback | Delegates to `DBConnection.rollback/2`. |
 | `Bolty.Response.first/1` | Grab the first result row | Returns a map `%{field => value}` or `nil`. |
@@ -85,12 +86,13 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `:uri` | `<scheme>://<host>[:<port>]` — wins over host/port/scheme | `nil` |
-| `:hostname` | Host | `BOLT_HOST` env → `"localhost"` |
-| `:port` | Port | `BOLT_TCP_PORT` env → `7687` |
+| `:uri` | `<scheme>://<host>[:<port>]` — explicit `:hostname`/`:port`/`:scheme` win over the URI's components | `nil` |
+| `:hostname` | Host | `"localhost"` |
+| `:port` | Port | `7687` |
 | `:scheme` | One of the schemes below | `"bolt+s"` |
-| `:auth` | `[username: ..., password: ...]` | required |
-| `:versions` | Bolt versions to negotiate. Accepts floats (`[5.4]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`). Range tuples are preferred — the handshake has only 4 slots and ranges cover more versions per slot. Omit to use `Versions.latest_versions()` (all supported versions, auto-rangeified). `BOLT_VERSIONS` env var is **deprecated** in favour of this option. | `Versions.latest_versions()` |
+| `:routing` | Enable server-side routing (SSR) — `HELLO routing` field. Boolean; overrides the scheme default (`neo4j*` → `true`, `bolt*` → `false`). A non-boolean is a `:invalid_routing` error. See the Clustering guide. | scheme-derived |
+| `:auth` | `[username: ..., password: ...]` (`:username` required) | required |
+| `:versions` | Bolt versions to negotiate. Accepts strings (`["5.4"]`) or range tuples (`[{5, 6..8}, {5, 0..4}]`); floats (`[5.4]`) are deprecated (can't distinguish `5.10` from `5.1`) but still accepted with a warning. Range tuples are preferred — the handshake has only 4 slots and ranges cover more per slot. Omit to use `Versions.latest_versions()`. `connection_info/1` reports the negotiated `bolt_version` as a string (`"5.8"`). | `Versions.latest_versions()` |
 | `:user_agent` | Client identity string | `"bolty/<version>"` |
 | `:notifications_minimum_severity` | Bolt 5.2+ | `nil` |
 | `:notifications_disabled_categories` | Bolt 5.2–5.5 | `nil` |
@@ -100,24 +102,27 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:socket_options` | `:gen_tcp.connect_option()` list | `[mode: :binary, packet: :raw, active: false]` |
 | DBConnection opts (`:name`, `:pool_size`, `:max_overflow`, `:after_connect`, ...) | flow through | |
 
-**Env-var precedence for auth is a sharp edge**: `BOLT_USER` and `BOLT_PWD` override the values you pass in `:auth`. Unset them explicitly if you don't want that.
+**Precedence is uniform**: explicit opts (`:hostname`/`:port`/`:scheme`) win over the corresponding `:uri` components. The driver reads no environment variables for connection config (the old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` were removed in 0.3.0 — pass `:auth`, `:hostname`, `:port`, `:versions` instead).
 
 ### URI schemes / TLS
 
 | URI scheme | TLS | ssl_opts merge |
 | --- | --- | --- |
 | `neo4j`, `bolt` | off | — |
-| `neo4j+s`, `bolt+s` | on | `verify: :verify_none` (full cert, but no verification) |
-| `neo4j+ssc`, `bolt+ssc` | on | `verify: :verify_peer` (self-signed allowed) |
+| `neo4j+s`, `bolt+s` | on | `verify: :verify_peer` (full cert verification against the OS trust store) |
+| `neo4j+ssc`, `bolt+ssc` | on | `verify: :verify_none` (encrypted, but self-signed / trust-all) |
 
-Default scheme when nothing is specified is `bolt+s`.
+Default scheme when nothing is specified is `bolt+s`. Examples: public-CA/Aura → `Bolty.start_link(scheme: "neo4j+s", hostname: "xxxx.databases.neo4j.io", auth: [...])`; self-signed → `scheme: "bolt+ssc"`; private CA → `scheme: "bolt+s", ssl_opts: [cacertfile: "/etc/ssl/my-ca.pem"]`. User `:ssl_opts` merge over the scheme defaults.
+
+**Self-signed gotcha:** Erlang `:ssl` rejects a **self-signed server cert** under `+s` (full verification) — reason `:selfsigned_peer` — even if you pass that cert as `ssl_opts: [cacertfile: <it>]`, and regardless of `basicConstraints`/`CA:TRUE`. (OpenSSL is lenient, so `openssl verify` passing ≠ `+s` works.) `+s` needs a real chain: a CA cert that signed a *distinct* server leaf (trust the CA via `cacertfile`). For a single self-signed cert (local/dev box), use **`+ssc`**.
 
 ## 6. Value mapping — Elixir ↔ Bolt/Neo4j
 
 All in `Bolty.Types`:
 
 - Graph: `Node`, `Relationship`, `UnboundRelationship`, `Path` (with `Path.graph/1` walking helper).
-- Temporal (Bolt v2+): standard Elixir `Time`, `NaiveDateTime`, `Duration`; and `TimeWithTZOffset`, `DateTimeWithTZOffset` when you need integer-offset timezones. DateTime encoding is now policy-driven: the connection resolves a `%Bolty.Policy{datetime: :legacy | :evolved}` at HELLO and the packer emits the matching struct tag (0x46/0x66 legacy on Bolt ≤ 4.x, 0x49/0x69 evolved on Bolt 5.x) with the matching body semantics (legacy = local-wall-clock seconds; evolved = UTC-instant seconds). Unpacker handles both on decode. Resolved in 0.0.10 — issue [#10](https://github.com/diffo-dev/bolty/issues/10). `Duration` round-trip as a native Neo4j duration was broken in 0.0.7 and fixed through 0.0.8 (microseconds) and 0.0.9 (stored-as-string) — issues [#6](https://github.com/diffo-dev/bolty/issues/6) and [#8](https://github.com/diffo-dev/bolty/issues/8).
+- Temporal (Bolt v2+): standard Elixir `Time`, `NaiveDateTime`, `Duration`; and `TimeWithTZOffset`, `DateTimeWithTZOffset` when you need integer-offset timezones. DateTime encoding is now policy-driven: the connection resolves a `%Bolty.Policy{datetime: :legacy | :evolved}` at HELLO and the packer emits the matching struct tag (0x46/0x66 legacy on Bolt ≤ 4.x, 0x49/0x69 evolved on Bolt 5.x) with the matching body semantics (legacy = local-wall-clock seconds; evolved = UTC-instant seconds). Unpacker handles both on decode. Resolved in 0.0.10 — issue [#10](https://github.com/diffo-dev/bolty/issues/10). `Duration` round-trip as a native Neo4j duration was broken in 0.0.7 and fixed through 0.0.8 (microseconds) and 0.0.9 (stored-as-string) — issues [#6](https://github.com/diffo-dev/bolty/issues/6) and [#8](https://github.com/diffo-dev/bolty/issues/8). A `Duration` is held at Elixir `Duration`'s **microsecond** precision, so Neo4j's nanosecond component is truncated on decode (e.g. `123456789ns` → `123456µs`) — an accepted, by-design limitation, since Elixir has no nanosecond duration type. JSON encoding via `Bolty.ResponseEncoder` renders durations to match Neo4j's own `toString(duration)` otherwise (integer whole seconds, negatives, `PT0S`).
+- **Named-zone datetimes need a time zone database.** A `datetime()` carrying a zone id (e.g. `"Europe/Berlin"`) is resolved into an Elixir `DateTime` at decode time, which requires a configured `:time_zone_database`. bolty does **not** bundle one (it would commandeer the global config) — configure one in your app, e.g. `config :elixir, :time_zone_database, Tz.TimeZoneDatabase` (add `:tz` or `:tzdata` to your deps). Without one, decoding such a value returns a clear `{:error, %Bolty.Error{code: :time_zone_database_not_configured}}` rather than crashing. Integer-offset datetimes (`DateTimeWithTZOffset`) need no database.
 - Spatial (Bolt v2+): `Point` — 2D/3D, cartesian/WGS-84. Construct via `Point.create(:cartesian | :wgs_84 | <srid>, x, y [, z])`.
 
 `Path` has a quirk worth knowing: the Bolt protocol uses signed byte indices into the relationships list, but a raw `-1` comes through as `255`. `Path.graph/1` patches this explicitly. Flagged in the source as "oh dear"; keep the patch, do not "clean it up" without regression tests.
@@ -161,7 +166,7 @@ end, [], %{db: "mydb", mode: "w", tx_metadata: %{caller: "agent-me"}})
 `Bolty.ResponseEncoder.encode(data, :json)` turns anything containing `Bolty.Types.*` into a JSON string. Two-step and overridable:
 
 1. Type → jsonable (protocol: `Bolty.ResponseEncoder.Json`) — implement your own `defimpl` for custom handling.
-2. Jsonable → string — choose `Bolty.ResponseEncoder.Json.Jason` (default) or `Bolty.ResponseEncoder.Json.Poison`; both optional deps declared in `mix.exs`.
+2. Jsonable → string — Elixir's built-in `JSON` (no external dep). bolty also ships `JSON.Encoder` implementations for `Bolty.Types.*`, so a result can be handed straight to `JSON.encode!/1`. (Requires Elixir 1.18+; `jason`/`poison` support was dropped in 0.3.0.)
 
 ## 10. Errors
 
@@ -188,17 +193,18 @@ Everything else becomes `:unknown`, with the raw map still available in `error.b
 | Notifications opt-out (Bolt 5.2+) | ✅ |
 | Vector type pack/unpack (Bolt 6.0) | ✅ — issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
 | Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels` + wire-level dims (see §14) |
-| Streaming result sets | ❌ |
-| Cluster routing (`neo4j://` autodiscovery) | ❌ |
+| Streaming result sets (lazy, server-side backpressure) | ✅ — `Bolty.stream/4` inside a transaction; `:fetch_size` batches, `[:bolty, :stream, *]` telemetry |
+| Server-side routing (SSR) against a configured cluster member | ✅ — `neo4j://` schemes / `:routing`; see the Clustering guide |
+| Full cluster routing (topology autodiscovery, read-replica load-balancing, auto-failover) | ❌ — front with DNS/L4 LB + bookmarks, or use an official driver |
 | Vector search (indexes, similarity ops) | ❌ — bolty exposes the type; search belongs to the query layer |
 
-If an agent needs routing or streaming today, that is not bolty's job — surface the gap to Matt rather than working around it silently.
+If an agent needs cluster routing beyond SSR (autodiscovery/load-balancing/failover), that is not bolty's job — surface the gap to Matt rather than working around it silently.
 
 ## 12. Running tests
 
 Tests are version-tagged. Defaults run only `:core`; everything else is disabled unless you opt in with env vars and tags.
 
-- Env vars: `BOLT_VERSIONS` (e.g. `"5.2"`), `BOLT_TCP_PORT` (e.g. `7687`), `BOLT_USER`, `BOLT_PWD`, `BOLT_HOST`.
+- Env vars (test suite only — the driver reads none of these): `BOLT_VERSIONS` (e.g. `"5.2"`) selects the negotiated version and version tags; `BOLT_TCP_PORT` (e.g. `7687`) sets the server port. The test helper bridges them into the `:versions` / `:port` connection options.
 - Tags: `:core`, `:bolt_version_X_Y` (e.g. `:bolt_version_5_2`), `:bolt_X_x` (e.g. `:bolt_5_x`), `:last_version`.
 
 Local server matrix via `docker-compose.yml`:
@@ -214,10 +220,10 @@ Use `mix test.matrix` to run the full version matrix. Requires Docker and docker
 
 ## 13. Development loop
 
-- Elixir `~> 1.14`. `.tool-versions` pins the expected runtime.
+- Elixir `~> 1.18` (the built-in `JSON` module used for result encoding is 1.18+). `.tool-versions` pins the expected runtime.
 - `mix format` — `.formatter.exs` configured.
 - `mix credo` — `.credo.exs` tuned; keep warnings at 0.
-- `mix dialyzer` — PLT adds `:jason`, `:poison`, `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
+- `mix dialyzer` — PLT adds `:mix`; `.dialyzer_ignore.exs` holds accepted noise.
 - `mix docs` — ex_doc; README.md is the main page.
 - `mix test --cover` / `mix coveralls` — 70% threshold gate.
 - `mix test.matrix` — runs the full test suite once per supported Bolt version against a local Neo4j instance and prints a pass/fail summary. Respects `BOLT_TCP_PORT` (default 7687).
@@ -245,7 +251,7 @@ Init dispatch in `Bolty.Connection.do_init/3`:
 - Bolt 5.0 → `HELLO`.
 - Bolt ≥ 5.1 → `HELLO` then `LOGON` (auth split out of HELLO).
 
-`handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`, `handle_close`, `handle_declare`, `handle_fetch`, `handle_deallocate` are all trivial; `handle_status` is hardcoded to `:idle`. Revisit if true streaming lands.
+`handle_execute/4` always runs via `DBConnection.prepare_execute` — bolty does **not** use real prepared statements; `DBConnection.Query` is implemented as a no-op passthrough in `lib/bolty/query.ex`. `handle_prepare`/`handle_close` are trivial and `handle_status` is hardcoded to `:idle`, but `handle_declare`/`handle_fetch`/`handle_deallocate` now implement real server-side cursor streaming (RUN → PULL `{n, qid}` → DISCARD) behind `Bolty.stream/4`.
 
 Fork posture: drift from boltx is minimised on purpose. When applying fixes, prefer surgical patches over refactors so upstream back-ports remain feasible.
 
@@ -276,7 +282,8 @@ To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolv
 
 - `@error_map` only covers four Neo bolt errors; everything else collapses to `:unknown`. Extend when you need finer-grained handling.
 - `format_param/1` at the top level only rewrites `Point`. Temporal-with-offset structs pass through as-is; call their own `format_param/1` if you need Cypher-ready strings.
-- Env-var-overrides-opts precedence for `:auth` (BOLT_USER / BOLT_PWD) — as noted in §5.
+- A missing `:username` returns `{:error, %Bolty.Error{code: :missing_username}}` from the connect path (it no longer raises). (The old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` env-var config was removed in 0.3.0 — pass explicit options.)
+- `start_link/1` options are validated against an allowlist (bolty's own `start_option()` keys plus whatever `DBConnection.available_start_options/0` reports for the installed `db_connection` version); an unrecognised key (e.g. a typo like `hostnam: "..."`, or the removed pre-P0-1 `:ssl` boolean — TLS is derived entirely from `:scheme` now) returns `{:error, %Bolty.Error{code: :invalid_option}}` instead of silently falling back to a default.
 
 ## 16. Commit format and changelog
 
@@ -347,13 +354,13 @@ bolty is Apache License 2.0 and is [REUSE](https://reuse.software/)-compliant. T
 - **Licence**: Apache-2.0 throughout. bolty derives from `boltx` (Luis Sagastume) which derives from `bolt_sips` (Florin Patrascu), both Apache-2.0. Upstream attribution lives in `NOTICE`; per-file headers carry the collective `bolty contributors` claim on our own modifications. Relicensing away from Apache-2.0 is not on the table — we don't own the upstream code and the patent grant is load-bearing for a protocol driver.
 - **Per-file header template** (hash-comment languages — Elixir, YAML, shell, etc.):
   ```
-  # SPDX-FileCopyrightText: 2024 bolty contributors
+  # SPDX-FileCopyrightText: 2025 bolty contributors
   # SPDX-License-Identifier: Apache-2.0
   ```
   For Markdown use HTML-comment form so GitHub renders it as nothing:
   ```html
   <!--
-  SPDX-FileCopyrightText: 2024 bolty contributors
+  SPDX-FileCopyrightText: 2025 bolty contributors
   SPDX-License-Identifier: Apache-2.0
   -->
   ```

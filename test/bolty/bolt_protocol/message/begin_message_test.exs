@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.Message.BeginMessageTest do
@@ -9,18 +9,18 @@ defmodule Bolty.BoltProtocol.Message.BeginMessageTest do
   describe "BeginMessage.encode/2" do
     @tag :core
     test "coding without parameters" do
-      bolt_version = 3.0
+      bolt_version = {3, 0}
 
       assert <<0, 3, 177, 17, 160, 0, 0>> == BeginMessage.encode(bolt_version, %{})
     end
 
     @tag :core
     test "coding with parameters" do
-      bolt_version = 3.0
+      bolt_version = {3, 0}
 
-      assert <<0, 38, 177, 17, 164, 132, 109, 111, 100, 101, 129, 119, 137, 98, 111, 111, 107,
-               109, 97, 114, 107, 115, 144, 130, 100, 98, 192, 139, 116, 120, 95, 109, 101, 116,
-               97, 100, 97, 116, 97, 192, 0, 0>> ==
+      assert <<0, 38, 177, 17, 164, 137, 98, 111, 111, 107, 109, 97, 114, 107, 115, 144, 130, 100,
+               98, 192, 132, 109, 111, 100, 101, 129, 119, 139, 116, 120, 95, 109, 101, 116, 97,
+               100, 97, 116, 97, 192, 0, 0>> ==
                BeginMessage.encode(bolt_version, %{
                  bookmarks: [],
                  mode: "w",
@@ -31,7 +31,7 @@ defmodule Bolty.BoltProtocol.Message.BeginMessageTest do
 
     @tag :core
     test "coding with version < 3 of bolt" do
-      bolt_version = 2.0
+      bolt_version = {2, 0}
 
       assert {:error,
               %Bolty.Error{

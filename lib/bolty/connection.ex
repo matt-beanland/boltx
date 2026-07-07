@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Connection do
@@ -7,6 +7,7 @@ defmodule Bolty.Connection do
 
   import Bolty.BoltProtocol.ServerResponse
 
+  alias Bolty.BoltProtocol.Versions
   alias Bolty.Client
   alias Bolty.Policy
   alias Bolty.Response
@@ -17,14 +18,22 @@ defmodule Bolty.Connection do
     :hints,
     :connection_id,
     :policy,
-    in_transaction: false
+    in_transaction: false,
+    # qids of declared stream cursors that still have records pending
+    # server-side. handle_fetch removes a qid once its result is drained
+    # (has_more false); handle_deallocate DISCARDs only what remains here, so a
+    # fully-consumed stream isn't DISCARDed against an already-closed qid.
+    open_cursors: %{}
   ]
+
+  @default_fetch_size 1000
 
   @impl true
   def connect(opts) do
-    config = Client.Config.new(opts)
+    start = System.monotonic_time()
 
-    with {:ok, %Client{} = client} <- Client.connect(config) do
+    with {:ok, config} <- Client.Config.new(opts),
+         {:ok, %Client{} = client} <- Client.connect(config) do
       # Resolve a preliminary policy from bolt_version alone so that HELLO
       # message construction can use policy fields (e.g. notifications_field)
       # rather than reading bolt_version directly. The final policy is resolved
@@ -34,10 +43,23 @@ defmodule Bolty.Connection do
       preliminary_policy = Policy.Resolver.resolve(client.bolt_version, %{})
       client_with_policy = %{client | policy: preliminary_policy}
 
-      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts) do
+      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts, config) do
         policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
         state = get_server_metadata_state(response_server_metadata)
-        {:ok, %__MODULE__{state | client: %{client | policy: policy}, policy: policy}}
+        new_state = %__MODULE__{state | client: %{client | policy: policy}, policy: policy}
+
+        :telemetry.execute(
+          [:bolty, :connect],
+          %{duration: System.monotonic_time() - start},
+          %{
+            db_system: "neo4j",
+            bolt_version: Versions.format(client.bolt_version),
+            server_version: new_state.server_version,
+            connection_id: new_state.connection_id
+          }
+        )
+
+        {:ok, new_state}
       end
     end
   end
@@ -89,7 +111,7 @@ defmodule Bolty.Connection do
   @impl true
   def handle_execute(%Bolty.ConnectionInfo{} = query, _params, _opts, state) do
     result = %{
-      bolt_version: state.client.bolt_version,
+      bolt_version: Versions.format(state.client.bolt_version),
       server_version: state.server_version,
       policy: state.client.policy
     }
@@ -109,6 +131,12 @@ defmodule Bolty.Connection do
 
   @impl true
   def disconnect(_reason, state) do
+    :telemetry.execute(
+      [:bolty, :disconnect],
+      %{system_time: System.system_time()},
+      %{db_system: "neo4j", connection_id: state.connection_id}
+    )
+
     Client.send_goodbye(state.client)
     Client.disconnect(state.client)
   end
@@ -133,29 +161,152 @@ defmodule Bolty.Connection do
   def handle_prepare(query, _opts, state), do: {:ok, query, state}
   @impl true
   def handle_close(query, _opts, state), do: {:ok, query, state}
+  # Declare a server-side cursor for lazy streaming (DBConnection.stream/4, via
+  # Bolty.stream/3). Sends RUN only — no PULL — capturing the `qid` and `fields`
+  # from the RUN SUCCESS. Must run inside a transaction (DBConnection.stream
+  # enforces this); the explicit transaction is what makes the server assign a
+  # qid, which subsequent PULL/DISCARD page against.
   @impl true
-  def handle_deallocate(query, _cursor, _opts, state), do: {:ok, query, state}
+  def handle_declare(
+        %Bolty.Query{statement: statement, extra: extra} = query,
+        params,
+        opts,
+        state
+      ) do
+    %__MODULE__{client: client} = state
+    fetch_size = Keyword.get(opts, :fetch_size, @default_fetch_size)
+
+    case Client.send_run(client, statement, params, extra) do
+      {:ok, run_success} ->
+        qid = Map.get(run_success, "qid", -1)
+        cursor = %{qid: qid, fields: Map.get(run_success, "fields", []), fetch_size: fetch_size}
+
+        stream_telemetry(:start, %{system_time: System.system_time()}, %{
+          db_statement: statement,
+          db_instance: Map.get(extra, :db),
+          fetch_size: fetch_size
+        })
+
+        # Track the cursor for the stream's lifetime: `start_time` for the :stop
+        # duration, `discardable` for whether records remain to DISCARD at
+        # deallocate. Both live until handle_deallocate (always called).
+        entry = %{start_time: System.monotonic_time(), discardable: true}
+        {:ok, query, cursor, %{state | open_cursors: Map.put(state.open_cursors, qid, entry)}}
+
+      {:error, error} ->
+        declare_or_fetch_failure(client, error, state)
+    end
+  end
+
+  # Fetch the next batch: PULL {n: fetch_size, qid}. Each batch is surfaced as a
+  # `%Bolty.Response{}` (its `results`/`records` are that batch; summary/stats/
+  # bookmark land on the final batch's SUCCESS). `has_more` decides whether the
+  # cursor continues (`:cont`) or is exhausted (`:halt`).
   @impl true
-  def handle_declare(query, _params, _opts, state), do: {:ok, query, state, nil}
+  def handle_fetch(_query, %{qid: qid, fields: fields, fetch_size: fetch_size}, _opts, state) do
+    %__MODULE__{client: client} = state
+
+    case Client.send_pull(client, %{n: fetch_size, qid: qid}) do
+      {:ok, pull_result(records: records, success_data: success_data) = result_pull} ->
+        response =
+          Response.new(
+            statement_result(result_run: %{"fields" => fields}, result_pull: result_pull)
+          )
+
+        has_more = Map.get(success_data, "has_more", false)
+        stream_telemetry(:fetch, %{records: length(records)}, %{has_more: has_more})
+
+        if has_more do
+          {:cont, response, state}
+        else
+          # Drained: no records remain server-side, so mark the cursor
+          # non-discardable (keep the entry so handle_deallocate still emits :stop).
+          {:halt, response, mark_undiscardable(state, qid)}
+        end
+
+      {:error, error} ->
+        # After a FAILURE the recovery RESET clears the server-side cursor, so
+        # mark it non-discardable; handle_deallocate must not DISCARD it.
+        declare_or_fetch_failure(client, error, mark_undiscardable(state, qid))
+    end
+  end
+
+  # Release a cursor. Only DISCARD one still holding records server-side (early
+  # termination); a fully-drained cursor's qid is already closed, so DISCARDing
+  # it would error. Always drop it from the tracking map.
   @impl true
-  def handle_fetch(query, _cursor, _opts, state), do: {:cont, query, state}
+  def handle_deallocate(query, %{qid: qid}, _opts, state) do
+    entry = Map.get(state.open_cursors, qid)
+    closed_state = %{state | open_cursors: Map.delete(state.open_cursors, qid)}
+
+    if entry do
+      stream_telemetry(:stop, %{duration: System.monotonic_time() - entry.start_time}, %{})
+    end
+
+    # DISCARD only a cursor still holding records server-side (early
+    # termination). A drained or RESET-cleared cursor's qid is already closed,
+    # so DISCARDing it would error.
+    if entry && entry.discardable do
+      case Client.send_discard(state.client, %{n: -1, qid: qid}) do
+        {:ok, _} -> {:ok, query, closed_state}
+        {:error, error} -> {:disconnect, error, closed_state}
+      end
+    else
+      {:ok, query, closed_state}
+    end
+  end
+
   @impl true
   def handle_status(_opts, %__MODULE__{in_transaction: true} = state), do: {:transaction, state}
   def handle_status(_opts, state), do: {:idle, state}
 
-  defp execute(statement, params, _opts, state) do
+  defp execute(statement, params, opts, state) do
     %__MODULE__{client: client} = state
+
+    # Per-query override of the connection-wide :recv_timeout. Applied to a local
+    # copy only, so it governs this call (RUN/PULL) without leaking into the
+    # pooled connection's state and affecting later queries.
+    client =
+      case Keyword.fetch(opts, :recv_timeout) do
+        {:ok, recv_timeout} -> %{client | recv_timeout: recv_timeout}
+        :error -> client
+      end
 
     case Client.run_statement(client, statement, params) do
       {:ok, statement_result} ->
         {:ok, statement_result}
 
+      # A recv timeout left the socket desynced (a late RUN/PULL response may still
+      # arrive); RESET-recovery would read the wrong bytes, so tear the connection
+      # down instead of returning it to the pool.
+      {:error, %Bolty.Error{code: :timeout} = error} ->
+        {:disconnect, error, state}
+
       {:error, %Bolty.Error{} = error} ->
         recover_from_failure(client, error, state)
     end
   rescue
+    # An exception mid-execute (e.g. raised during recv after RUN was sent) can
+    # leave unread RECORD/SUCCESS bytes on the socket that would poison the next
+    # query on this pooled connection. Disconnect rather than return it to the
+    # pool, and surface a %Bolty.Error{} instead of the raw exception. If the
+    # raised exception is already a %Bolty.Error{} (e.g. a decode error thrown by
+    # the unpacker), pass it through so its specific code/message reach the
+    # caller rather than being flattened to `:execute_exception`.
     e ->
-      {:error, e, state}
+      error =
+        case e do
+          %Bolty.Error{} ->
+            e
+
+          _ ->
+            Bolty.Error.wrap(__MODULE__, %{
+              code: :execute_exception,
+              message: Exception.message(e)
+            })
+        end
+
+      {:disconnect, error, state}
   end
 
   # A statement FAILURE leaves the Bolt connection in the protocol's FAILED state.
@@ -183,6 +334,49 @@ defmodule Bolty.Connection do
     _ -> {:disconnect, error, state}
   end
 
+  # Shared error handling for the streaming RUN (handle_declare) and PULL
+  # (handle_fetch). A recv timeout leaves the socket desynced, so tear the
+  # connection down; any other FAILURE follows the same RESET-recovery as the
+  # eager path (see execute/4) so a bad streamed query doesn't poison the pooled
+  # connection. Both return shapes ({:error, _, _} / {:disconnect, _, _}) are
+  # valid for the declare and fetch callbacks.
+  defp declare_or_fetch_failure(_client, %Bolty.Error{code: :timeout} = error, state) do
+    {:disconnect, error, state}
+  end
+
+  defp declare_or_fetch_failure(client, %Bolty.Error{} = error, state) do
+    recover_from_failure(client, error, state)
+  end
+
+  defp declare_or_fetch_failure(_client, error, state) do
+    {:disconnect, error, state}
+  end
+
+  # Marks a stream cursor as having no records left to DISCARD (drained or
+  # RESET-cleared), keeping its tracking entry so handle_deallocate still emits
+  # the :stop event. A no-op if the qid isn't tracked.
+  defp mark_undiscardable(state, qid) do
+    case Map.get(state.open_cursors, qid) do
+      nil ->
+        state
+
+      entry ->
+        %{state | open_cursors: Map.put(state.open_cursors, qid, %{entry | discardable: false})}
+    end
+  end
+
+  # Emits a `[:bolty, :stream, event]` telemetry event for lazy streaming
+  # (Bolty.stream/3): `:start` at declare, `:fetch` per PULL batch (records +
+  # has_more), `:stop` at deallocate (total wall-clock duration). See
+  # `guides/telemetry.md`.
+  defp stream_telemetry(event, measurements, metadata) do
+    :telemetry.execute(
+      [:bolty, :stream, event],
+      measurements,
+      Map.put(metadata, :db_system, "neo4j")
+    )
+  end
+
   defp result(
          {:ok, statement_result() = statement_result},
          query,
@@ -203,20 +397,31 @@ defmodule Bolty.Connection do
      end), state}
   end
 
-  defp do_init(client, opts) do
-    do_init(client.bolt_version, client, opts)
+  defp do_init(client, opts, config) do
+    do_init(client.bolt_version, client, opts, config)
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) and bolt_version >= 5.1 do
-    with {:ok, response_hello} <- Client.send_hello(client, opts),
+  defp do_init(bolt_version, client, opts, config)
+       when is_tuple(bolt_version) and bolt_version >= {5, 1} do
+    with {:ok, response_hello} <- Client.send_hello(client, hello_fields(opts, config)),
          {:ok, _response_logon} <- Client.send_logon(client, opts) do
       {:ok, response_hello}
     end
   end
 
-  defp do_init(bolt_version, client, opts) when is_float(bolt_version) do
-    Client.send_hello(client, opts)
+  defp do_init(bolt_version, client, opts, config) when is_tuple(bolt_version) do
+    Client.send_hello(client, hello_fields(opts, config))
   end
+
+  # Carry the resolved HELLO `routing` extras (server-side routing) alongside the
+  # raw start opts. `nil` means routing is off, so the field is omitted entirely
+  # and the connection stays a plain direct one. The user-facing boolean `:routing`
+  # opt (if any) was already consumed by Config.new/1; here it's replaced by the
+  # resolved `%{"address" => ...}` value the HELLO encoder sends verbatim.
+  defp hello_fields(opts, %Client.Config{routing: nil}), do: opts
+
+  defp hello_fields(opts, %Client.Config{routing: routing}),
+    do: Keyword.put(opts, :routing, routing)
 
   defp get_server_metadata_state(response_metadata) do
     hints = Map.get(response_metadata, "hints", "")

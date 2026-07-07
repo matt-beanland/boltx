@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defprotocol Bolty.ResponseEncoder.Json do
@@ -6,7 +6,7 @@ defprotocol Bolty.ResponseEncoder.Json do
   Protocol controlling how a value is made jsonable.
 
   Its only purpose is to convert Bolt Bolty specific structures into elixir buit-in types
-  which can be encoed in json by Jason.
+  which can be encoded in json by Elixir's built-in `JSON`.
 
   ## Deriving
   If the provided default implementation don't fit your need, you can override with your own

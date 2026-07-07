@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 name: CI
@@ -26,8 +26,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '29.0.1'
-          elixir-version: '1.20.0'
+          otp-version: '29.0.2'
+          elixir-version: '1.20.2'
 
       - uses: actions/cache@v4
         with:
@@ -35,7 +35,7 @@ jobs:
             deps
             _build
             priv/plts
-          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-'1.20.2'-'29.0.2'-${{ hashFiles('**/mix.lock') }}
 
       - run: mix deps.get
       - run: mix deps.compile
@@ -43,8 +43,34 @@ jobs:
         run: mix format --check-formatted
       - name: Compile (warnings as errors)
         run: mix compile --force --warnings-as-errors
+      - name: Credo
+        run: mix credo
       - name: Dialyzer
         run: mix dialyzer --format github
+      # No Neo4j in this job: verifies the unit suite passes with no database,
+      # so `:integration` tagging can't silently regress into a server dependency.
+      - name: Unit tests (no database)
+        run: mix test
+
+  floor:
+    # Exercise the advertised Elixir floor (mix.exs `elixir: "~> 1.18"`) so the
+    # package can't claim a version it won't compile on — e.g. the built-in
+    # `JSON` module (used for result encoding) is 1.18+. OTP 27 provides the
+    # native `:json` that backs it.
+    name: Compile on the Elixir floor (1.18)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.2'
+          elixir-version: '1.18.4'
+
+      - run: mix deps.get
+      - name: Compile on the floor
+        run: mix compile
   test:
     name: BoltVersion ${{ matrix.boltVersion }}, DB ${{matrix.db}}
     runs-on: ubuntu-latest
@@ -57,30 +83,30 @@ jobs:
         # the matrix key colliding. mixTestPartition just uniquely names each job's
         # coverage artifact.
         include:
-          # Bolt 5.x against the Neo4j 5.26.27 LTS.
+          # Bolt 5.x against the Neo4j 5.26.28 LTS.
           - boltVersion: '5.0'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 1
           - boltVersion: '5.1'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 2
           - boltVersion: '5.2'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 3
           - boltVersion: '5.3'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 4
           - boltVersion: '5.4'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 5
           - boltVersion: '5.6'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 6
           - boltVersion: '5.7'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 7
           - boltVersion: '5.8'
-            db: neo4j:5.26.27-community
+            db: neo4j:5.26.28-community
             mixTestPartition: 8
           # Bolt 6.0 against Neo4j 2026.05.
           - boltVersion: '6.0'
@@ -109,15 +135,15 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '29.0.1'
-          elixir-version: '1.20.0'
+          otp-version: '29.0.2'
+          elixir-version: '1.20.2'
 
       - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-'1.20.2'-'29.0.2'-${{ hashFiles('**/mix.lock') }}
 
       - run: mix deps.get
       - run: mix deps.compile
@@ -130,6 +156,60 @@ jobs:
           name: coverdata-${{ github.run_id }}-${{matrix.mixTestPartition}}
           path: cover
           retention-days: 1
+  tls:
+    name: TLS verification (bolt+s / bolt+ssc)
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      MIX_ENV: test
+      BOLT_TCP_PORT: 7687
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Build a TLS-enabled Neo4j whose server cert is signed by a throwaway CA,
+      # then run the :tls suite (excluded by default) against it. Guards #69's
+      # certificate handling end-to-end, which the unit tests can't observe.
+      - name: Generate TLS test certs
+        run: ./test/tls/gen_certs.sh
+
+      - name: Build TLS-enabled Neo4j image
+        run: docker build -t bolty-neo4j-tls test/tls
+
+      - name: Start Neo4j (TLS)
+        run: |
+          docker run --name neo4j-tls -p 7687:7687 \
+            -e NEO4J_AUTH=neo4j/password \
+            -e NEO4J_dbms_connector_bolt_listen__address=:7687 \
+            --detach bolty-neo4j-tls
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.0.2'
+          elixir-version: '1.20.2'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-'1.20.2'-'29.0.2'-${{ hashFiles('**/mix.lock') }}
+
+      - run: mix deps.get
+      - run: mix deps.compile
+
+      - name: Wait for Neo4j to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec neo4j-tls cypher-shell -u neo4j -p password 'RETURN 1' >/dev/null 2>&1; then
+              echo "Neo4j is ready"; exit 0
+            fi
+            sleep 3
+          done
+          echo "Neo4j did not become ready in time"; docker logs neo4j-tls; exit 1
+
+      - name: Run TLS tests
+        run: mix test --include tls test/bolty/tls_test.exs
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -140,15 +220,15 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-            otp-version: '29.0.1'
-            elixir-version: '1.20.0'
+            otp-version: '29.0.2'
+            elixir-version: '1.20.2'
 
       - uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-'1.20.0'-'29.0.1'-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-'1.20.2'-'29.0.2'-${{ hashFiles('**/mix.lock') }}
 
       - uses: actions/download-artifact@v4
         with:

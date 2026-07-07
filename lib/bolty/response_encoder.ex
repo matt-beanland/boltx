@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.ResponseEncoder do
@@ -8,7 +8,7 @@ defmodule Bolty.ResponseEncoder do
 
   For now, only JSON is supported.
 
-  Encoding is  handled by protocols to allow override if a  specific implemention is required.
+  Encoding is handled by protocols to allow override if a specific implemention is required.
   See targeted protocol documentation for more information
 
   """
@@ -16,15 +16,15 @@ defmodule Bolty.ResponseEncoder do
   @doc """
   Encode the data in json format.
 
-  This is done is 2 steps:
+  This is done in 2 steps:
   - first, the data is converted into a jsonable format
-  - the result is encoded in json via Jason
+  - the result is encoded in json via Elixir's built-in `JSON`
 
-  Both of these steps are overridable, see:
-  - for step 1: `Bolty.ResponseEncoder.Json`
-  - for step 2 (depending of your preferred library):
-  - `Bolty.ResponseEncoder.Json.Jason`
-  - `Bolty.ResponseEncoder.Json.Poison`
+  Step 1 is overridable via the `Bolty.ResponseEncoder.Json` protocol.
+
+  `Bolty.Types.*` structs can also be handed straight to `JSON.encode!/1`
+  (bolty ships the `JSON.Encoder` implementations); this function is the
+  convenience wrapper that runs the jsonable conversion first.
 
   ## Example
 
@@ -40,18 +40,25 @@ defmodule Bolty.ResponseEncoder do
       ...>     }
       ...>   }
       ...> }
-      iex> Bolty.ResponseEncoder.encode(data, :json)
-      {:ok, ~S|{"t1":{"id":69,"labels":["Test"],"properties":{"created":"2016-05-24T13:26:08.543+02:00","uuid":12345}}}|}
+      iex> {:ok, json} = Bolty.ResponseEncoder.encode(data, :json)
+      iex> decoded = JSON.decode!(json)
+      iex> decoded["t1"]["id"]
+      69
+      iex> decoded["t1"]["properties"]["created"]
+      "2016-05-24T13:26:08.543+02:00"
 
-      iex> Bolty.ResponseEncoder.encode("\\xFF", :json)
-      {:error, %Jason.EncodeError{message: "invalid byte 0xFF in <<255>>"}}
+      iex> match?({:error, _}, Bolty.ResponseEncoder.encode(<<0xFF>>, :json))
+      true
   """
   @spec encode(any(), :json) ::
-          {:ok, String.t()} | {:error, Jason.EncodeError.t() | Exception.t()}
+          {:ok, String.t()} | {:error, Exception.t()}
   def encode(response, :json) do
-    response
-    |> jsonable_response()
-    |> Jason.encode()
+    {:ok,
+     response
+     |> jsonable_response()
+     |> JSON.encode!()}
+  rescue
+    e -> {:error, e}
   end
 
   @doc """
@@ -73,17 +80,15 @@ defmodule Bolty.ResponseEncoder do
       ...>     }
       ...>   }
       ...> }
-      iex> Bolty.ResponseEncoder.encode!(data, :json)
-      ~S|{"t1":{"id":69,"labels":["Test"],"properties":{"created":"2016-05-24T13:26:08.543+02:00","uuid":12345}}}|
-
-      iex> Bolty.ResponseEncoder.encode!("\\xFF", :json)
-      ** (Jason.EncodeError) invalid byte 0xFF in <<255>>
+      iex> json = Bolty.ResponseEncoder.encode!(data, :json)
+      iex> JSON.decode!(json)["t1"]["labels"]
+      ["Test"]
   """
   @spec encode!(any(), :json) :: String.t() | no_return()
   def encode!(response, :json) do
     response
     |> jsonable_response()
-    |> Jason.encode!()
+    |> JSON.encode!()
   end
 
   defp jsonable_response(response) do

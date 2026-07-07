@@ -1,8 +1,10 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Large.Result.Set.Test do
   use ExUnit.Case, async: true
+
+  @moduletag :integration
 
   # Regression for #57: a result message larger than a single Bolt chunk
   # (> 65_535 bytes) is split by the server across multiple chunks. The reader

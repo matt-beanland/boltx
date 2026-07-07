@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.MessageEncoder do
@@ -21,8 +21,31 @@ defmodule Bolty.BoltProtocol.MessageEncoder do
       |> do_encode(data, policy)
       |> generate_chunks([])
 
-    Bolty.Utils.Logger.log_message(:client, :message_type, encoded, :hex)
+    Bolty.Utils.Logger.log_client_message_hex(encoded, data)
     encoded |> IO.iodata_to_binary()
+  end
+
+  # The standard `{:error, %Bolty.Error{}}` a message module returns from its
+  # fallback `encode/_` clause when the negotiated Bolt version is too old to
+  # carry that message. `module` is the calling message module (for error
+  # context); `name` is the message name, e.g. `"RUN"`.
+  @spec unsupported_version_error(module(), String.t()) :: {:error, Bolty.Error.t()}
+  def unsupported_version_error(module, name) do
+    {:error,
+     Bolty.Error.wrap(module, %{
+       code: :unsupported_message_version,
+       message: "#{name} message version not supported"
+     })}
+  end
+
+  # The `n`/`qid` paging fields shared by the PULL and DISCARD message extras,
+  # each defaulting to `-1` (all records / the last query).
+  @spec paging_params(map()) :: %{n: integer(), qid: integer()}
+  def paging_params(extra_parameters) do
+    %{
+      n: Map.get(extra_parameters, :n, -1),
+      qid: Map.get(extra_parameters, :qid, -1)
+    }
   end
 
   defp do_encode(signature, list, policy) when length(list) <= 15 do

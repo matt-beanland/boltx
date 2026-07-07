@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 import Config
@@ -40,5 +40,4 @@ config :logger, :console,
   level: level,
   format: "$date $time [$level] $metadata$message\n"
 
-config :tzdata, :autoupdate, :disabled
-config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+config :elixir, :time_zone_database, Tz.TimeZoneDatabase

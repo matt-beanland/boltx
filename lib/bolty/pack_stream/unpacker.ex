@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.PackStream.Unpacker do
@@ -193,8 +193,23 @@ defmodule Bolty.PackStream.Unpacker do
     [int | unpack(rest)]
   end
 
-  def unpack(<<int::signed-integer, rest::binary>>) do
+  # Tiny integer: a single byte holding -16..127 (markers 0xF0..0xFF and
+  # 0x00..0x7F). Bounded explicitly so an unknown/reserved marker byte can't be
+  # silently misread as a tiny int.
+  def unpack(<<int::signed-integer, rest::binary>>) when int in -16..127 do
     [int | unpack(rest)]
+  end
+
+  # Unknown / reserved PackStream marker. Fail loudly rather than decode a corrupt
+  # or malicious byte as data. Thrown (not raised) so PackStream.unpack/1 surfaces
+  # it as {:error, %Bolty.Error{}} via its try/catch.
+  def unpack(<<marker, _rest::binary>>) do
+    throw(
+      Bolty.Error.wrap(__MODULE__, %{
+        code: :unknown_marker,
+        message: "unknown PackStream marker 0x" <> Integer.to_string(marker, 16)
+      })
+    )
   end
 
   # Local Date
@@ -233,52 +248,24 @@ defmodule Bolty.PackStream.Unpacker do
     [t | rest]
   end
 
-  # Legacy Datetime with zone Id
-  def unpack(
-        {@legacy_datetime_with_zone_id_signature, struct,
-         @legacy_datetime_with_zone_id_struct_size}
-      ) do
-    {[seconds, nanoseconds, zone_id], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
-
-    naive_dt =
-      NaiveDateTime.add(
-        ~N[1970-01-01 00:00:00.000000],
-        seconds * 1_000_000_000 + nanoseconds,
-        :nanosecond
-      )
-
-    dt = Bolty.TypesHelper.datetime_with_micro(naive_dt, zone_id)
-    [dt | rest]
-  end
-
   # Datetime with zone Id
   def unpack({@datetime_with_zone_id_signature, struct, @datetime_with_zone_id_struct_size}) do
     {[seconds, nanoseconds, zone_id], rest} =
       decode_struct(struct, @datetime_with_zone_id_struct_size)
 
-    {:ok, date_from_unix} = DateTime.from_unix(seconds * 1_000_000_000 + nanoseconds, :nanosecond)
-    {:ok, datetime} = DateTime.shift_zone(date_from_unix, zone_id)
+    {:ok, instant} = DateTime.from_unix(seconds * 1_000_000_000 + nanoseconds, :nanosecond)
+
+    # Resolving the named zone needs a configured Elixir `:time_zone_database`.
+    # Throw a clear %Bolty.Error{} (which PackStream.unpack/1 surfaces as
+    # {:error, _}) rather than let a MatchError escape when a consumer has not
+    # configured one — the common case being a UTC-only default database.
+    datetime =
+      case DateTime.shift_zone(instant, zone_id) do
+        {:ok, datetime} -> datetime
+        {:error, reason} -> throw(zone_resolution_error(zone_id, reason))
+      end
+
     [datetime | rest]
-  end
-
-  # Legacy Datetime with zone offset
-  def unpack(
-        {@legacy_datetime_with_zone_offset_signature, struct,
-         @legacy_datetime_with_zone_offset_struct_size}
-      ) do
-    {[seconds, nanoseconds, zone_offset], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
-
-    naive_dt =
-      NaiveDateTime.add(
-        ~N[1970-01-01 00:00:00.000000],
-        seconds * 1_000_000_000 + nanoseconds,
-        :nanosecond
-      )
-
-    dt = DateTimeWithTZOffset.create(naive_dt, zone_offset)
-    [dt | rest]
   end
 
   # Datetime with zone offset
@@ -286,7 +273,7 @@ defmodule Bolty.PackStream.Unpacker do
         {@datetime_with_zone_offset_signature, struct, @datetime_with_zone_offset_struct_size}
       ) do
     {[seconds, nanoseconds, zone_offset], rest} =
-      decode_struct(struct, @legacy_datetime_with_zone_id_struct_size)
+      decode_struct(struct, @datetime_with_zone_offset_struct_size)
 
     naive_dt =
       NaiveDateTime.add(
@@ -330,7 +317,40 @@ defmodule Bolty.PackStream.Unpacker do
     [decode_vector(type_marker, data) | rest]
   end
 
+  # Unknown struct signature. Fail loudly (thrown, so PackStream.unpack/1 returns
+  # {:error, %Bolty.Error{}}) rather than crash with a FunctionClauseError on a
+  # corrupt or unsupported server structure.
+  def unpack({signature, _struct, _struct_size}) do
+    throw(
+      Bolty.Error.wrap(__MODULE__, %{
+        code: :unknown_marker,
+        message: "unknown PackStream struct signature 0x" <> Integer.to_string(signature, 16)
+      })
+    )
+  end
+
   # Private
+
+  # A failure to resolve a datetime's named zone into a clear %Bolty.Error{}.
+  # The UTC-only default database is the common footgun: the consumer never
+  # configured a real `:time_zone_database`.
+  defp zone_resolution_error(zone_id, :utc_only_time_zone_database) do
+    Bolty.Error.wrap(__MODULE__, %{
+      code: :time_zone_database_not_configured,
+      message:
+        "received a datetime in zone #{inspect(zone_id)} but no Elixir " <>
+          ":time_zone_database is configured; set one (e.g. tz or tzdata) to " <>
+          "decode named-zone datetimes"
+    })
+  end
+
+  defp zone_resolution_error(zone_id, reason) do
+    Bolty.Error.wrap(__MODULE__, %{
+      code: :time_zone_resolution_failed,
+      message: "could not resolve datetime zone #{inspect(zone_id)}: #{inspect(reason)}"
+    })
+  end
+
   @spec decode_string(binary(), integer()) :: list()
   defp decode_string(bytes, str_length) do
     <<string::binary-size(^str_length), rest::binary>> = bytes

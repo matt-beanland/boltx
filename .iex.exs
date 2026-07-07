@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 try do
@@ -9,8 +9,6 @@ end
 
 alias Bolty.{Response, Types, Utils}
 alias Bolty
-
-Application.put_env(:tzdata, :autoupdate, :disabled)
 
 # Example options for an iex dev session — matches the keys
 # Bolty.Client.Config.new/1 reads. Default Bolt port is 7687.

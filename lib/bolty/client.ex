@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Client do
@@ -10,7 +10,6 @@ defmodule Bolty.Client do
   import Bolty.BoltProtocol.ServerResponse
 
   alias Bolty.BoltProtocol.Versions
-  alias Bolty.Utils.Converters
   alias Bolty.BoltProtocol.MessageDecoder
 
   alias Bolty.BoltProtocol.Message.{
@@ -27,13 +26,31 @@ defmodule Bolty.Client do
     LogoffMessage
   }
 
-  defstruct [:sock, :bolt_version, policy: %Bolty.Policy{}]
+  defstruct [:sock, :bolt_version, :recv_timeout, policy: %Bolty.Policy{}]
 
   defmodule Config do
     @moduledoc false
 
     @default_timeout 15_000
+    @default_port 7687
 
+    # Mirrors the `start_option()` typespec in lib/bolty.ex.
+    @bolty_option_keys ~w(
+      uri hostname port scheme versions auth user_agent
+      notifications_minimum_severity notifications_disabled_categories
+      ssl_opts connect_timeout recv_timeout socket_options routing
+    )a
+
+    # DBConnection.ConnectionPool.Pool prepends `pool_index: id` to every
+    # pooled connection's opts before calling `conn_mod.connect/1` — it's
+    # never something a caller passes to `start_link/1` themselves (and so
+    # isn't in `available_start_options/0`), but it *does* show up here since
+    # Config.new/1 runs inside that connect callback.
+    @dbconnection_internal_keys ~w(pool_index)a
+
+    # Redact the password so a failed-connect crash report (DBConnection includes
+    # state/opts) can't leak it to logs.
+    @derive {Inspect, except: [:password]}
     defstruct [
       :hostname,
       :port,
@@ -41,117 +58,359 @@ defmodule Bolty.Client do
       :username,
       :password,
       :connect_timeout,
+      :recv_timeout,
       :socket_options,
       :versions,
       :ssl?,
-      :ssl_opts
+      :tls_verify,
+      :ssl_opts,
+      :routing
     ]
 
-    def new(opts) do
-      {hostname, port} = get_hostname_and_port(opts)
-      {username, password} = get_user_and_pass(opts)
-      {scheme, ssl?, ssl_opts} = get_scheme_and_ssl_opts(opts)
-      versions = get_versions(opts)
+    @doc """
+    Builds a `%Config{}` from connection options.
 
-      %__MODULE__{
-        hostname: hostname,
-        port: port,
-        scheme: scheme,
-        username: username,
-        password: password,
-        connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
-        socket_options:
-          Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
-        versions: versions,
-        ssl?: ssl?,
-        ssl_opts: ssl_opts
-      }
+    Returns `{:ok, config}`, or `{:error, %Bolty.Error{}}` when an unrecognised
+    option key is passed, when a required field (currently `:username`) is
+    missing, or when `:versions` contains no version bolty actually
+    implements — either way the caller surfaces that cleanly rather than
+    raising (or silently misbehaving) inside DBConnection's connect callback.
+    """
+    def new(opts) do
+      with :ok <- validate_options(opts) do
+        {hostname, port} = get_hostname_and_port(opts)
+        {username, password} = get_user_and_pass(opts)
+        {scheme, ssl?, tls_verify, ssl_opts} = get_scheme_and_ssl_opts(opts)
+
+        with :ok <- validate_username(username),
+             {:ok, versions} <- get_versions(opts),
+             {:ok, routing} <- get_routing(opts, scheme, hostname, port) do
+          {:ok,
+           %__MODULE__{
+             hostname: hostname,
+             port: port,
+             scheme: scheme,
+             username: username,
+             password: password,
+             connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
+             recv_timeout: Keyword.get(opts, :recv_timeout, @default_timeout),
+             socket_options:
+               Keyword.merge(
+                 [mode: :binary, packet: :raw, active: false],
+                 opts[:socket_options] || []
+               ),
+             versions: versions,
+             ssl?: ssl?,
+             tls_verify: tls_verify,
+             ssl_opts: ssl_opts,
+             routing: routing
+           }}
+        end
+      end
     end
 
+    # Rejects any option key that is neither one of bolty's own (mirrored in
+    # @bolty_option_keys above) nor a key DBConnection itself understands.
+    # DBConnection.available_start_options/0 is queried live rather than
+    # hand-copied, so this stays in sync with whatever db_connection version
+    # is actually installed instead of drifting on a version bump (#121).
+    # Without this, a typo like `hostnam: "..."` silently falls back to the
+    # `"localhost"` default with zero signal that anything is wrong.
+    defp validate_options(opts) do
+      warn_on_conflicting_duplicates(opts)
+
+      # A plain membership check rather than `Keyword.validate/2`: that
+      # function treats each valid key as consumable only once, so a
+      # legitimately-repeated key (e.g. `[pool_size: 1] ++ TestHelper.opts()`,
+      # a common "override by prepending" idiom, where `pool_size` then
+      # appears twice) is flagged as invalid on its second occurrence.
+      valid_keys =
+        MapSet.new(
+          @bolty_option_keys ++
+            @dbconnection_internal_keys ++ DBConnection.available_start_options()
+        )
+
+      invalid_keys =
+        opts |> Keyword.keys() |> Enum.uniq() |> Enum.reject(&MapSet.member?(valid_keys, &1))
+
+      case invalid_keys do
+        [] ->
+          :ok
+
+        invalid_keys ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :invalid_option,
+             message:
+               "unrecognised option(s) #{inspect(invalid_keys)} — check for a typo; see " <>
+                 "Bolty.start_option() for the supported keys"
+           })}
+      end
+    end
+
+    # A key repeated with the *same* value every time (e.g. the deliberate
+    # `[pool_size: 1] ++ base_opts` override idiom, when base_opts already
+    # carries that same value) is inert and stays silent — `Keyword.get/3`
+    # takes the first occurrence either way. A key repeated with *different*
+    # values is ambiguous enough to be worth a warning: it's as likely to be a
+    # copy-paste mistake as a deliberate override, and either way the caller
+    # should know only the first value is actually used.
+    defp warn_on_conflicting_duplicates(opts) do
+      opts
+      |> Enum.group_by(fn {key, _value} -> key end, fn {_key, value} -> value end)
+      |> Enum.each(fn {key, values} ->
+        if values |> Enum.uniq() |> length() > 1 do
+          require Logger
+
+          Logger.warning(
+            "bolty: option :#{key} was passed multiple times with different values " <>
+              "#{inspect(values)} — the first occurrence wins; remove the duplicate if unintended"
+          )
+        end
+      end)
+    end
+
+    defp validate_username(nil) do
+      {:error,
+       Bolty.Error.wrap(Bolty.Client, %{
+         code: :missing_username,
+         message: ":username is missing — set auth: [username: ...] in your connection config"
+       })}
+    end
+
+    defp validate_username(_username), do: :ok
+
+    # Maps the connection scheme to a TLS *intent*, not materialised ssl options:
+    # the strict defaults (incl. SNI, which needs the hostname) are built at
+    # connect time in Client.maybe_connect_to_ssl/2. Per Neo4j scheme semantics
+    # (matching the official drivers):
+    #
+    #   * bolt / neo4j        -> no TLS
+    #   * bolt+s / neo4j+s    -> full verification (verify_peer against system CAs)
+    #   * bolt+ssc / neo4j+ssc -> self-signed / trust-all (encrypt only, no verify)
+    #
+    # User-supplied :ssl_opts are returned raw and merged *over* the strict
+    # defaults at connect time, so an explicit `verify:`/`cacertfile:` always wins.
     defp get_scheme_and_ssl_opts(opts) do
       scheme = get_schema(opts)
       ssl_opts = Keyword.get(opts, :ssl_opts, [])
 
-      {ssl, ssl_config} =
+      {ssl?, tls_verify} =
         case scheme do
-          "bolt" -> {false, ssl_opts}
-          "neo4j" -> {false, ssl_opts}
-          "neo4j+s" -> {true, Keyword.merge(ssl_opts, verify: :verify_none)}
-          "bolt+s" -> {true, Keyword.merge(ssl_opts, verify: :verify_none)}
-          "neo4j+ssc" -> {true, Keyword.merge(ssl_opts, verify: :verify_peer)}
-          "bolt+ssc" -> {true, Keyword.merge(ssl_opts, verify: :verify_peer)}
-          _ -> {true, ssl_opts}
+          "bolt" -> {false, :none}
+          "neo4j" -> {false, :none}
+          "bolt+s" -> {true, :verify}
+          "neo4j+s" -> {true, :verify}
+          "bolt+ssc" -> {true, :self_signed}
+          "neo4j+ssc" -> {true, :self_signed}
+          # Unknown scheme: secure by default.
+          _ -> {true, :verify}
         end
 
-      {scheme, ssl, ssl_config}
+      {scheme, ssl?, tls_verify, ssl_opts}
     end
 
     defp get_user_and_pass(opts) do
       basic_auth = Keyword.get(opts, :auth, [])
-
-      username =
-        System.get_env("BOLT_USER") || Keyword.get(basic_auth, :username, nil) ||
-          raise(":username is missing")
-
-      password = System.get_env("BOLT_PWD") || Keyword.get(basic_auth, :password)
-
-      {username, password}
+      {Keyword.get(basic_auth, :username), Keyword.get(basic_auth, :password)}
     end
 
+    # Resolves the Bolt HELLO `routing` field (server-side routing / SSR, Bolt
+    # 4.1+). When set, the server forwards each statement to the right cluster
+    # member using the `:mode`/`:bookmarks` bolty already sends over RUN/BEGIN;
+    # when absent, the server must not route (a plain direct connection).
+    #
+    # Enabled by default for `neo4j`/`neo4j+s`/`neo4j+ssc` schemes — which mean
+    # "routed" everywhere else in the ecosystem — and off for `bolt*`. An
+    # explicit `:routing` boolean overrides either way (same precedence as every
+    # other option: explicit opt > URI-derived > default), so `routing: false`
+    # is the opt-out for a `neo4j://` URI used cosmetically against a single
+    # instance or proxy, and `routing: true` forces it on a `bolt://` scheme.
+    #
+    # Returns `{:ok, %{"address" => "host:port"}}` when on (the extras value the
+    # HELLO encoder sends verbatim), `{:ok, nil}` when off (field omitted), or an
+    # `{:error, %Bolty.Error{}}` for a non-boolean `:routing` rather than
+    # silently ignoring a misconfiguration.
+    defp get_routing(opts, scheme, hostname, port) do
+      case Keyword.fetch(opts, :routing) do
+        {:ok, enabled?} when is_boolean(enabled?) ->
+          {:ok, routing_address(enabled?, hostname, port)}
+
+        {:ok, other} ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :invalid_routing,
+             message: ":routing must be true or false, got: #{inspect(other)}"
+           })}
+
+        :error ->
+          {:ok, routing_address(routed_scheme?(scheme), hostname, port)}
+      end
+    end
+
+    defp routed_scheme?(scheme), do: scheme in ~w(neo4j neo4j+s neo4j+ssc)
+
+    defp routing_address(false, _hostname, _port), do: nil
+    defp routing_address(true, hostname, port), do: %{"address" => format_address(hostname, port)}
+
+    # Bracket an IPv6 literal so the `host:port` join stays unambiguous
+    # (`[::1]:7687` rather than `::1:7687`). A hostname/IPv4 has no colon.
+    defp format_address(hostname, port) do
+      if String.contains?(hostname, ":") do
+        "[#{hostname}]:#{port}"
+      else
+        "#{hostname}:#{port}"
+      end
+    end
+
+    # Precedence, uniform across host/port/scheme: explicit opts > URI components
+    # > default. (No env vars — those were removed in 0.3.0.)
     defp get_hostname_and_port(opts) do
-      uri = Keyword.get(opts, :uri, nil)
-
-      parsed_uri =
-        uri
-        |> to_string
-        |> URI.parse()
-
-      port_default = String.to_integer(System.get_env("BOLT_TCP_PORT") || "7687")
-
-      hostname =
-        parsed_uri.host || Keyword.get(opts, :hostname, nil) || System.get_env("BOLT_HOST") ||
-          "localhost"
-
-      port = parsed_uri.port || Keyword.get(opts, :port, port_default)
+      parsed_uri = parse_uri(opts)
+      hostname = Keyword.get(opts, :hostname) || parsed_uri.host || "localhost"
+      port = Keyword.get(opts, :port) || parsed_uri.port || @default_port
       {hostname, port}
     end
 
     defp get_schema(opts) do
-      uri = Keyword.get(opts, :uri, nil)
+      Keyword.get(opts, :scheme) || parse_uri(opts).scheme || "bolt+s"
+    end
 
-      parsed_uri =
-        uri
-        |> to_string
-        |> URI.parse()
-
-      parsed_uri.scheme || Keyword.get(opts, :scheme, nil) || "bolt+s"
+    defp parse_uri(opts) do
+      opts |> Keyword.get(:uri) |> to_string() |> URI.parse()
     end
 
     def get_versions(opts) do
-      versions =
-        case Keyword.get(opts, :versions) do
-          nil ->
-            case System.get_env("BOLT_VERSIONS") do
-              nil ->
-                Versions.latest_versions()
+      case Keyword.get(opts, :versions) do
+        nil ->
+          {:ok, Versions.latest_versions()}
 
-              env_versions ->
-                require Logger
+        versions ->
+          parse_versions(versions)
+      end
+    end
 
-                Logger.warning(
-                  "BOLT_VERSIONS env var is deprecated — set :versions in your connection config instead"
-                )
+    # Versions.parse/1 raises on a malformed entry (e.g. "abc" -> ArgumentError,
+    # "5" or "5.4.3" -> MatchError, an unrecognised shape like an atom or map ->
+    # FunctionClauseError) — none of which are documented, so left uncaught they
+    # crash the connect callback instead of returning the {:error, %Bolty.Error{}}
+    # this module otherwise guarantees (see :missing_username, :unsupported_versions).
+    defp parse_versions(versions) do
+      {parsed, deprecated_float?} =
+        Enum.map_reduce(versions, false, fn version, dep? ->
+          {canonical, float?} = Versions.parse(version)
+          {canonical, dep? or float?}
+        end)
 
-                env_versions
-                |> String.split(",")
-                |> Enum.map(&Converters.to_float/1)
-            end
+      if deprecated_float? do
+        require Logger
 
-          ops_versions ->
-            ops_versions
-        end
+        Logger.warning(
+          "bolty: passing float Bolt versions to :versions is deprecated and will be " <>
+            "removed; use strings like \"5.4\" (a float can't distinguish 5.10 from 5.1)."
+        )
+      end
 
-      ((versions |> Enum.into([])) ++ [0, 0, 0]) |> Enum.take(4) |> Enum.sort(&>=/2)
+      reject_unsupported_versions(versions, parsed)
+    rescue
+      e ->
+        {:error,
+         Bolty.Error.wrap(Bolty.Client, %{
+           code: :invalid_versions,
+           message: "invalid :versions #{inspect(versions)}: #{Exception.message(e)}"
+         })}
+    end
+
+    # bolty only ever negotiates versions it actually implements — a version
+    # that isn't in Versions.available_versions() (e.g. a pre-5.0 Bolt version,
+    # or one bolty hasn't caught up to yet) must never reach the handshake
+    # bytes: if a server somehow *did* accept it, bolty's own message/policy
+    # code doesn't speak that dialect and would fail confusingly deep in
+    # encode/decode instead of cleanly at connect. Unsupported entries are
+    # dropped with a warning as long as at least one requested version is
+    # actually supported; if none are, that's a config error, not a silent
+    # fallback to bolty's defaults (the caller asked for something specific).
+    #
+    # `:versions` entries can be a plain {major, minor} or a documented
+    # {major, minor..minor} range (one handshake slot offering several
+    # minors at once). A range is classified minor-by-minor rather than as
+    # one opaque unit: if every minor in it is still supported it's kept
+    # compactly as a range, if only some are it's kept as the individual
+    # still-supported minors (e.g. after a future floor bump drops the low
+    # end of a range a caller configured), and only a range with no
+    # supported minors at all is dropped entirely.
+    defp reject_unsupported_versions(raw_versions, parsed_versions) do
+      supported = Versions.available_versions()
+      classified = Enum.map(parsed_versions, &classify_version(&1, supported))
+
+      kept = Enum.flat_map(classified, & &1.kept)
+      dropped = Enum.flat_map(classified, & &1.dropped)
+
+      cond do
+        kept == [] ->
+          {:error,
+           Bolty.Error.wrap(Bolty.Client, %{
+             code: :unsupported_versions,
+             message:
+               "none of the requested :versions #{inspect(raw_versions)} are supported by " <>
+                 "bolty; supported versions are " <>
+                 Enum.map_join(supported, ", ", &Versions.format/1)
+           })}
+
+        dropped != [] ->
+          require Logger
+
+          Logger.warning(
+            "bolty: dropping unsupported Bolt version(s) " <>
+              "#{Enum.map_join(dropped, ", ", &Versions.format/1)} from :versions " <>
+              "(requested #{inspect(raw_versions)}) — bolty only supports " <>
+              Enum.map_join(supported, ", ", &Versions.format/1)
+          )
+
+          {:ok, pad_and_sort(kept)}
+
+        true ->
+          {:ok, pad_and_sort(kept)}
+      end
+    end
+
+    defp classify_version({_major, minor} = canonical, supported) when is_integer(minor) do
+      if canonical in supported do
+        %{kept: [canonical], dropped: []}
+      else
+        %{kept: [], dropped: [canonical]}
+      end
+    end
+
+    defp classify_version({major, %Range{} = range}, supported) do
+      {kept_minors, dropped_minors} =
+        range |> Enum.to_list() |> Enum.split_with(&({major, &1} in supported))
+
+      case {kept_minors, dropped_minors} do
+        {_, []} ->
+          %{kept: [{major, range}], dropped: []}
+
+        {[], _} ->
+          %{kept: [], dropped: Enum.map(dropped_minors, &{major, &1})}
+
+        {kept, dropped} ->
+          # Only 4 handshake slots exist in total (see pad_and_sort/1), so a
+          # partially-supported range must stay as compact as possible rather
+          # than exploding into one slot per surviving minor — re-coalesce any
+          # contiguous survivors back into range slot(s) with the same logic
+          # latest_versions/0 uses to build the default offer.
+          recompacted =
+            kept
+            |> Enum.map(&{major, &1})
+            |> Enum.sort(&>=/2)
+            |> Versions.rangeify()
+
+          %{kept: recompacted, dropped: Enum.map(dropped, &{major, &1})}
+      end
+    end
+
+    defp pad_and_sort(versions) do
+      (versions ++ [{0, 0}, {0, 0}, {0, 0}]) |> Enum.take(4) |> Enum.sort(&>=/2)
     end
   end
 
@@ -162,11 +421,13 @@ defmodule Bolty.Client do
   end
 
   def connect(opts) when is_list(opts) do
-    connect(Config.new(opts))
+    with {:ok, config} <- Config.new(opts) do
+      connect(config)
+    end
   end
 
   def do_connect(config) do
-    client = %__MODULE__{sock: nil, bolt_version: nil}
+    client = %__MODULE__{sock: nil, bolt_version: nil, recv_timeout: config.recv_timeout}
 
     case maybe_connect_to_ssl(client, config) do
       {:ok, client} ->
@@ -189,11 +450,8 @@ defmodule Bolty.Client do
       {:ok, sock} ->
         {:ok, %{client | sock: {:gen_tcp, sock}}}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      other ->
-        other
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
   end
 
@@ -203,21 +461,88 @@ defmodule Bolty.Client do
       port: port,
       socket_options: socket_options,
       connect_timeout: connect_timeout,
+      tls_verify: tls_verify,
       ssl_opts: ssl_opts
     } = config
 
-    opts = Keyword.merge(ssl_opts, socket_options)
+    opts = build_tls_opts(tls_verify, hostname, ssl_opts, socket_options)
 
     case :ssl.connect(String.to_charlist(hostname), port, opts, connect_timeout) do
       {:ok, ssl_sock} ->
         {:ok, %{client | sock: {:ssl, ssl_sock}}}
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      other ->
-        other
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
+  end
+
+  # Normalise a raw :gen_tcp/:ssl connect error into a %Bolty.Error{}. Reasons are
+  # posix atoms (:econnrefused, :nxdomain, :timeout, …) or, for TLS, a
+  # {:tls_alert, {alert, description}} tuple — keep the alert legible so a
+  # verification failure is diagnosable. Anything else is preserved via inspect.
+  defp wrap_connect_error(reason) when is_atom(reason) do
+    Bolty.Error.wrap(__MODULE__, reason)
+  end
+
+  defp wrap_connect_error({:tls_alert, {alert, description}}) do
+    Bolty.Error.wrap(__MODULE__, %{code: :tls_alert, message: "#{alert}: #{description}"})
+  end
+
+  defp wrap_connect_error(reason) do
+    Bolty.Error.wrap(__MODULE__, %{code: :connect_error, message: inspect(reason)})
+  end
+
+  # Assembles the final :ssl.connect options. Layering (last wins): strict TLS
+  # defaults < user :ssl_opts < transport socket options. User opts override
+  # verification/CA config so an explicit `verify:`/`cacertfile:` always takes
+  # effect; transport options (mode/packet/active) are structural and stay
+  # authoritative. Public (within this @moduledoc false module) so the
+  # precedence can be unit-tested without a live TLS server.
+  def build_tls_opts(tls_verify, hostname, ssl_opts, socket_options) do
+    tls_verify
+    |> tls_default_opts(hostname)
+    |> Keyword.merge(ssl_opts)
+    |> put_default_cacerts()
+    |> Keyword.merge(socket_options)
+  end
+
+  # Supply the OS trust store as the default CA source for verify_peer — but only
+  # when the user hasn't provided their own. :cacerts and :cacertfile are
+  # mutually exclusive in :ssl (if both are present :cacerts wins and :cacertfile
+  # is ignored), so injecting a default :cacerts unconditionally would silently
+  # override a user's `ssl_opts: [cacertfile: ...]`. Applied after the user merge
+  # so their CA choice, and any `verify: :verify_none` override, take effect.
+  defp put_default_cacerts(opts) do
+    cond do
+      opts[:verify] != :verify_peer -> opts
+      Keyword.has_key?(opts, :cacertfile) -> opts
+      Keyword.has_key?(opts, :cacerts) -> opts
+      true -> Keyword.put(opts, :cacerts, :public_key.cacerts_get())
+    end
+  end
+
+  # Strict, secure-by-default TLS options per scheme intent. Built here (not at
+  # scheme-mapping time) because server_name_indication needs the resolved
+  # hostname. `+s` gets full CA verification + hostname check; `+ssc` is the
+  # documented self-signed / trust-all opt-out (encrypt only). Callers can still
+  # override any of these via :ssl_opts, which are merged on top. The CA source
+  # for :verify is added separately by put_default_cacerts/1.
+  defp tls_default_opts(:verify, hostname) do
+    [
+      verify: :verify_peer,
+      depth: 3,
+      server_name_indication: String.to_charlist(hostname),
+      customize_hostname_check: [
+        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+      ]
+    ]
+  end
+
+  defp tls_default_opts(:self_signed, hostname) do
+    [
+      verify: :verify_none,
+      server_name_indication: String.to_charlist(hostname)
+    ]
   end
 
   defp handshake(client, config) do
@@ -238,68 +563,46 @@ defmodule Bolty.Client do
          |> Enum.reduce(<<>>, fn version, acc -> acc <> Versions.to_bytes(version) end))
 
     with :ok <- send_packet(client, data),
-         encode_version <- recv_packets(client, config.connect_timeout),
-         version <- decode_version(encode_version) do
-      case version do
-        +0.0 -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
-        _ -> {:ok, %{client | bolt_version: version}}
+         response when is_binary(response) <- recv_packets(client, config.connect_timeout),
+         {major, minor} <- decode_version(response) do
+      case {major, minor} do
+        {0, 0} -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
+        version -> {:ok, %{client | bolt_version: version}}
       end
     else
-      _ ->
-        {:error, "Could not negotiate the version"}
+      {:error, %Bolty.Error{}} = error -> error
+      {:error, reason} -> {:error, wrap_connect_error(reason)}
+      _ -> {:error, Bolty.Error.wrap(__MODULE__, :version_negotiation_error)}
     end
   end
 
   def prepare_generic_messages(_bolt_version, messages) do
-    response = hd(messages)
-
-    case response do
-      {:success, response} ->
-        {:ok, response}
-
-      {:ignored, _} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :ignored)}
-
-      {:failure, response} ->
-        {:error,
-         Bolty.Error.wrap(__MODULE__, %{
-           code: response["neo4j_code"] || response["code"],
-           message: response["description"] || response["message"]
-         })}
-    end
+    MessageDecoder.prepare_generic(__MODULE__, messages)
   end
 
   def send_hello(client, fields) do
     payload = HelloMessage.encode(client.bolt_version, [{:policy, client.policy} | fields])
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_logon(client, fields) do
     payload = LogonMessage.encode(client.bolt_version, fields)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_run(client, query, parameters, extra_parameters) do
     payload =
       RunMessage.encode(client.bolt_version, query, parameters, extra_parameters, client.policy)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &RunMessage.prepare_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &RunMessage.prepare_messages/2)
   end
 
   def send_pull(client, extra_parameters) do
     payload = PullMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &PullMessage.prepare_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &PullMessage.prepare_messages/2)
   end
 
   def run_statement(client, query, parameters, extra_parameters) do
@@ -318,13 +621,10 @@ defmodule Bolty.Client do
   def run_statement(client, %Bolty.Queries{} = queries, parameters) do
     %Bolty.Queries{statement: statement, extra: extra_parameters} = queries
 
-    cypher_seps = ~r/;(.){0,1}\n/
-
-    statements =
-      statement
-      |> String.split(cypher_seps, trim: true)
-      |> Enum.map(&String.trim/1)
-      |> Enum.filter(&(String.length(&1) > 0))
+    # Split on top-level `;` only — the splitter is aware of string literals,
+    # comments, and backtick identifiers, so a `;` hiding inside any of those
+    # does not break the batch. See `Bolty.Utils.StatementSplitter`.
+    statements = Bolty.Utils.StatementSplitter.split(statement)
 
     Enum.reduce_while(statements, {:ok, []}, fn statement, {:ok, acc} ->
       case Bolty.Client.run_statement(client, statement, parameters, extra_parameters) do
@@ -337,41 +637,31 @@ defmodule Bolty.Client do
   def send_begin(client, extra_parameters) do
     payload = BeginMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_commit(client) do
     payload = CommitMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_rollback(client) do
     payload = RollbackMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_reset(client) do
     payload = ResetMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
   def send_discard(client, extra_parameters) do
     payload = DiscardMessage.encode(client.bolt_version, extra_parameters)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &DiscardMessage.prepare_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &DiscardMessage.prepare_messages/2)
   end
 
   def send_goodbye(client) do
@@ -395,28 +685,39 @@ defmodule Bolty.Client do
   def send_logoff(client) do
     payload = LogoffMessage.encode(client.bolt_version)
 
-    with :ok <- send_packet(client, payload) do
-      recv_packets(client, &__MODULE__.prepare_generic_messages/2, :infinity)
-    end
+    send_and_recv(client, payload, &__MODULE__.prepare_generic_messages/2)
   end
 
+  # Keepalive for idle pooled connections (see `Connection.ping/1`). RESET is a
+  # single message round-trip — cheaper than a RUN/PULL and with no query
+  # planning — and doubles as a liveness check: the server replies SUCCESS on a
+  # healthy connection. It clears any server-side state, which is exactly what we
+  # want on an idle connection between checkouts.
   def send_ping(client) do
-    case run_statement(client, "RETURN true as success", %{}, %{}) do
-      {:ok, statement_result(result_pull: pull_result(records: [[true]]))} ->
-        {:ok, true}
-
-      _ ->
-        {:error, :db_ping_failed}
+    case send_reset(client) do
+      {:ok, _} -> {:ok, true}
+      _ -> {:error, :db_ping_failed}
     end
   end
 
   defp decode_version(<<0, 0, minor::unsigned-integer, major::unsigned-integer>>)
        when is_integer(major) and is_integer(minor) do
-    Float.round(major + minor / 10.0, 1)
+    {major, minor}
   end
+
+  defp decode_version(_other), do: :error
 
   def send_packet(client, payload) do
     send_data(client, payload)
+  end
+
+  # Send an already-encoded message and read the response with the given
+  # `prepare_messages/2` interpreter. The common body of the `send_*` helpers;
+  # `send_goodbye/1` is the exception (it tears the port down on `:closed`).
+  defp send_and_recv(client, payload, prepare_messages) do
+    with :ok <- send_packet(client, payload) do
+      recv_packets(client, prepare_messages, client.recv_timeout)
+    end
   end
 
   def send_data(%{sock: {sock_mod, sock}}, data) do
@@ -428,11 +729,8 @@ defmodule Bolty.Client do
       {:ok, response} ->
         response
 
-      {:error, :timeout} ->
-        {:error, Bolty.Error.wrap(__MODULE__, :timeout)}
-
-      {:error, _} = error ->
-        error
+      {:error, reason} ->
+        {:error, wrap_connect_error(reason)}
     end
   end
 
@@ -448,15 +746,17 @@ defmodule Bolty.Client do
       {:ok, message_record} ->
         recv_packets(client, prepare_messages, timeout, [message_record | messages])
 
+      # get_chunk_size/get_chunk already wrap a socket :timeout (and any other
+      # recv error) into a %Bolty.Error{code: :timeout}; the caller tears the
+      # connection down rather than reuse a desynced one.
       {:error, _} = error ->
         error
     end
   end
 
   defp get_next_message(client, timeout) do
-    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>),
-         {:ok, message} <- decode_message(message_binary) do
-      {:ok, message}
+    with {:ok, message_binary} <- read_chunks(client, timeout, <<>>) do
+      decode_message(message_binary)
     end
   end
 

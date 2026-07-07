@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defprotocol Bolty.PackStream.Packer do
@@ -135,12 +135,20 @@ defimpl Bolty.PackStream.Packer, for: Map do
     end
   end
 
-  @spec encode_kv(map(), Bolty.Policy.t()) :: binary()
+  # Bolt maps are unordered, but the BEAM's small-map key iteration order depends
+  # on atom-table intern order, so the same map could emit keys in different
+  # orders across processes/runs (a source of flaky byte-for-byte tests). Sort by
+  # the key's term order — total and deterministic over any key term, unlike a
+  # stringified key which would raise on a non-String.Chars key and bypass the
+  # unified {:error, %Bolty.Error{}} surface — for reproducible output.
+  @spec encode_kv(map(), Bolty.Policy.t()) :: iodata()
   defp encode_kv(map, policy) do
-    Enum.reduce(map, <<>>, fn data, acc -> [acc, do_reduce_kv(data, policy)] end)
+    map
+    |> Enum.sort_by(fn {key, _value} -> key end)
+    |> Enum.reduce(<<>>, fn data, acc -> [acc, do_reduce_kv(data, policy)] end)
   end
 
-  @spec do_reduce_kv({atom(), any()}, Bolty.Policy.t()) :: [binary()]
+  @spec do_reduce_kv({atom() | binary(), any()}, Bolty.Policy.t()) :: iodata()
   defp do_reduce_kv({key, value}, policy) do
     [
       @protocol.pack(key, policy),

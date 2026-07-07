@@ -135,3 +135,6 @@ __pycache__
 # agent related
 .agent-notes/
 .claude
+
+# generated TLS test certs (regenerate via test/tls/gen_certs.sh)
+/test/tls/certs/

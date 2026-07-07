@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.Message.GoodbyeMessageTest do
@@ -9,14 +9,14 @@ defmodule Bolty.BoltProtocol.Message.GoodbyeMessageTest do
   describe "GoodbyeMessage.encode/1" do
     @tag :core
     test "coding with version >= 3 of bolt" do
-      bolt_version = 3.0
+      bolt_version = {3, 0}
 
       assert <<0, 2, 176, 2, 0, 0>> == GoodbyeMessage.encode(bolt_version)
     end
 
     @tag :core
     test "coding with version < 3 of bolt" do
-      bolt_version = 1.0
+      bolt_version = {1, 0}
 
       assert {:error,
               %Bolty.Error{

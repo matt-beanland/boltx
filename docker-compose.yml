@@ -1,9 +1,16 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 services:
+  # Neo4j 5.26 LTS with bolt TLS enabled (server cert + SSL policy baked into the
+  # image via test/tls). tls_level OPTIONAL keeps plaintext `bolt://` working
+  # (the existing suite and the healthcheck) while `bolt+s`/`bolt+ssc` exercise
+  # the TLS paths on 7687. Requires `./test/tls/gen_certs.sh` before build.
   neo4j-bolt5:
-    image: neo4j:5.26.27
+    build:
+      context: ./test/tls
+      args:
+        NEO4J_VERSION: "5.26.28"
     container_name: neo4j-ash-bolt5
     ports:
       - "7687:7687"

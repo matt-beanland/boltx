@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.Message.LogoffMessage do
@@ -8,15 +8,11 @@ defmodule Bolty.BoltProtocol.Message.LogoffMessage do
 
   @signature 0x6B
 
-  def encode(bolt_version) when is_float(bolt_version) and bolt_version >= 5.1 do
+  def encode(bolt_version) when is_tuple(bolt_version) and bolt_version >= {5, 1} do
     MessageEncoder.encode(@signature, [])
   end
 
   def encode(_) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "LOGOFF message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "LOGOFF")
   end
 end

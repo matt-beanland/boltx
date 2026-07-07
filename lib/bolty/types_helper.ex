@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.TypesHelper do
@@ -18,15 +18,6 @@ defmodule Bolty.TypesHelper do
       end)
 
     {hours, minutes, seconds}
-  end
-
-  @doc """
-  Convert NaiveDateTime and timezone into a Calendar.DateTime
-  Without losing microsecond data!
-  """
-  @spec datetime_with_micro(Calendar.naive_datetime(), String.t()) :: Calendar.datetime()
-  def datetime_with_micro(%NaiveDateTime{} = naive_dt, timezone) do
-    DateTime.from_naive!(naive_dt, timezone)
   end
 
   @doc """
@@ -84,9 +75,17 @@ defmodule Bolty.TypesHelper do
   end
 
   @doc """
-  Convert a %Duration into a cypher-compliant string.
-  To know everything about duration format, please see:
-  https://neo4j.com/docs/cypher-manual/current/syntax/temporal/#cypher-temporal-durations
+  Formats an Elixir `Duration` (as decoded from a Neo4j duration) as an
+  ISO-8601 duration string, matching Neo4j's own `toString(duration)`
+  ([Cypher temporal durations](https://neo4j.com/docs/cypher-manual/current/syntax/temporal/#cypher-temporal-durations)):
+
+    * whole seconds render without a fractional part (`PT65S`, not `PT65.0S`);
+    * a fractional second renders with no trailing zeros (`PT5.5S`, `PT0.123456S`);
+    * negative components are preserved (`PT-30S`);
+    * an all-zero duration renders as `PT0S`.
+
+  Returns `{:ok, string}`, or `{:error, term}` for anything that isn't a
+  well-formed `Duration`.
   """
   @spec format_duration(Duration.t()) :: {:ok, String.t()} | {:error, any()}
   def format_duration(
@@ -102,21 +101,23 @@ defmodule Bolty.TypesHelper do
       )
       when is_integer(y) and is_integer(m) and is_integer(d) and is_integer(h) and
              is_integer(mm) and is_integer(s) and is_tuple(us) do
-    formated = format_date(duration) <> format_time(duration)
+    body = format_date(duration) <> format_time(duration)
 
-    param =
-      case formated do
-        "" -> ""
-        formated_duration -> @period_prefix <> formated_duration
+    # An all-zero duration has no components; Neo4j renders it as "PT0S".
+    formatted =
+      case body do
+        "" -> @period_prefix <> @time_prefix <> "0" <> @second_suffix
+        body -> @period_prefix <> body
       end
 
-    {:ok, param}
+    {:ok, formatted}
   end
 
   def format_duration(param) do
     {:error, param}
   end
 
+  # Date components: emit each non-zero part, negatives included (e.g. "-2D").
   @spec format_date(Duration.t()) :: String.t()
   defp format_date(%Duration{year: y, month: m, week: w, day: d}) do
     format_duration_part(y, @year_suffix) <>
@@ -124,52 +125,56 @@ defmodule Bolty.TypesHelper do
       format_duration_part(w, @week_suffix) <> format_duration_part(d, @day_suffix)
   end
 
+  # Time components — a "T" section, present only when at least one time field is
+  # non-zero (so a pure-date duration carries no "T"). Seconds combine the whole
+  # and microsecond fields (see format_seconds/2).
   @spec format_time(Duration.t()) :: String.t()
-  defp format_time(%Duration{
-         hour: h,
-         minute: m,
-         second: s,
-         microsecond: {us, _precision}
-       })
-       when h > 0 or m > 0 or s > 0 or us > 0 do
-    {seconds, nanoseconds} = cap_nanoseconds(s, us)
-    nanoseconds_f = nanoseconds |> Integer.to_string() |> String.pad_leading(9, "0")
-    seconds_f = "#{Integer.to_string(seconds)}.#{nanoseconds_f}" |> String.to_float()
-
+  defp format_time(%Duration{hour: h, minute: m, second: s, microsecond: {us, _precision}})
+       when h != 0 or m != 0 or s != 0 or us != 0 do
     @time_prefix <>
       format_duration_part(h, @hour_suffix) <>
       format_duration_part(m, @minute_suffix) <>
-      format_duration_part(seconds_f, @second_suffix)
+      format_seconds(s, us)
   end
 
   defp format_time(_) do
     ""
   end
 
-  @spec format_duration_part(number(), String.t()) :: String.t()
-  defp format_duration_part(duration_part, suffix)
-       when duration_part > 0 and is_bitstring(suffix) do
-    "#{stringify_number(duration_part)}#{suffix}"
+  # A whole (integer) date/time component: non-zero -> "<n><suffix>", else "".
+  @spec format_duration_part(integer(), String.t()) :: String.t()
+  defp format_duration_part(part, suffix) when is_integer(part) and part != 0 do
+    "#{part}#{suffix}"
   end
 
   defp format_duration_part(_, _) do
     ""
   end
 
-  @spec stringify_number(number()) :: String.t()
-  defp stringify_number(number) when is_integer(number) do
-    Integer.to_string(number)
-  end
+  # Seconds + microseconds as one ISO-8601 seconds field with no trailing zeros:
+  # 65,0 -> "65S"; 5,500000 -> "5.5S"; 0,123456 -> "0.123456S"; -30,0 -> "-30S".
+  # Omitted entirely when both are zero (the S part is dropped when other time
+  # components already carry the duration, e.g. "PT5M").
+  @spec format_seconds(integer(), integer()) :: String.t()
+  defp format_seconds(0, 0), do: ""
 
-  defp stringify_number(number) do
-    Float.to_string(number)
-  end
+  defp format_seconds(s, us) do
+    total_us = s * 1_000_000 + us
+    sign = if total_us < 0, do: "-", else: ""
+    abs_us = abs(total_us)
+    whole = div(abs_us, 1_000_000)
+    frac = rem(abs_us, 1_000_000)
 
-  @spec cap_nanoseconds(integer(), integer()) :: {integer(), integer()}
-  defp cap_nanoseconds(s, us) when is_integer(s) and is_integer(us) do
-    ns = us * 1_000
-    seconds_ = s + div(ns, 1_000_000_000)
-    nanoseconds_ = rem(ns, 1_000_000_000)
-    {seconds_, nanoseconds_}
+    digits =
+      if frac == 0 do
+        Integer.to_string(whole)
+      else
+        frac_str =
+          frac |> Integer.to_string() |> String.pad_leading(6, "0") |> String.trim_trailing("0")
+
+        "#{whole}.#{frac_str}"
+      end
+
+    "#{sign}#{digits}#{@second_suffix}"
   end
 end

@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.Mixfile do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.3.0"
   @url_docs "https://hexdocs.pm/bolty"
   @url_github "https://github.com/diffo-dev/bolty"
 
@@ -12,17 +12,16 @@ defmodule Bolty.Mixfile do
     [
       app: :bolty,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       package: package(),
       description: "Neo4j driver for Elixir, using the fast Bolt protocol",
       name: "Bolty",
-      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       docs: docs(),
       dialyzer: [
-        plt_add_apps: [:jason, :poison, :mix],
+        plt_add_apps: [:mix],
         plt_local_path: "priv/plts",
         plt_core_path: "priv/plts",
         ignore_warnings: ".dialyzer_ignore.exs"
@@ -58,10 +57,17 @@ defmodule Bolty.Mixfile do
 
   defp aliases do
     [
-      test: [
-        "test"
-      ]
+      setup: ["deps.get", &enable_git_hooks/1]
     ]
+  end
+
+  # Point git at the repo's shared hooks (.githooks/pre-push runs the fast lint
+  # checks before a push). Idempotent; run via `mix setup`.
+  defp enable_git_hooks(_args) do
+    case System.cmd("git", ["config", "core.hooksPath", ".githooks"], stderr_to_stdout: true) do
+      {_, 0} -> Mix.shell().info("Git hooks enabled (core.hooksPath = .githooks)")
+      {out, _} -> Mix.shell().error("Could not enable git hooks: #{out}")
+    end
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
@@ -74,6 +80,7 @@ defmodule Bolty.Mixfile do
         "mix.exs",
         "README.md",
         "CHANGELOG.md",
+        "usage-rules.md",
         "LICENSE",
         "NOTICE",
         "LICENSES",
@@ -93,26 +100,31 @@ defmodule Bolty.Mixfile do
   defp docs() do
     [
       source_ref: "v#{@version}",
+      source_url: @url_github,
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: [
+        "README.md",
+        "guides/public_api.md",
+        "guides/clustering.md",
+        "guides/telemetry.md",
+        "CHANGELOG.md"
+      ]
     ]
   end
 
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:db_connection, "~> 2.7.0"},
-      {:jason, "~> 1.4", optional: true},
-      {:poison, "~> 6.0", optional: true},
+      {:db_connection, "~> 2.7"},
+      {:telemetry, "~> 1.0"},
 
       # Testing dependencies
       {:excoveralls, "~> 0.18.0", optional: true, only: [:test, :dev]},
-      {:porcelain, "~> 2.0.3", only: [:test, :dev], runtime: false},
-      {:uuid, "~> 1.1.8", only: [:test, :dev], runtime: false},
-      {:tzdata, "~> 1.1", only: [:test, :dev]},
+      {:tz, "~> 0.28", only: [:test, :dev]},
+      {:stream_data, "~> 1.0", only: [:test, :dev]},
 
       # Benchmarking dependencies
-      {:benchee, "~> 1.3.0", optional: true, only: [:dev, :test]},
+      {:benchee, "~> 1.3", optional: true, only: [:dev, :test]},
       {:benchee_html, "~> 1.0.0", optional: true, only: [:dev]},
 
       # Linting dependencies

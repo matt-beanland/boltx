@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.BoltProtocol.Message.HelloMessage do
@@ -10,7 +10,7 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
 
   @signature 0x01
 
-  def encode(bolt_version, fields) when is_float(bolt_version) and bolt_version >= 5.1 do
+  def encode(bolt_version, fields) when is_tuple(bolt_version) and bolt_version >= {5, 1} do
     policy = Keyword.get(fields, :policy, %Bolty.Policy{})
 
     message = [
@@ -23,17 +23,18 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
     MessageEncoder.encode(@signature, message)
   end
 
-  def encode(bolt_version, fields) when is_float(bolt_version) and bolt_version >= 3.0 do
-    message = [Map.merge(get_auth_params(fields), get_user_agent(bolt_version, fields))]
-    MessageEncoder.encode(@signature, message)
+  def encode(bolt_version, fields) when is_tuple(bolt_version) and bolt_version >= {3, 0} do
+    extras =
+      fields
+      |> get_auth_params()
+      |> Map.merge(get_user_agent(bolt_version, fields))
+      |> maybe_put_routing(fields)
+
+    MessageEncoder.encode(@signature, [extras])
   end
 
   def encode(_, _) do
-    {:error,
-     Bolty.Error.wrap(__MODULE__, %{
-       code: :unsupported_message_version,
-       message: "HELLO message version not supported"
-     })}
+    MessageEncoder.unsupported_version_error(__MODULE__, "HELLO")
   end
 
   defp get_extra_parameters(policy, fields) do
@@ -52,5 +53,18 @@ defmodule Bolty.BoltProtocol.Message.HelloMessage do
         do: Map.put(acc, policy.notifications_field, categories_value),
         else: acc
     end)
+    |> maybe_put_routing(fields)
+  end
+
+  # Opt the connection into server-side routing (SSR) by including the HELLO
+  # `routing` field. Config.new/1 resolves this to `%{"address" => "host:port"}`
+  # when on and omits it (nil) when off; its absence tells the server not to
+  # route. The atom key encodes to the wire string "routing" via the PackStream
+  # Atom packer.
+  defp maybe_put_routing(extras, fields) do
+    case Keyword.get(fields, :routing) do
+      nil -> extras
+      routing -> Map.put(extras, :routing, routing)
+    end
   end
 end

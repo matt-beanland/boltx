@@ -1,8 +1,10 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Transaction.Test do
   use ExUnit.Case, async: true
+
+  @moduletag :integration
 
   alias Bolty.Response
 

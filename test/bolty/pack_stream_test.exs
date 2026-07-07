@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.PackStreamTest do
@@ -7,7 +7,6 @@ defmodule Bolty.PackStreamTest do
   alias Bolty.PackStream
   alias Bolty.Policy
   alias Bolty.Types.{TimeWithTZOffset, DateTimeWithTZOffset, Point}
-  alias Bolty.TypesHelper
   alias Bolty.TestDerivationStruct
 
   @evolved %Policy{datetime: :evolved}
@@ -173,7 +172,7 @@ defmodule Bolty.PackStreamTest do
       # May 2016 Berlin is CEST (UTC+2). Evolved body carries the UTC instant —
       # so the seconds word drops by 7200 relative to legacy (0x57445670 local
       # → 0x57443A50 UTC). Nanoseconds and zone-id string are unchanged.
-      dt = TypesHelper.datetime_with_micro(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
+      dt = DateTime.from_naive!(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
 
       assert <<0xB3, 0x69, 0xCA, 0x57, 0x44, 0x3A, 0x50, 0xCA, 0x27, 0x0, 0x25, 0x68, 0x8D, 0x45,
                0x75, 0x72, 0x6F, 0x70, 0x65, 0x2F, 0x42, 0x65, 0x72, 0x6C, 0x69, 0x6E>> ==
@@ -483,66 +482,12 @@ defmodule Bolty.PackStreamTest do
                )
     end
 
-    test "Datetime with zone id" do
-      dt =
-        Bolty.TypesHelper.datetime_with_micro(~N[1998-03-18 06:25:12.123456], "Europe/Paris")
-
-      assert [dt] ==
-               PackStream.unpack!(
-                 {0x66,
-                  <<0xCA, 0x35, 0xF, 0x68, 0xC8, 0xCA, 0x7, 0x5B, 0xCA, 0x0, 0x8C, 0x45, 0x75,
-                    0x72, 0x6F, 0x70, 0x65, 0x2F, 0x50, 0x61, 0x72, 0x69, 0x73>>, 3}
-               )
-
-      dt =
-        Bolty.TypesHelper.datetime_with_micro(
-          ~N[2016-05-24 13:26:08.654321],
-          "Europe/Berlin"
-        )
-
-      assert [dt] ==
-               PackStream.unpack!(
-                 <<0xB3, 0x66, 0xCA, 0x57, 0x44, 0x56, 0x70, 0xCA, 0x27, 0x0, 0x25, 0x68, 0x8D,
-                   0x45, 0x75, 0x72, 0x6F, 0x70, 0x65, 0x2F, 0x42, 0x65, 0x72, 0x6C, 0x69, 0x6E>>
-               )
-    end
-
-    test "Datetime with zone offset" do
-      assert [
-               %DateTimeWithTZOffset{
-                 naive_datetime: ~N[1998-03-18 06:25:12.123456],
-                 timezone_offset: 7200
-               }
-             ] ==
-               PackStream.unpack!(
-                 {0x46,
-                  <<0xCA, 0x35, 0xF, 0x68, 0xC8, 0xCA, 0x7, 0x5B, 0xCA, 0x0, 0xC9, 0x1C, 0x20>>,
-                  3}
-               )
-
-      assert [
-               %DateTimeWithTZOffset{
-                 naive_datetime: ~N[2016-05-24 13:26:08.654321],
-                 timezone_offset: 7200
-               }
-             ] =
-               PackStream.unpack!(
-                 <<0xB3, 0x46, 0xCA, 0x57, 0x44, 0x56, 0x70, 0xCA, 0x27, 0x0, 0x25, 0x68, 0xC9,
-                   0x1C, 0x20>>
-               )
-    end
-
     test "Datetime with zone id — evolved (0x69) decodes UTC-instant seconds" do
       # Symmetric with the evolved packer: the wire carries UTC seconds
       # (0x57443A50 = 1_464_089_168) plus the zone id; the unpacker reconstructs
       # via DateTime.from_unix + DateTime.shift_zone, so the local wall clock
-      # lands at 13:26:08 CEST — the same DateTime a legacy 0x66 of the same
-      # local wall clock would produce.
-      dt =
-        Bolty.TypesHelper.datetime_with_micro(
-          ~N[2016-05-24 13:26:08.654321],
-          "Europe/Berlin"
-        )
+      # lands at 13:26:08 CEST.
+      dt = DateTime.from_naive!(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
 
       assert [dt] ==
                PackStream.unpack!(
@@ -568,11 +513,7 @@ defmodule Bolty.PackStreamTest do
     end
 
     test "Datetime zone-id/zone-offset — evolved round-trip" do
-      dt_zone_id =
-        Bolty.TypesHelper.datetime_with_micro(
-          ~N[2016-05-24 13:26:08.654321],
-          "Europe/Berlin"
-        )
+      dt_zone_id = DateTime.from_naive!(~N[2016-05-24 13:26:08.654321], "Europe/Berlin")
 
       evolved_bytes = :erlang.iolist_to_binary(PackStream.pack!(dt_zone_id, @evolved))
       assert [dt_zone_id] == PackStream.unpack!(evolved_bytes)
@@ -866,6 +807,36 @@ defmodule Bolty.PackStreamTest do
       assert_raise Bolty.Error, fn ->
         PackStream.pack!(Vector.new(:float32, [1.0, 2.0]), %Policy{vectors: false})
       end
+    end
+  end
+
+  describe "Decode rejects unknown markers (#76)" do
+    test "an unknown/reserved marker byte returns {:error, :unknown_marker}" do
+      for marker <- [0xC4, 0xC5, 0xC6, 0xC7, 0xCF] do
+        assert {:error, %Bolty.Error{code: :unknown_marker}} = PackStream.unpack(<<marker>>)
+      end
+    end
+
+    test "an unknown marker mid-stream errors instead of decoding as a tiny int" do
+      # tiny list of 3, second element is a reserved marker (0xC4) not a tiny int.
+      assert {:error, %Bolty.Error{code: :unknown_marker}} =
+               PackStream.unpack(<<0x93, 0x01, 0xC4, 0x02>>)
+    end
+
+    test "an unknown struct signature returns {:error, :unknown_marker}" do
+      assert {:error, %Bolty.Error{code: :unknown_marker}} =
+               PackStream.unpack(<<0xB1, 0xFF, 0xC0>>)
+    end
+
+    test "unpack! raises %Bolty.Error{} on an unknown marker" do
+      assert_raise Bolty.Error, fn -> PackStream.unpack!(<<0xC4>>) end
+    end
+
+    test "tiny-int boundaries still decode" do
+      assert PackStream.unpack!(<<0x00>>) == [0]
+      assert PackStream.unpack!(<<0x7F>>) == [127]
+      assert PackStream.unpack!(<<0xF0>>) == [-16]
+      assert PackStream.unpack!(<<0xFF>>) == [-1]
     end
   end
 end

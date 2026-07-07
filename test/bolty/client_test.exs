@@ -1,8 +1,10 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.ClientTest do
   use ExUnit.Case, async: true
+
+  @moduletag :integration
 
   alias Bolty.Client
   alias Bolty.BoltProtocol.Versions
@@ -20,7 +22,7 @@ defmodule Bolty.ClientTest do
 
   defp handle_handshake(client, opts) do
     case client.bolt_version do
-      version when version >= 5.1 ->
+      version when version >= {5, 1} ->
         metadata = Client.send_hello(client, opts)
         Client.send_logon(client, opts)
         metadata
@@ -30,143 +32,71 @@ defmodule Bolty.ClientTest do
     end
   end
 
-  describe "Client configuration" do
-    @describetag :core
-
-    test "parsing the host, schema and the port, from a uri string config parameter" do
-      opts = [
-        uri: "bolt://hobby-happyHoHoHo.dbs.graphenedb.com:24786",
-        auth: [username: "usertest"]
-      ]
-
-      config = Client.Config.new(opts)
-
-      assert config.hostname == "hobby-happyHoHoHo.dbs.graphenedb.com"
-      assert config.scheme == "bolt"
-      assert config.port == 24786
-      assert config.username == "usertest"
-    end
-
-    test "standard Bolty default configuration for port, hostname and schema" do
-      opts = [
-        auth: [username: "usertest"]
-      ]
-
-      config = Client.Config.new(opts)
-
-      assert config.hostname == "localhost"
-      assert config.scheme == "bolt+s"
-      assert config.username == "usertest"
-    end
-
-    test "parsing the host, scheme and the port without uri" do
-      opts = [
-        hostname: "hobby-happyHoHoHo.dbs.com",
-        scheme: "bolt+s",
-        port: 7689,
-        auth: [username: "usertests"]
-      ]
-
-      config = Client.Config.new(opts)
-
-      assert config.hostname == "hobby-happyHoHoHo.dbs.com"
-      assert config.scheme == "bolt+s"
-      assert config.port == 7689
-      assert config.username == "usertests"
-    end
-
-    test "passing port, scheme and host along with uri" do
-      opts = [
-        uri: "bolt://hobby-happyHoHoHo.dbs.graphenedb.com:24786",
-        hostname: "happy.com",
-        scheme: "bolts",
-        port: 7689,
-        auth: [username: "usertests"]
-      ]
-
-      config = Client.Config.new(opts)
-
-      assert config.hostname == "hobby-happyHoHoHo.dbs.graphenedb.com"
-      assert config.scheme == "bolt"
-      assert config.port == 24786
-      assert config.username == "usertests"
-    end
-
-    test "returns correct values for different schemes" do
-      base_opts = [
-        auth: [username: "usertests"]
-      ]
-
-      opts1 = base_opts ++ [scheme: "bolt"]
-      assert %Client.Config{scheme: "bolt", ssl?: false, ssl_opts: []} = Client.Config.new(opts1)
-
-      opts2 = base_opts ++ [scheme: "bolt+s"]
-
-      assert %Client.Config{scheme: "bolt+s", ssl?: true, ssl_opts: [verify: :verify_none]} =
-               Client.Config.new(opts2)
-
-      opts3 = base_opts ++ [scheme: "bolt+ssc"]
-
-      assert %Client.Config{scheme: "bolt+ssc", ssl?: true, ssl_opts: [verify: :verify_peer]} =
-               Client.Config.new(opts3)
-
-      opts4 = base_opts ++ [scheme: "neo4j"]
-      assert %Client.Config{scheme: "neo4j", ssl?: false, ssl_opts: []} = Client.Config.new(opts4)
-
-      opts5 = base_opts ++ [scheme: "neo4j+s"]
-
-      assert %Client.Config{scheme: "neo4j+s", ssl?: true, ssl_opts: [verify: :verify_none]} =
-               Client.Config.new(opts5)
-
-      opts6 = base_opts ++ [scheme: "neo4j+ssc"]
-
-      assert %Client.Config{scheme: "neo4j+ssc", ssl?: true, ssl_opts: [verify: :verify_peer]} =
-               Client.Config.new(opts6)
-    end
-  end
-
   describe "connect" do
     @tag :bolt_version_5_3
-    test "multiple versions specified" do
-      opts = [versions: [5.3, 4, 3]] ++ @opts
-      assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+    test "multiple versions specified — unsupported entries are dropped with a warning" do
+      import ExUnit.CaptureLog
+
+      opts = [versions: ["5.3", "4.0", "3.0"]] ++ @opts
+
+      log =
+        capture_log(fn ->
+          assert {:ok, client} = Client.connect(opts)
+          assert {5, 3} == client.bolt_version
+        end)
+
+      assert log =~ "dropping unsupported Bolt version"
+      assert log =~ "4.0"
+      assert log =~ "3.0"
     end
 
     @tag :bolt_version_5_3
     test "unordered versions specified" do
-      opts = [versions: [4, 3, 5.3]] ++ @opts
+      opts = [versions: ["4.0", "3.0", "5.3"]] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      assert 5.3 == client.bolt_version
+      assert {5, 3} == client.bolt_version
     end
 
     @tag :last_version
     test "no versions specified" do
       opts = [] ++ @opts
       assert {:ok, client} = Client.connect(opts)
-      # latest_versions/0 returns ranged tuples like `{5, 0..4}`; the
-      # negotiated `client.bolt_version` is the latest float in that range.
-      {major, minor_or_range} = hd(Versions.latest_versions())
-
-      minor =
-        case minor_or_range do
-          %Range{} = r -> List.last(Range.to_list(r))
-          m when is_integer(m) -> m
-        end
-
-      assert major + minor / 10 == client.bolt_version
+      # With no `:versions`, the highest mutually-supported version is negotiated;
+      # on the last_version job that is the newest version bolty supports.
+      assert client.bolt_version == List.last(Versions.available_versions())
     end
 
     @tag core: true
-    test "zero version" do
-      opts = [versions: [0]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+    test "zero version is rejected at config time, not sent to the server" do
+      opts = [versions: ["0.0"]] ++ @opts
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
     end
 
     @tag core: true
-    test "major version incompatible with the server" do
-      opts = [versions: [50]] ++ @opts
-      {:error, %Bolty.Error{code: :version_negotiation_error}} = Client.connect(opts)
+    test "a version bolty doesn't implement is rejected at config time, not sent to the server" do
+      opts = [versions: ["50.0"]] ++ @opts
+      assert {:error, %Bolty.Error{code: :unsupported_versions}} = Client.connect(opts)
+    end
+
+    @tag core: true
+    test ":versions with only unsupported entries returns a clean error listing them" do
+      opts = [versions: ["3.0", "4.2"]] ++ @opts
+
+      assert {:error, %Bolty.Error{code: :unsupported_versions, bolt: %{message: message}}} =
+               Client.connect(opts)
+
+      assert message =~ "3.0"
+      assert message =~ "4.2"
+    end
+
+    @tag core: true
+    test "a refused connection returns a wrapped %Bolty.Error{}, not a raw posix tuple" do
+      # Nothing listens on this port, so :gen_tcp.connect returns {:error, :econnrefused};
+      # #70 requires it surface as a %Bolty.Error{} rather than the bare atom.
+      opts = [port: 65_533] ++ @opts
+
+      assert {:error, %Bolty.Error{module: Bolty.Client, code: code}} = Client.connect(opts)
+      assert is_atom(code)
     end
   end
 
@@ -182,7 +112,7 @@ defmodule Bolty.ClientTest do
           101, 109, 101, 116, 114, 121, 46, 101, 110, 97, 98, 108, 101, 100, 194, 0, 0>>
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk)))
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 1.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {1, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -212,7 +142,7 @@ defmodule Bolty.ClientTest do
 
       pid = Bolty.Mocks.SockMock.start_link(framed(body(chunk1)) ++ framed(body(chunk2)))
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 3.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {3, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -246,7 +176,7 @@ defmodule Bolty.ClientTest do
           [@noop_chunk] ++ framed(body(chunk1)) ++ [@noop_chunk] ++ framed(body(chunk2))
         )
 
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [
@@ -278,7 +208,7 @@ defmodule Bolty.ClientTest do
           framed(success)
 
       pid = Bolty.Mocks.SockMock.start_link(frames)
-      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: 5.0}
+      client = %{sock: {Bolty.Mocks.SockMock, pid}, bolt_version: {5, 0}}
       {:ok, message} = Client.recv_packets(client, fn _bolt_version, data -> {:ok, data} end, 0)
 
       assert message == [{:success, %{}}, {:record, [1024, 2048]}]

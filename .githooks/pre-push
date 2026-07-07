@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 bolty contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pre-push hook: run the fast half of CI's "Code Quality Checks" (lint) job so
+# formatting and compile-warning failures are caught before they reach CI.
+#
+# Enable once per clone with `mix setup` (or `git config core.hooksPath .githooks`).
+# Bypass in a pinch with:  SKIP_HOOKS=1 git push
+set -euo pipefail
+
+if [ "${SKIP_HOOKS:-0}" = "1" ]; then
+  echo "pre-push: skipped (SKIP_HOOKS=1)"
+  exit 0
+fi
+
+echo "pre-push: mix format --check-formatted"
+mix format --check-formatted
+
+echo "pre-push: mix compile --warnings-as-errors"
+mix compile --warnings-as-errors
+
+echo "pre-push: OK"

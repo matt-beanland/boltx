@@ -1,8 +1,10 @@
-# SPDX-FileCopyrightText: 2024 bolty contributors
+# SPDX-FileCopyrightText: 2025 bolty contributors
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Bolty.ConnectionTest do
   use ExUnit.Case, async: false
+
+  @moduletag :integration
 
   alias Bolty.Connection
   alias Bolty.BoltProtocol.Versions
@@ -22,7 +24,7 @@ defmodule Bolty.ConnectionTest do
 
     assert is_bitstring(server_version)
     assert is_bitstring(connection_id)
-    assert is_float(client.bolt_version)
+    assert is_tuple(client.bolt_version)
     assert :ok = Connection.disconnect(:stop, conn_data)
   end
 
@@ -43,7 +45,7 @@ defmodule Bolty.ConnectionTest do
 
     assert is_bitstring(server_version)
     assert is_bitstring(connection_id)
-    assert is_float(client.bolt_version)
+    assert is_tuple(client.bolt_version)
 
     assert {:ok, %Connection{client: _} = conn_data} =
              Connection.checkout(conn_data)
@@ -70,7 +72,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.0
+    assert client.bolt_version == {5, 0}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -85,7 +87,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.1
+    assert client.bolt_version == {5, 1}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -100,7 +102,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.2
+    assert client.bolt_version == {5, 2}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -115,7 +117,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.3
+    assert client.bolt_version == {5, 3}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -130,7 +132,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.4
+    assert client.bolt_version == {5, 4}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -145,7 +147,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.6
+    assert client.bolt_version == {5, 6}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -160,7 +162,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.7
+    assert client.bolt_version == {5, 7}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -175,7 +177,7 @@ defmodule Bolty.ConnectionTest do
       Connection.connect(@opts)
 
     assert String.starts_with?(server_version, "Neo4j/")
-    assert client.bolt_version == 5.8
+    assert client.bolt_version == {5, 8}
     assert is_bitstring(connection_id)
     assert String.contains?(connection_id, "bolt-")
 
@@ -208,7 +210,7 @@ defmodule Bolty.ConnectionTest do
       Bolty.transaction(pid, fn conn ->
         info = Bolty.connection_info(conn)
 
-        assert is_float(info.bolt_version)
+        assert is_binary(info.bolt_version)
         assert is_bitstring(info.server_version)
         assert %Bolty.Policy{} = info.policy
       end)
@@ -259,32 +261,10 @@ defmodule Bolty.ConnectionTest do
     end
   end
 
-  describe "Connection.handle_deallocate/4" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:ok, "", conn_data} == Connection.handle_deallocate("", "", %{}, conn_data)
-    end
-  end
-
-  describe "Connection.handle_declare/3" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:ok, "", conn_data, nil} == Connection.handle_declare("", "", %{}, conn_data)
-    end
-  end
-
-  describe "Connection.handle_fetch/3" do
-    @tag :core
-    test "successful" do
-      opts = [pool_size: 1] ++ @opts
-      {:ok, conn_data} = Connection.connect(opts)
-      assert {:cont, "", conn_data} == Connection.handle_fetch("", "", %{}, conn_data)
-    end
-  end
+  # handle_declare/4, handle_fetch/4 and handle_deallocate/4 are exercised
+  # end-to-end against a live server in test/streaming_test.exs (they now run
+  # RUN/PULL/DISCARD over a real cursor lifecycle rather than the old no-op
+  # stubs, so an isolated unit assertion on their return shape isn't meaningful).
 
   describe "Connection.handle_status/2" do
     @tag :core
