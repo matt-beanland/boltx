@@ -36,7 +36,7 @@ Add :bolty to your dependencies:
 ```elixir
 def deps() do
   [
-    {:bolty, "~> 0.3.0"}
+    {:bolty, "~> 0.4.0"}
   ]
 end
 ```
