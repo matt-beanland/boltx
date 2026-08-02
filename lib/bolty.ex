@@ -67,6 +67,7 @@ defmodule Bolty do
           | {:connect_timeout, timeout()}
           | {:recv_timeout, timeout()}
           | {:socket_options, [:gen_tcp.connect_option()]}
+          | {:capabilities, keyword()}
           | DBConnection.start_option()
 
   @type option :: %{
@@ -103,6 +104,19 @@ defmodule Bolty do
    (`routing: false` for a `neo4j://` URI used cosmetically against a single
    instance or proxy, `routing: true` to force it on a `bolt://` scheme). See
    the [Clustering guide](clustering.html) for prerequisites and caveats.
+
+  * `:capabilities` - Server-capability flags to assert by hand, overriding what
+   bolty infers from the HELLO `server` string
+   (`capabilities: [cypher_25: true, cypher_features: [:disjoint_by]]`).
+   Inference reads Neo4j's calendar release, so it is only correct for a server
+   that *is* Neo4j and reports its real version; a Bolt server that emulates
+   Cypher 25 on its own release cadence, or that pins a Neo4j agent string while
+   implementing a different subset, needs the truth stated instead. Each value
+   replaces the inferred one — so this withdraws a wrongly-inferred capability
+   as well as adding a missing one — and only the server-capability flags
+   (`cypher_5`, `cypher_25`, `dynamic_labels`, `cypher_features`) are
+   overridable; the wire-level dimensions are negotiated facts. See
+   `Bolty.Policy`.
 
   * `:versions` - List of Bolt versions to offer during negotiation, as strings
    (`["5.4", "6.0"]`) or `{major, minor..minor}` range tuples (`[{5, 6..8}]`).

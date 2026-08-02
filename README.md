@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 
 `Bolty` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol, forked from `Boltx` and now developed independently.
 
-- Supports Neo4j 5.26.28 LTS and Neo4j 2026.05
+- Supports Neo4j 5.26.28 LTS and Neo4j 2026.06
 - Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
@@ -251,7 +251,8 @@ iex> Bolty.connection_info(conn)
     vectors: false,
     cypher_5: true,
     cypher_25: false,
-    dynamic_labels: true
+    dynamic_labels: true,
+    cypher_features: MapSet.new([])
   }
 }
 ```
@@ -278,9 +279,41 @@ The `policy` struct is the single source of truth for version-driven behaviour i
 | `cypher_25` | server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06) | `CYPHER 25` syntax |
 | `dynamic_labels` | dynamic labels/types in **pattern position** (Neo4j ≥ 5.26) — a Cypher 5 feature; superset of `cypher_25` | `MATCH (n:$($label))`, `CREATE (n:$($label))` |
 
-So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.05` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
+So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.06` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
 
 > **Scope of `dynamic_labels`:** it covers the **pattern-position** form only — node labels and relationship types in `MATCH`/`CREATE`/`MERGE`. The `WHERE n:$(expr)` label-**predicate** form is a separate **Cypher 25** feature: gate it on `cypher_25`, not `dynamic_labels`. (It errors under `CYPHER 5` even on a `2026.x` server, and is unsupported on `5.26.x`.)
+
+### Named Cypher features
+
+`cypher_25` says the server takes the language selector; it says nothing about which features that language has grown since. Cypher gains features every calendar release as it converges on GQL, so the finer-grained ones live in `cypher_features`, a `MapSet` of atoms you test for membership:
+
+```elixir
+if :disjoint_by in connection_info(conn).policy.cypher_features do
+  Bolty.query(conn, "CYPHER 25 " <> batched_ingest_with_disjoint_by)
+end
+```
+
+| Feature | Available from | What it gates |
+|---|---|---|
+| `:disjoint_by` | Neo4j 2026.06 | `DISJOINT BY (expr, …) \| AUTO \| NONE` batch scheduling on `CALL { … } IN CONCURRENT TRANSACTIONS` |
+| `:vector_search_in_predicate` | Neo4j 2026.06 | `IN` predicates in vector search filters — `SEARCH n IN (VECTOR INDEX … WHERE n.prop IN […] LIMIT …)` |
+| `:vector_hfq` | Neo4j 2026.06 | Hi-Fidelity Quantized vector indexes — the `vector.quantization.type` and `vector.default_search_expansion_factor` options on `CREATE VECTOR INDEX` |
+
+Every member is a **Cypher 25** feature — each errors under a `CYPHER 5` prefix even on a server that lists it — so gate on `cypher_25` too when you emit an explicit selector. Two caveats worth knowing: on 2026.05 an `IN` filter predicate fails with an *internal* server error rather than cleanly, which is why gating it matters more than the others; and `:vector_hfq` was preview in 2026.06 with GA expected in the next release, so the availability boundary holds but the option semantics may still move.
+
+### When inference is wrong: `:capabilities`
+
+Every flag above is inferred from the HELLO `server` string — `"Neo4j/2026.06.0"` — which is only sound for a server that *is* Neo4j and reports its real calendar release. A Bolt server that implements Cypher 25 on its own release cadence, or that pins a Neo4j agent string while implementing a different subset, cannot be inferred correctly in either direction. Bolty gives such a server the baseline (no Cypher flags, empty feature set) rather than the benefit of the doubt, and lets you state the truth:
+
+```elixir
+Bolty.start_link(
+  capabilities: [cypher_25: true, cypher_features: [:disjoint_by]],
+  hostname: "127.0.0.1",
+  auth: [username: "neo4j", password: "password"]
+)
+```
+
+Each value **replaces** the inferred one, so this withdraws a wrongly-inferred capability as well as adding a missing one. Only the server-capability flags (`cypher_5`, `cypher_25`, `dynamic_labels`, `cypher_features`) are overridable — the wire-level dimensions are negotiated facts about the connection, and asserting one would only corrupt the wire, so bolty fails the connection with `code: :invalid_capability` instead.
 
 ### Restricting the negotiated version
 

@@ -108,18 +108,18 @@ jobs:
           - boltVersion: '5.8'
             db: neo4j:5.26.28-community
             mixTestPartition: 8
-          # Bolt 6.0 against Neo4j 2026.05.
+          # Bolt 6.0 against Neo4j 2026.06.
           - boltVersion: '6.0'
-            db: neo4j:2026.05-community
+            db: neo4j:2026.06-community
             mixTestPartition: 9
-          # Bolt 5.x fallback against the Bolt-6 server (2026.05): a 5.x-constrained
+          # Bolt 5.x fallback against the Bolt-6 server (2026.06): a 5.x-constrained
           # client must still negotiate and run against a newer server. Cover the
           # negotiation floor (5.0) and ceiling (5.8).
           - boltVersion: '5.8'
-            db: neo4j:2026.05-community
+            db: neo4j:2026.06-community
             mixTestPartition: 10
           - boltVersion: '5.0'
-            db: neo4j:2026.05-community
+            db: neo4j:2026.06-community
             mixTestPartition: 11
     env:
       MIX_ENV: test

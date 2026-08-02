@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 `bolty` is an Elixir driver for [Neo4j](https://neo4j.com/), forked from [`boltx`](https://github.com/sagastume/boltx) and now developed independently — the codebases have diverged significantly over the past year. Upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
 - **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 5.26.27 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
+- **Server compatibility**: Neo4j 5.26.28 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.06 (Bolt 6.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -100,6 +100,7 @@ Canonical option names (what `Bolty.Client.Config.new/1` actually reads):
 | `:connect_timeout` | ms | `15_000` |
 | `:ssl_opts` | `:ssl.tls_client_option()` list | merged with scheme-implied defaults |
 | `:socket_options` | `:gen_tcp.connect_option()` list | `[mode: :binary, packet: :raw, active: false]` |
+| `:capabilities` | Server-capability flags asserted by the caller, overriding what bolty infers from the `server` string — for a non-Neo4j or emulating server (`[cypher_25: true, cypher_features: [:disjoint_by]]`). Values replace rather than merge; only `:cypher_5`/`:cypher_25`/`:dynamic_labels`/`:cypher_features` are overridable, anything else is an `:invalid_capability` error. See §14. | `[]` |
 | DBConnection opts (`:name`, `:pool_size`, `:max_overflow`, `:after_connect`, ...) | flow through | |
 
 **Precedence is uniform**: explicit opts (`:hostname`/`:port`/`:scheme`) win over the corresponding `:uri` components. The driver reads no environment variables for connection config (the old `BOLT_USER`/`BOLT_PWD`/`BOLT_HOST`/`BOLT_TCP_PORT`/`BOLT_VERSIONS` were removed in 0.3.0 — pass `:auth`, `:hostname`, `:port`, `:versions` instead).
@@ -192,7 +193,8 @@ Everything else becomes `:unknown`, with the raw map still available in `error.b
 | TLS variants (full / self-signed / off) | ✅ |
 | Notifications opt-out (Bolt 5.2+) | ✅ |
 | Vector type pack/unpack (Bolt 6.0) | ✅ — issue [#13](https://github.com/diffo-dev/bolty/issues/13) |
-| Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels` + wire-level dims (see §14) |
+| Negotiated capability flags via `connection_info/1` | ✅ — `cypher_5`/`cypher_25`/`dynamic_labels`/`cypher_features` + wire-level dims (see §14) |
+| Caller-asserted capabilities for non-Neo4j / emulating servers | ✅ — `:capabilities` start option (see §14) |
 | Streaming result sets (lazy, server-side backpressure) | ✅ — `Bolty.stream/4` inside a transaction; `:fetch_size` batches, `[:bolty, :stream, *]` telemetry |
 | Server-side routing (SSR) against a configured cluster member | ✅ — `neo4j://` schemes / `:routing`; see the Clustering guide |
 | Full cluster routing (topology autodiscovery, read-replica load-balancing, auto-failover) | ❌ — front with DNS/L4 LB + bookmarks, or use an official driver |
@@ -212,7 +214,7 @@ Local server matrix via `docker-compose.yml`:
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
 | `neo4j-bolt5` | `neo4j:5.26.27` | `7687:7687`, `7474:7474` | 5.0–5.4, 5.6–5.8 |
-| `neo4j-bolt6` | `neo4j:2026.05` | `7689:7687`, `7475:7474` | 6.0 |
+| `neo4j-bolt6` | `neo4j:2026.06` | `7689:7687`, `7475:7474` | 6.0 |
 
 Ports and credentials (`neo4j / password`) match ash_neo4j's `docker-compose.yml`, so the two repos can share the same containers.
 
@@ -275,8 +277,13 @@ Policy is the driver's own distillation of negotiated facts about how Bolt and t
 - `:cypher_5` — server speaks `CYPHER 5` (Neo4j ≥ 5.0).
 - `:cypher_25` — server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06).
 - `:dynamic_labels` — dynamic labels/types in **pattern position** (`MATCH (n:$(expr))`, `CREATE`/`MERGE`, relationship types); a Cypher 5 feature (Neo4j ≥ 5.26), a strict superset of `:cypher_25`. Covers the pattern form only — the `WHERE n:$(expr)` label-**predicate** form is a separate **Cypher 25** feature, gated on `:cypher_25` (errors under `CYPHER 5` even where Cypher 25 is supported; unsupported on `5.26.x`).
+- `:cypher_features` — a `MapSet` of named Cypher 25 features finer-grained than the language selector, tested by membership (`:disjoint_by in policy.cypher_features`). Today: `:disjoint_by`, `:vector_search_in_predicate`, `:vector_hfq` (all Neo4j ≥ 2026.06). Every member errors under a `CYPHER 5` prefix, so gate on `:cypher_25` as well when emitting an explicit selector.
+
+**Overrides** — inference reads Neo4j's calendar release from the `server` string, which is only sound for a server that is Neo4j and reports its real version. A server emulating Cypher 25 on its own cadence, or pinning a Neo4j agent string over a different feature subset, gets the baseline (no Cypher flags, empty feature set); the caller states the truth with `capabilities: [cypher_25: true, cypher_features: [:disjoint_by]]` at `start_link/1`. Values replace rather than merge, so an override can withdraw a wrong inference as well as add a missing capability. Only the four server-capability flags are overridable — asserting a wire-level dimension fails the connection with `:invalid_capability`.
 
 To add a dimension: add the field to `Bolty.Policy`, extend `Bolty.Policy.Resolver` with a pure `put_*/3` clause, and dispatch the relevant codec/behaviour on it — do **not** bypass the boundary by reading a version number directly. Remember to update the docs too: the README "Negotiated capabilities" section and §11/§14 here.
+
+To add a **named Cypher feature** (the common case as Cypher 25 evolves toward GQL): add `{:feature_name, yyyymm}` to `@cypher_features` in the resolver, an entry to the `Bolty.Policy.cypher_feature/0` typedoc, and a row to the README table — never a new struct field. Probe the boundary against real servers (a `SyntaxError` on the release before, accepted on the release recorded) rather than taking it from the release notes.
 
 ## 15. Sharp edges / known quirks
 

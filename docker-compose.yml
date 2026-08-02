@@ -24,7 +24,7 @@ services:
       retries: 30
 
   neo4j-bolt6:
-    image: neo4j:2026.05
+    image: neo4j:2026.06
     container_name: neo4j-ash-bolt6
     ports:
       - "7689:7687"

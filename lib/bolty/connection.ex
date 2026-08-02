@@ -43,8 +43,9 @@ defmodule Bolty.Connection do
       preliminary_policy = Policy.Resolver.resolve(client.bolt_version, %{})
       client_with_policy = %{client | policy: preliminary_policy}
 
-      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts, config) do
-        policy = Policy.Resolver.resolve(client.bolt_version, response_server_metadata)
+      with {:ok, response_server_metadata} <- do_init(client_with_policy, opts, config),
+           inferred = Policy.Resolver.resolve(client.bolt_version, response_server_metadata),
+           {:ok, policy} <- Policy.override(inferred, config.capabilities) do
         state = get_server_metadata_state(response_server_metadata)
         new_state = %__MODULE__{state | client: %{client | policy: policy}, policy: policy}
 
