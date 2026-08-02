@@ -313,7 +313,21 @@ Bolty.start_link(
 )
 ```
 
-Each value **replaces** the inferred one, so this withdraws a wrongly-inferred capability as well as adding a missing one. Only the server-capability flags (`cypher_5`, `cypher_25`, `dynamic_labels`, `cypher_features`) are overridable — the wire-level dimensions are negotiated facts about the connection, and asserting one would only corrupt the wire, so bolty fails the connection with `code: :invalid_capability` instead.
+Each value **replaces** the inferred one rather than merging, which matters as much for withdrawing a capability as for adding one. A server that announces a Neo4j calendar version to satisfy tooling that gates on it, while implementing only part of that release's Cypher surface, is inferred *too generously* — bolty reads `"Neo4j/2026.05.0"` as "Cypher 5 available, dynamic labels since 5.26", and a consumer that trusts `dynamic_labels` then emits `MATCH (n:$($label))` and gets a syntax error:
+
+```elixir
+# A Cypher-25-only server wearing a 2026.05 agent string: correct the
+# over-reach rather than adding to it.
+Bolty.start_link(
+  capabilities: [cypher_5: false, dynamic_labels: false],
+  hostname: "127.0.0.1",
+  auth: [username: "neo4j", password: "password"]
+)
+```
+
+Check the result against reality with `connection_info/1` — a corrected policy should agree with what the server actually accepts, flag by flag.
+
+Only the server-capability flags (`cypher_5`, `cypher_25`, `dynamic_labels`, `cypher_features`) are overridable — the wire-level dimensions are negotiated facts about the connection, and asserting one would only corrupt the wire, so bolty fails the connection with `code: :invalid_capability` instead.
 
 ### Restricting the negotiated version
 
