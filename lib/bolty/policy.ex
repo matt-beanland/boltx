@@ -104,6 +104,18 @@ defmodule Bolty.Policy do
 
   @overridable [:cypher_5, :cypher_25, :dynamic_labels, :cypher_features]
 
+  # defaults reflect the lowest supported Bolt version (5.0). Declared before
+  # override/2 below, which expands `%__MODULE__{}` — Elixir 1.18 (the floor)
+  # requires the struct to exist by then, where 1.20 is relaxed about the order.
+  defstruct datetime: :evolved,
+            notifications_field: :notifications_disabled_categories,
+            gql_errors: false,
+            vectors: false,
+            cypher_5: false,
+            cypher_25: false,
+            dynamic_labels: false,
+            cypher_features: MapSet.new()
+
   @doc """
   Applies caller-asserted capability overrides over a resolved policy.
 
@@ -127,7 +139,13 @@ defmodule Bolty.Policy do
   def override(%__MODULE__{} = policy, []), do: {:ok, policy}
 
   def override(%__MODULE__{} = policy, capabilities) when is_list(capabilities) do
-    case Keyword.keys(capabilities) |> Enum.uniq() |> Enum.reject(&(&1 in @overridable)) do
+    unsupported =
+      capabilities
+      |> Keyword.keys()
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 in @overridable))
+
+    case unsupported do
       [] ->
         {:ok, Enum.reduce(capabilities, policy, &put_override/2)}
 
@@ -146,14 +164,4 @@ defmodule Bolty.Policy do
     do: %{policy | cypher_features: MapSet.new(features)}
 
   defp put_override({key, value}, policy), do: %{policy | key => value}
-
-  # defaults reflect the lowest supported Bolt version (5.0)
-  defstruct datetime: :evolved,
-            notifications_field: :notifications_disabled_categories,
-            gql_errors: false,
-            vectors: false,
-            cypher_5: false,
-            cypher_25: false,
-            dynamic_labels: false,
-            cypher_features: MapSet.new()
 end
