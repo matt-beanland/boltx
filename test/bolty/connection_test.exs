@@ -215,6 +215,40 @@ defmodule Bolty.ConnectionTest do
         assert %Bolty.Policy{} = info.policy
       end)
     end
+
+    # Bolt 6.0 means a calendar-versioned server, which since 2026.06 carries
+    # the named Cypher features. Asserts the inference against a real server
+    # rather than a synthetic agent string (see Policy.ResolverTest for those).
+    @tag :bolt_6_x
+    test "cypher_features reflect the live server's calendar release" do
+      {:ok, pid} = Bolty.start_link(@opts)
+      %{server_version: server_version, policy: policy} = Bolty.connection_info(pid)
+
+      if Regex.match?(~r/^Neo4j\/(20[3-9]\d|2026\.(0[6-9]|1[0-2]))/, server_version) do
+        assert MapSet.member?(policy.cypher_features, :disjoint_by)
+        assert MapSet.member?(policy.cypher_features, :vector_search_in_predicate)
+        assert MapSet.member?(policy.cypher_features, :vector_hfq)
+      else
+        assert MapSet.equal?(policy.cypher_features, MapSet.new())
+      end
+    end
+
+    @tag :core
+    test "the :capabilities option overrides what the server version implies" do
+      {:ok, pid} = Bolty.start_link([capabilities: [cypher_features: [:disjoint_by]]] ++ @opts)
+
+      %{policy: policy} = Bolty.connection_info(pid)
+
+      assert MapSet.equal?(policy.cypher_features, MapSet.new([:disjoint_by]))
+    end
+
+    @tag :core
+    test "a non-overridable capability fails the connection cleanly" do
+      Process.flag(:trap_exit, true)
+
+      assert {:error, %Bolty.Error{code: :invalid_capability}} =
+               Bolty.Connection.connect([pool_size: 1, capabilities: [vectors: true]] ++ @opts)
+    end
   end
 
   describe "Connection.ping/1" do

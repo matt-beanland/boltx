@@ -155,4 +155,55 @@ defmodule Bolty.Policy.ResolverTest do
       assert %Policy{dynamic_labels: false} = Resolver.resolve({5, 8}, %{})
     end
   end
+
+  describe "resolve/2 cypher_features dimension" do
+    @describetag :core
+
+    # Boundaries probed against real servers: each feature is a SyntaxError on
+    # 2026.05 community and accepted on 2026.06 community.
+    test "calendar server >= 2026.06 has the 2026.06 features" do
+      assert %Policy{cypher_features: features} =
+               Resolver.resolve({6, 0}, %{"server" => "Neo4j/2026.06.0"})
+
+      assert MapSet.equal?(
+               features,
+               MapSet.new([:disjoint_by, :vector_search_in_predicate, :vector_hfq])
+             )
+    end
+
+    test "a later calendar release keeps the earlier features" do
+      assert %Policy{cypher_features: features} =
+               Resolver.resolve({6, 0}, %{"server" => "Neo4j/2027.01.0"})
+
+      assert MapSet.member?(features, :disjoint_by)
+    end
+
+    test "calendar server < 2026.06 has no cypher_features" do
+      assert %Policy{cypher_features: features} =
+               Resolver.resolve({6, 0}, %{"server" => "Neo4j/2026.05.0"})
+
+      assert MapSet.equal?(features, MapSet.new())
+    end
+
+    test "semver 5.26.x server has no cypher_features" do
+      assert %Policy{cypher_features: features, dynamic_labels: true} =
+               Resolver.resolve({5, 8}, %{"server" => "Neo4j/5.26.28"})
+
+      assert MapSet.equal?(features, MapSet.new())
+    end
+
+    # A server bolty can't place gets the baseline, not the benefit of the
+    # doubt — the caller states the truth via the :capabilities option.
+    test "a non-Neo4j agent string has no cypher_features" do
+      assert %Policy{cypher_features: features} =
+               Resolver.resolve({6, 0}, %{"server" => "SomeOtherDB/1.2.3"})
+
+      assert MapSet.equal?(features, MapSet.new())
+    end
+
+    test "missing server metadata has no cypher_features" do
+      assert %Policy{cypher_features: features} = Resolver.resolve({6, 0}, %{})
+      assert MapSet.equal?(features, MapSet.new())
+    end
+  end
 end
