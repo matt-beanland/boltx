@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 
 `Bolty` is an Elixir driver for [Neo4j](https://neo4j.com/developer/graph-database/)/Bolt Protocol, forked from `Boltx` and now developed independently.
 
-- Supports Neo4j 5.26.28 LTS and Neo4j 2026.05
+- Supports Neo4j 5.26.28 LTS and Neo4j 2026.06
 - Supports Bolt versions: 5.0/5.1/5.2/5.3/5.4/5.6/5.7/5.8/6.0
 - Supports transactions, prepared queries, streaming, pooling and more via DBConnection
 - Automatic decoding and encoding of Elixir values
@@ -278,7 +278,7 @@ The `policy` struct is the single source of truth for version-driven behaviour i
 | `cypher_25` | server supports the `CYPHER 25` selector (Neo4j ≥ 2025.06) | `CYPHER 25` syntax |
 | `dynamic_labels` | dynamic labels/types in **pattern position** (Neo4j ≥ 5.26) — a Cypher 5 feature; superset of `cypher_25` | `MATCH (n:$($label))`, `CREATE (n:$($label))` |
 
-So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.05` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
+So a `5.26.x` server resolves to `dynamic_labels: true, cypher_25: false`, while a `2026.06` server has both `true`. These flags are only meaningful in the policy resolved after HELLO; they default to `false` beforehand.
 
 > **Scope of `dynamic_labels`:** it covers the **pattern-position** form only — node labels and relationship types in `MATCH`/`CREATE`/`MERGE`. The `WHERE n:$(expr)` label-**predicate** form is a separate **Cypher 25** feature: gate it on `cypher_25`, not `dynamic_labels`. (It errors under `CYPHER 5` even on a `2026.x` server, and is unsupported on `5.26.x`.)
 

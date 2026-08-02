@@ -99,7 +99,7 @@ defmodule Bolty.Policy.ResolverTest do
     end
 
     test "Bolt 6.0 has cypher_5: true" do
-      assert %Policy{cypher_5: true} = Resolver.resolve({6, 0}, %{"server" => "Neo4j/2026.05.0"})
+      assert %Policy{cypher_5: true} = Resolver.resolve({6, 0}, %{"server" => "Neo4j/2026.06.0"})
     end
 
     test "nil bolt_version falls through to cypher_5: false" do

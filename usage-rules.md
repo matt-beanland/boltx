@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 `bolty` is an Elixir driver for [Neo4j](https://neo4j.com/), forked from [`boltx`](https://github.com/sagastume/boltx) and now developed independently — the codebases have diverged significantly over the past year. Upstream acknowledgment belongs to Luis Sagastume (`boltx`) and Florin Patrascu (`bolt_sips`).
 
 - **Protocol**: Bolt 5.0 → 5.4, 5.6 → 5.8, with version negotiation at handshake time.
-- **Server compatibility**: Neo4j 5.26.27 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.05 (Bolt 6.0).
+- **Server compatibility**: Neo4j 5.26.28 LTS (Bolt 5.0–5.4, 5.6–5.8), Neo4j 2026.06 (Bolt 6.0).
 - **Pooling/transactions/prepared queries** via [`DBConnection`](https://hexdocs.pm/db_connection).
 - **Hex package**: `:bolty` (current version in `mix.exs`).
 
@@ -212,7 +212,7 @@ Local server matrix via `docker-compose.yml`:
 | Service | Image | Ports (host:container) | Bolt versions |
 | --- | --- | --- | --- |
 | `neo4j-bolt5` | `neo4j:5.26.27` | `7687:7687`, `7474:7474` | 5.0–5.4, 5.6–5.8 |
-| `neo4j-bolt6` | `neo4j:2026.05` | `7689:7687`, `7475:7474` | 6.0 |
+| `neo4j-bolt6` | `neo4j:2026.06` | `7689:7687`, `7475:7474` | 6.0 |
 
 Ports and credentials (`neo4j / password`) match ash_neo4j's `docker-compose.yml`, so the two repos can share the same containers.
 
