@@ -553,7 +553,11 @@ defmodule BoltyTest do
     test "Cypher with plan result", c do
       assert %Response{plan: plan} = Bolty.query!(c.conn, "EXPLAIN RETURN 1")
       refute plan == nil
-      assert Regex.match?(~r/[3|4|5]/iu, plan["args"]["planner-version"])
+      # `planner-version` is the *server* version, semver on 5.26.x ("5.26.28")
+      # and calendar on newer servers ("2026.06.0") — assert the shape, not the
+      # digits. (The Cypher language version lives in `args["version"]`: "5" or
+      # "25".)
+      assert Regex.match?(~r/^\d+\.\d+/u, plan["args"]["planner-version"])
     end
 
     @tag :bolt_5_x

@@ -38,7 +38,7 @@ defmodule Bolty.Client do
     @bolty_option_keys ~w(
       uri hostname port scheme versions auth user_agent
       notifications_minimum_severity notifications_disabled_categories
-      ssl_opts connect_timeout recv_timeout socket_options routing
+      ssl_opts connect_timeout recv_timeout socket_options routing capabilities
     )a
 
     # DBConnection.ConnectionPool.Pool prepends `pool_index: id` to every
@@ -64,7 +64,8 @@ defmodule Bolty.Client do
       :ssl?,
       :tls_verify,
       :ssl_opts,
-      :routing
+      :routing,
+      capabilities: []
     ]
 
     @doc """
@@ -103,7 +104,8 @@ defmodule Bolty.Client do
              ssl?: ssl?,
              tls_verify: tls_verify,
              ssl_opts: ssl_opts,
-             routing: routing
+             routing: routing,
+             capabilities: Keyword.get(opts, :capabilities, [])
            }}
         end
       end

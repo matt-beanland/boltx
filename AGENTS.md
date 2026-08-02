@@ -46,7 +46,7 @@ lint failures locally instead of in CI. Bypass in a pinch with
 bolty runs its **own** test containers via `docker-compose.yml` (other diffo-dev repos start their own). Ports and creds still match ash_neo4j (`neo4j` / `password` on 7687 / 7689) so shared tooling lines up:
 
 - `neo4j-bolt5` — **builds** `test/tls/Dockerfile` = `neo4j:5.26.28` with **bolt TLS** (SSL policy baked into the image; `tls_level: OPTIONAL` so plaintext still works) on **7687** (Bolt 5.x). Requires `./test/tls/gen_certs.sh` first (throwaway CA + server cert, git-ignored), then `docker compose up -d --build neo4j-bolt5`.
-- `neo4j-bolt6` — `neo4j:2026.05` on **7689** (Bolt 6.0).
+- `neo4j-bolt6` — `neo4j:2026.06` on **7689** (Bolt 6.0).
 
 Because 7687 now serves TLS, `bolt+s` / `bolt+ssc` are testable locally: `mix test --include tls` runs the `:tls` suite (`test/bolty/tls_test.exs`) against it (needs the container up + certs generated). The `:tls` tag is excluded by default.
 
