@@ -182,6 +182,17 @@ end, [], %{db: "mydb", mode: "w", tx_metadata: %{caller: "agent-me"}})
 
 Everything else becomes `:unknown`, with the raw map still available in `error.bolt`. Expand `@error_map` in `lib/bolty/error.ex` when a new code becomes worth pattern-matching on.
 
+`error.bolt` always carries `:code` and `:message` — **`:message` is the server's diagnostic**, and what `Exception.message/1` returns. A GQL FAILURE (Bolt 5.7+, `policy.gql_errors`) adds:
+
+| Key | What it is |
+| --- | --- |
+| `:gql_status` | GQLSTATUS code, e.g. `"42001"` |
+| `:description` | the standard description of that status **class** — generic by design. Pair it with `:gql_status`; never read it as the diagnostic. On 5.26 a syntax error's description is the 50N42 boilerplate ("unexpected error … See debug log for details") while `:message` has the offending token and position. |
+| `:diagnostic_record` | `_classification`, plus `_position` (line/column) on servers that send it — 2026.x does, 5.26 doesn't |
+| `:cause` | the underlying failure, same shape recursively, often a more precise GQLSTATUS than the outer error |
+
+The GQL keys are absent (not `nil`) on a pre-5.7 connection, so `Map.has_key?/2` distinguishes "this server doesn't speak GQL errors" from "it did and the field was empty".
+
 ## 11. Feature support matrix
 
 | Capability | Status |
@@ -269,7 +280,7 @@ Policy is the driver's own distillation of negotiated facts about how Bolt and t
 
 - `:datetime` — `:legacy` on Bolt ≤ 4.x (tags 0x46/0x66, local-wall-clock seconds) or `:evolved` on Bolt ≥ 5.0 (tags 0x49/0x69, UTC-instant seconds). Issue [#10](https://github.com/diffo-dev/bolty/issues/10).
 - `:notifications_field` — HELLO field for disabled notification categories: `:notifications_disabled_categories` (Bolt ≤ 5.5) or `:notifications_disabled_classifications` (Bolt 5.6+).
-- `:gql_errors` — `true` on Bolt 5.7+ (GQL-compliant FAILURE: `neo4j_code`/`description` instead of `code`/`message`).
+- `:gql_errors` — `true` on Bolt 5.7+ (GQL-compliant FAILURE: `code` is renamed to `neo4j_code`, and `gql_status`/`description`/`diagnostic_record`/`cause` join the always-present `message`; see §10).
 - `:vectors` — `true` on Bolt 6.0+ (Vector PackStream struct, issue [#13](https://github.com/diffo-dev/bolty/issues/13)).
 
 **Server-capability** — derived from the HELLO `server` string, only meaningful in the post-HELLO policy (default `false` beforehand):

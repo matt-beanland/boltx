@@ -70,8 +70,9 @@ defmodule Bolty.Policy.Resolver do
 
   defp put_notifications_field(policy, _bolt_version, _server_version), do: policy
 
-  # Bolt 5.7 switched to GQL-compliant FAILURE responses: neo4j_code/description
-  # instead of code/message.
+  # Bolt 5.7 switched to GQL-compliant FAILURE responses: `code` renamed to
+  # `neo4j_code`, and gql_status/description/diagnostic_record/cause added
+  # alongside the message (which stays the diagnostic in both eras — #138).
   defp put_gql_errors(policy, bolt_version, _server_version)
        when is_tuple(bolt_version) and bolt_version >= {5, 7} do
     %{policy | gql_errors: true}

@@ -23,10 +23,31 @@ defmodule Bolty.Error do
     "Neo.TransientError.Transaction.DeadlockDetected" => :deadlock_detected
   }
 
+  @typedoc """
+  A decoded Bolt FAILURE.
+
+  `code`/`message` are always present — `message` being the server's human
+  diagnostic. The rest arrive only on a GQL FAILURE (Bolt 5.7+):
+
+    * `gql_status` — the GQLSTATUS code, e.g. `"42001"`
+    * `description` — the standard description of that status class. Generic by
+      design; pair it with `gql_status`, don't read it as the diagnostic.
+    * `diagnostic_record` — `_classification`, and `_position` for a syntax error
+    * `cause` — the underlying failure, same shape, often a more precise status
+  """
+  @type bolt_failure() :: %{
+          :code => atom() | binary(),
+          :message => binary() | nil,
+          optional(:gql_status) => binary(),
+          optional(:description) => binary(),
+          optional(:diagnostic_record) => map(),
+          optional(:cause) => bolt_failure()
+        }
+
   @type t() :: %__MODULE__{
           module: module(),
           code: atom(),
-          bolt: %{code: atom() | binary(), message: binary() | nil} | nil,
+          bolt: bolt_failure() | nil,
           packstream: %{bits: any() | nil} | nil
         }
 
