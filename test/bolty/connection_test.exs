@@ -217,6 +217,53 @@ defmodule Bolty.ConnectionTest do
     end
   end
 
+  # Issue #138: bolty read the GQLSTATUS `description` as the error message, so
+  # every failure from a 5.7+ server arrived as boilerplate for its status class
+  # and the diagnostic was discarded. A unit test with a captured map can't catch
+  # a regression here — it needs a live server choosing which field to fill.
+  describe "FAILURE diagnostics from a live server" do
+    @tag :core
+    test "an unknown procedure names the procedure" do
+      {:ok, conn} = Bolty.start_link(@opts)
+
+      assert {:error, %Bolty.Error{bolt: bolt}} = Bolty.query(conn, "CALL db.definitelyNotHere()")
+
+      assert bolt.message =~ "db.definitelyNotHere",
+             "expected the diagnostic naming the procedure, got: #{inspect(bolt.message)}"
+    end
+
+    @tag :core
+    test "a syntax error locates itself, and GQL extras appear only on 5.7+" do
+      {:ok, conn} = Bolty.start_link(@opts)
+      %{policy: policy} = Bolty.connection_info(conn)
+
+      assert {:error, %Bolty.Error{code: :syntax_error, bolt: bolt}} =
+               Bolty.query(conn, "MATCH (n RETURN n")
+
+      assert is_binary(bolt.message)
+
+      if policy.gql_errors do
+        assert bolt.gql_status =~ ~r/^\d{2}/
+
+        # The diagnostic names the offending token and its position. `description`
+        # is no substitute: 5.26 answers this very query with the 50N42 boilerplate
+        # ("unexpected error ... See debug log for details"), which would report a
+        # syntax error as an internal one.
+        assert bolt.message =~ "RETURN"
+        assert bolt.message != bolt.description
+
+        # Optional even on 5.7+ — 5.26 omits it where 2026.x sends `_position`.
+        case bolt do
+          %{diagnostic_record: %{"_position" => position}} -> assert position["line"] == 1
+          _ -> :ok
+        end
+      else
+        refute Map.has_key?(bolt, :gql_status)
+        refute Map.has_key?(bolt, :description)
+      end
+    end
+  end
+
   describe "Connection.ping/1" do
     @tag :core
     test "with an active connection" do

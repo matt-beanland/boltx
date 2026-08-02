@@ -25,16 +25,42 @@ defmodule Bolty.BoltProtocol.MessageDecoder do
     end
   end
 
-  # Build the `%Bolty.Error{}` for a FAILURE response, reading the GQL-compliant
-  # `neo4j_code`/`description` fields (Bolt 5.7+) and falling back to the legacy
-  # `code`/`message` fields.
+  # Build the `%Bolty.Error{}` for a FAILURE response.
+  #
+  # A GQL FAILURE (Bolt 5.7+) carries `gql_status`, `description`, `message`,
+  # `neo4j_code`, `diagnostic_record` and optionally `cause`. Only the code was
+  # renamed (`code` → `neo4j_code`): `message` is the human diagnostic in both
+  # eras, while `description` is the boilerplate description of the GQLSTATUS
+  # class — "error: syntax error or access rule violation - invalid syntax" for
+  # every 42001, whatever went wrong. Preferring `description` therefore threw
+  # the useful text away, and did so intermittently, since some error classes
+  # append their specifics to it (issue #138).
+  #
+  # `description` is kept alongside rather than dropped — it is the right thing
+  # to show next to a GQLSTATUS — as are the diagnostic record (whose
+  # `_position` locates a syntax error) and the `cause` chain, which often
+  # carries a more precise status than the outer error.
   @spec failure_error(module(), map()) :: Error.t()
   def failure_error(module, response) do
-    Error.wrap(module, %{
-      code: response["neo4j_code"] || response["code"],
-      message: response["description"] || response["message"]
-    })
+    Error.wrap(module, gql_failure(response))
   end
+
+  @spec gql_failure(map()) :: Error.bolt_failure()
+  defp gql_failure(response) do
+    %{
+      code: response["neo4j_code"] || response["code"],
+      message: response["message"] || response["description"]
+    }
+    |> put_present(:gql_status, response["gql_status"])
+    |> put_present(:description, response["description"])
+    |> put_present(:diagnostic_record, response["diagnostic_record"])
+    # Normalised recursively: a cause has the shape of a failure, and a caller
+    # walking the chain shouldn't switch key styles halfway down.
+    |> put_present(:cause, response["cause"] && gql_failure(response["cause"]))
+  end
+
+  defp put_present(map, _key, nil), do: map
+  defp put_present(map, key, value), do: Map.put(map, key, value)
 
   @tiny_struct_marker 0xB
   @success_signature 0x70

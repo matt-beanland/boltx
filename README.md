@@ -262,7 +262,7 @@ iex> Bolty.connection_info(conn)
 |---|---|---|---|---|
 | DateTime encoding | evolved (UTC-aware) | evolved | evolved | evolved |
 | Notification filter field | `notifications_disabled_categories` | `notifications_disabled_classifications` | `notifications_disabled_classifications` | `notifications_disabled_classifications` |
-| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code`/`description` keys | Yes |
+| GQL-compliant errors | No — `code`/`message` keys | No | Yes — `neo4j_code` plus `gql_status`/`description`/`diagnostic_record`/`cause` | Yes |
 | Auth handshake | In HELLO (Bolt 5.0 only) | LOGON | LOGON | LOGON |
 | Vector type | No | No | No | Yes |
 
