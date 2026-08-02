@@ -4,7 +4,7 @@
 defmodule Bolty.Mixfile do
   use Mix.Project
 
-  @version "0.3.1"
+  @version "0.3.0"
   @url_docs "https://hexdocs.pm/bolty"
   @url_github "https://github.com/diffo-dev/bolty"
 

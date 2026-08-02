@@ -10,25 +10,6 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
-## [v0.3.1](https://github.com/diffo-dev/bolty/compare/v0.3.0...v0.3.1) (2026-08-02)
-
-
-
-
-### CI/CD:
-
-* move the Bolt 6 server from Neo4j 2026.05 to 2026.06 by Matt Beanland
-
-### Bug Fixes:
-
-* surface the server's diagnostic, not the GQLSTATUS boilerplate by Matt Beanland
-
-* declare the Policy struct before override/2 expands it by Matt Beanland
-
-### Testing:
-
-* assert the shape of planner-version, not its digits by Matt Beanland
-
 ## [v0.3.0](https://github.com/diffo-dev/bolty/compare/v0.2.1...v0.3.0) (2026-07-07)
 ### Breaking Changes:
 
